@@ -2,6 +2,7 @@ import { Link, useLinkProps, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 import { InShell } from "./shell-context";
 import {
+  Bell,
   Home,
   School,
   Sparkles,
@@ -18,6 +19,7 @@ import { cn } from "@client/lib/cn";
 import { Logo } from "../brand/logo";
 import type { Me } from "@shared/contracts/auth";
 import { AiStatusBanner } from "./ai-status";
+import { useAlertCount } from "@client/features/alerts/api";
 
 type NavItem = { to: string; label: string; icon: typeof Home; exact?: boolean };
 
@@ -27,6 +29,7 @@ export { useInAppShell } from "./shell-context";
 const NAV: NavItem[] = [
   { to: "/app", label: "Inicio", icon: Home, exact: true },
   { to: "/app/aulas", label: "Aulas", icon: School },
+  { to: "/app/alertas", label: "Alertas", icon: Bell },
   { to: "/app/crear", label: "Crear con IA", icon: Sparkles },
   { to: "/app/tutores", label: "Mis tutores", icon: Bot },
   { to: "/app/materiales", label: "Mis materiales", icon: FolderOpen },
@@ -34,7 +37,28 @@ const NAV: NavItem[] = [
   { to: "/app/informes", label: "Informes", icon: FileText },
 ];
 
-const MOBILE_TABS = ["/app", "/app/aulas", "/app/crear", "/app/tutores"];
+// Alerts are time-sensitive, so they get a tab of their own on phones; the rest go under "Más".
+const MOBILE_TABS = ["/app", "/app/aulas", "/app/alertas", "/app/crear"];
+
+/** Open alerts on the "Alertas" item: red when one needs immediate attention. */
+function AlertBadge({ open, immediate, className }: { open: number; immediate: number; className?: string }) {
+  if (open <= 0) return null;
+  return (
+    <span
+      className={cn(
+        "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] leading-none font-bold tabular",
+        immediate > 0 ? "bg-rose text-white" : "bg-lilac-soft text-lilac-ink",
+        className,
+      )}
+    >
+      <span aria-hidden="true">{open > 99 ? "99+" : open}</span>
+      <span className="sr-only">
+        , {open} {open === 1 ? "abierta" : "abiertas"}
+        {immediate > 0 ? `, ${immediate} de atención inmediata` : ""}
+      </span>
+    </span>
+  );
+}
 
 function useIsActive() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -59,6 +83,9 @@ export function AppShell({ me, children }: { me: Me; children: ReactNode }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const keyboardOpen = useVirtualKeyboardOpen();
   const workspaceLabel = me.displayName || "Mi espacio";
+  const alerts = useAlertCount();
+  const openAlerts = alerts.data?.open ?? 0;
+  const immediateAlerts = alerts.data?.immediate ?? 0;
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[256px_1fr]">
@@ -79,6 +106,7 @@ export function AppShell({ me, children }: { me: Me; children: ReactNode }) {
             >
               <item.icon className="size-[18px] shrink-0" aria-hidden="true" />
               {item.label}
+              {item.to === "/app/alertas" ? <AlertBadge open={openAlerts} immediate={immediateAlerts} className="ml-auto" /> : null}
             </Link>
           ))}
         </nav>
@@ -140,10 +168,11 @@ export function AppShell({ me, children }: { me: Me; children: ReactNode }) {
                   isActive(item) ? "text-ink" : "text-text-3",
                 )}
               >
-                <span className={cn("flex h-7 w-12 items-center justify-center rounded-full transition-colors", isActive(item) && "bg-ink-soft")}>
+                <span className={cn("relative flex h-7 w-12 items-center justify-center rounded-full transition-colors", isActive(item) && "bg-ink-soft")}>
                   <item.icon className="size-5" aria-hidden="true" />
+                  {item.to === "/app/alertas" ? <AlertBadge open={openAlerts} immediate={immediateAlerts} className="absolute -top-1.5 right-0" /> : null}
                 </span>
-                {item.label === "Crear con IA" ? "Crear" : item.label === "Mis tutores" ? "Tutores" : item.label}
+                {item.label === "Crear con IA" ? "Crear" : item.label}
               </Link>
             ))}
             <RD.Root open={moreOpen} onOpenChange={setMoreOpen}>

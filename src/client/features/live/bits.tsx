@@ -1,4 +1,5 @@
 // Small presentational pieces shared by the live panel, the session page and the lists.
+import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { Check, MessageSquareText, RotateCcw, X } from "lucide-react";
 import { cn } from "@client/lib/cn";
@@ -124,12 +125,15 @@ export function AlertItem({
   busy,
   showStudent = true,
   showConversationLink = true,
+  context,
 }: {
   alert: AlertLike;
   onStatus: (status: AlertStatus) => void;
   busy?: boolean;
   showStudent?: boolean;
   showConversationLink?: boolean;
+  /** Where the alert comes from (activity and classroom), for lists that mix activities. */
+  context?: ReactNode;
 }) {
   const immediate = alert.severity === "immediate";
   const open = alert.status === "open";
@@ -159,6 +163,7 @@ export function AlertItem({
         {alert.name}
         <span className="ml-2 text-xs font-normal text-text-3">{fmtRelative(alert.createdAt)}</span>
       </p>
+      {context ? <p className="mt-0.5 text-sm text-text-2">{context}</p> : null}
       {alert.evidence ? (
         <blockquote className="mt-1.5 border-l-2 border-lilac pl-3 text-sm text-text-2 italic">«{alert.evidence}»</blockquote>
       ) : null}

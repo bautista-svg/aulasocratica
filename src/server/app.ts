@@ -28,6 +28,7 @@ import { reportRoutes } from "./routes/reports";
 import { dashboardRoutes } from "./routes/dashboard";
 import { publicStudentRoutes } from "./routes/public-student";
 import { adminRoutes } from "./routes/admin";
+import { alertRoutes } from "./routes/alerts";
 
 export const MAX_UPLOAD_BYTES = 60 * 1024 * 1024;
 
@@ -81,6 +82,7 @@ export function createApp(opts: { staticDir?: string | null } = {}) {
   api.route("/activities", activityRoutes);
   api.route("/sessions", sessionRoutes);
   api.route("/live", liveRoutes);
+  api.route("/alerts", alertRoutes);
   api.route("/students", studentRoutes);
   api.route("/tutors", tutorRoutes);
   api.route("/materials", materialRoutes);

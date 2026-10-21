@@ -270,11 +270,12 @@ function AlertsToReview({ d }: { d: DashboardResponse }) {
               </li>
             ))}
           </ul>
-          {d.counts.openAlerts > d.alerts.length ? (
-            <p className="border-t border-line px-5 py-3 text-sm text-text-3">
-              Mostramos {d.alerts.length} de {d.counts.openAlerts} alertas abiertas. Las demás están en la pestaña En vivo de cada actividad.
-            </p>
-          ) : null}
+          <p className="border-t border-line px-5 py-3 text-sm text-text-2">
+            {d.counts.openAlerts > d.alerts.length ? `Mostramos ${d.alerts.length} de ${d.counts.openAlerts} alertas abiertas. ` : ""}
+            <Link to="/app/alertas" className="font-semibold text-ink underline decoration-ink/35 underline-offset-4 hover:decoration-ink">
+              Ver todas las alertas
+            </Link>
+          </p>
         </Card>
       )}
     </section>

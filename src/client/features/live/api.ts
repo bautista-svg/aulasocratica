@@ -98,6 +98,8 @@ export function useLiveMutations(activityId: string) {
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: liveKeys.all(activityId) });
     void qc.invalidateQueries({ queryKey: ["sessions"] });
+    // The alerts panel and its badge in the navigation.
+    void qc.invalidateQueries({ queryKey: ["alerts"] });
   };
   return {
     alertStatus: useMutation({
