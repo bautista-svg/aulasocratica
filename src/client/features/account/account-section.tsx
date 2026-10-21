@@ -177,7 +177,7 @@ function WithAccount({ me, onNewCode }: { me: Me; onNewCode: (code: string) => v
         </Button>
       </div>
 
-      <ChangePasswordDialog open={changing} onOpenChange={setChanging} />
+      <ChangePasswordDialog open={changing} onOpenChange={setChanging} onNewCode={onNewCode} />
       <ConfirmDialog
         open={confirmCode}
         onOpenChange={setConfirmCode}
@@ -200,7 +200,15 @@ function WithAccount({ me, onNewCode }: { me: Me; onNewCode: (code: string) => v
   );
 }
 
-function ChangePasswordDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+function ChangePasswordDialog({
+  open,
+  onOpenChange,
+  onNewCode,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  onNewCode: (code: string) => void;
+}) {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const change = useChangePassword();
@@ -217,9 +225,10 @@ function ChangePasswordDialog({ open, onOpenChange }: { open: boolean; onOpenCha
     change.mutate(
       { currentPassword: current, newPassword: next },
       {
-        onSuccess: () => {
-          toast.success("Contraseña cambiada", { description: "Cerramos la sesión en tus otros dispositivos." });
+        onSuccess: (r) => {
+          toast.success("Contraseña cambiada", { description: "Cerramos la sesión en tus otros dispositivos y generamos un código de recuperación nuevo." });
           onOpenChange(false);
+          onNewCode(r.recoveryCode);
         },
       },
     );
@@ -228,7 +237,7 @@ function ChangePasswordDialog({ open, onOpenChange }: { open: boolean; onOpenCha
       open={open}
       onOpenChange={onOpenChange}
       title="Cambiar contraseña"
-      description="Al cambiarla se cierra la sesión en tus otros dispositivos."
+      description="Al cambiarla se cierra la sesión en tus otros dispositivos y el código de recuperación anterior deja de servir: te mostramos uno nuevo."
       footer={
         <>
           <Button variant="secondary" onClick={() => onOpenChange(false)}>

@@ -141,7 +141,7 @@ describe("admin: overview and workspaces", () => {
       classrooms: 1,
       activities: 1,
       studentSessions: 1,
-      aiTokensToday: 1_803_000,
+      aiUsdToday: expect.closeTo(0.3007, 4),
       suspended: false,
     });
     const everything = JSON.stringify([r.body, list.body]);

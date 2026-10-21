@@ -1,3 +1,4 @@
+import { AI_PRICES_PER_MTOK } from "@shared/domain/ai-cost";
 // Read-only aggregates for /admin. Counts and AI usage only: no student names, no content,
 // no full teacher emails (masked).
 import { sql } from "drizzle-orm";
@@ -93,7 +94,8 @@ export async function adminOverview(): Promise<AdminOverview> {
       byPurpose,
       totalCostUsd: round4(dayList.reduce((n, d) => n + d.costUsd, 0)),
       pricePerMTok: { ...AI_PRICE_PER_MTOK },
-      dailyTokensPerWorkspace: env.AI_DAILY_TOKENS_PER_WORKSPACE,
+      dailyUsdPerWorkspace: env.AI_DAILY_USD_PER_WORKSPACE,
+      dailyUsdGlobal: env.AI_DAILY_USD_GLOBAL,
     },
   };
 }
@@ -139,7 +141,9 @@ export async function adminWorkspaces(cursorRaw: string | undefined): Promise<Ad
       (select count(*)::int from classrooms c where c.teacher_id = t.id) as classrooms,
       (select count(*)::int from activities a where a.teacher_id = t.id) as activities,
       (select count(*)::int from learning_sessions ls join activities a on a.id = ls.activity_id where a.teacher_id = t.id) as sessions,
-      (select coalesce(sum(u.input_tokens + u.output_tokens), 0)::float8 from ai_usage u
+      (select coalesce(sum(greatest(u.input_tokens - u.cache_read_tokens - u.cache_write_tokens, 0) * ${sql.raw(String(AI_PRICES_PER_MTOK.input))}
+           + u.cache_write_tokens * ${sql.raw(String(AI_PRICES_PER_MTOK.cacheWrite))} + u.cache_read_tokens * ${sql.raw(String(AI_PRICES_PER_MTOK.cacheRead))}
+           + u.output_tokens * ${sql.raw(String(AI_PRICES_PER_MTOK.output))}) / 1000000.0, 0)::float8 from ai_usage u
          where u.teacher_id = t.id and u.created_at >= ${dayStart.toISOString()}::timestamptz) as ai_today
     from teachers t
     ${cursor ? sql`where (t.created_at, t.id) < (${cursor.ts}::timestamptz, ${cursor.id}::uuid)` : sql``}
@@ -158,7 +162,7 @@ export async function adminWorkspaces(cursorRaw: string | undefined): Promise<Ad
     classrooms: r.classrooms,
     activities: r.activities,
     studentSessions: r.sessions,
-    aiTokensToday: Number(r.ai_today),
+    aiUsdToday: Number(r.ai_today),
     suspended: r.is_suspended,
   }));
   const last = page.at(-1);

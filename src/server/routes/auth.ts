@@ -43,6 +43,10 @@ export const authRoutes = new Hono<AppEnv>()
       const row = await getTeacher(current.id);
       return c.json({ teacher: toMe(row!) });
     }
+    // Service-wide cap on new anonymous workspaces (each one has its own AI budget).
+    if (!hit("start-global", 300, 60 * 60_000)) {
+      throw new HttpError(429, "Se están creando demasiados espacios en este momento. Probá de nuevo en unos minutos.", "rate_limited");
+    }
     const [row] = await db.insert(schema.teachers).values({ displayName: body.displayName ?? "" }).returning();
     await createTeacherSession(c, row!.id);
     await audit(c, row!.id, "workspace_created", "teacher", row!.id);
@@ -151,11 +155,16 @@ export const authRoutes = new Hono<AppEnv>()
     if (!(await verifyPassword(body.currentPassword, row.passwordHash))) {
       throw new HttpError(401, "La contraseña actual no es correcta.", "bad_credentials", { currentPassword: "No coincide." });
     }
-    await db.update(schema.teachers).set({ passwordHash: await hashPassword(body.newPassword) }).where(eq(schema.teachers.id, t.id));
+    // A new password also invalidates the old recovery code (a leaked code must not outlive it).
+    const code = newRecoveryCode();
+    await db
+      .update(schema.teachers)
+      .set({ passwordHash: await hashPassword(body.newPassword), recoveryCodeHash: code.hash })
+      .where(eq(schema.teachers.id, t.id));
     // Other devices must sign in again.
     await db.delete(schema.teacherSessions).where(and(eq(schema.teacherSessions.teacherId, t.id), ne(schema.teacherSessions.id, t.sessionId)));
     await audit(c, t.id, "password_changed", "teacher", t.id);
-    return c.json({ ok: true });
+    return c.json({ ok: true, recoveryCode: code.display });
   })
 
   .post("/recovery-code", requireTeacher, async (c) => {

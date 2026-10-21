@@ -1,6 +1,7 @@
 // A student's work in one activity (teacher only): detail, end / let continue, delete,
 // journey PDF, rubric assessment, AI summary and "Radiografía del pensamiento".
 import { Hono } from "hono";
+import { reconcileReports } from "../services/reports/reconcile";
 import type { Context } from "hono";
 import type { AppEnv } from "../types";
 import { readJson, notFound, badRequest, tooMany } from "../lib/errors";
@@ -70,6 +71,7 @@ export const sessionRoutes = new Hono<AppEnv>()
     const row = await ownedSession(t.id, c.req.param("id"));
     await readJson(c, confirmBody);
     await deleteSession(row.session.id, row.activity.id);
+    await reconcileReports(t.id);
     await audit(c, t.id, "session_deleted", "learning_session", row.session.id, { activityId: row.activity.id });
     return c.json({ ok: true, activityId: row.activity.id, classroomId: row.activity.classroomId });
   })

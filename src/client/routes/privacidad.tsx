@@ -178,6 +178,10 @@ function PrivacyPage() {
                 El docente puede borrar el trabajo de un alumno, un alumno, una actividad, un aula o <strong>todo su espacio</strong> (en Mi espacio →
                 Borrar mi espacio). Lo borrado se elimina de la base de datos y los archivos se eliminan del disco del servidor.
               </li>
+              <li>
+                Los informes guardados se actualizan solos: los datos de un alumno borrado desaparecen de ellos, su nombre se reemplaza en los textos
+                del docente y los informes individuales de ese alumno se borran.
+              </li>
               <li>Los alumnos pueden pedirle a su docente que borre su trabajo o su nombre.</li>
             </ul>
           </Section>

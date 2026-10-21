@@ -1,0 +1,14 @@
+OK   informe individual contiene nombre y respuesta de la alumna
+OK   borrar alumno ok
+después de borrar a la alumna: informe individual contiene nombre=true respuesta=true; informe grupal contiene nombre=false
+OK   los informes guardados conservan nombre/respuestas de una alumna borrada
+OK   y se siguen exportando (CSV)
+OK   borrar actividad elimina sus archivos del disco  -> 1 → 0
+OK   archivo de biblioteca guardado
+OK   fusión del espacio anónimo con biblioteca
+OK   borrar el espacio (cuenta) ok
+OK   el archivo de biblioteca movido por la fusión se borra del disco  -> 0 archivos quedan en library/c975b1e8-1d50-4d17-9689-1658cd832097
+OK   borrar aula elimina archivos de sus actividades
+carpeta vacía activities/4e0901e5-c11b-48cf-9f45-6ddfbaad1897 queda en disco: true
+
+Todas las verificaciones pasaron

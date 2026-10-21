@@ -123,7 +123,7 @@ function Dashboard() {
           actividades.
         </p>
         <AdminOverviewPanel />
-        <WorkspacesPanel dailyLimit={overview.data?.ai.dailyTokensPerWorkspace ?? null} />
+        <WorkspacesPanel dailyLimit={overview.data?.ai.dailyUsdPerWorkspace ?? null} />
       </main>
     </div>
   );

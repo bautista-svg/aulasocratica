@@ -1,0 +1,18 @@
+OK   registro devuelve código de recuperación  -> UHWZ-7RC4-TW6C-BWNE
+token de sesión docente: 43 caracteres base64url (32 bytes aleatorios), guardado como SHA-256
+registro con correo existente → 409 Ya existe una cuenta con ese correo. Si es tuya, ingresá desde «Ya tengo cuenta».
+OK   /register revela si un correo ya tiene cuenta (enumeración)
+login: correo inexistente ≈ 61 ms vs correo existente ≈ 83 ms (status 401/401)
+OK   login fusiona el espacio anónimo con contenido  -> true
+OK   la cuenta ahora tiene el aula del dispositivo 2
+OK   rotar el código de recuperación no pide la contraseña  -> 200
+OK   cambio de contraseña ok
+OK   cambio de contraseña cierra las otras sesiones
+OK   el código de recuperación sigue sirviendo después del cambio de contraseña  -> 200
+OK   recover cierra todas las sesiones previas (incluida la del dueño)
+OK   logout invalida el token en el servidor
+OK   espacio anónimo no puede cerrar sesión (se perdería)
+login bloqueado tras 4 intentos más: Demasiados intentos. Esperá un momento y volvé a probar.
+OK   límite de login activo
+
+Todas las verificaciones pasaron

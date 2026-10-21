@@ -2,6 +2,7 @@
 // the background (no page limit) and can be copied into any activity.
 import { Readable } from "node:stream";
 import { Hono } from "hono";
+import { assertStorageRoom } from "../services/quota";
 import { and, asc, desc, eq, sql, type SQL } from "drizzle-orm";
 import type { AppEnv } from "../types";
 import { db, schema } from "../db/client";
@@ -169,6 +170,7 @@ export const materialRoutes = new Hono<AppEnv>()
     const files = form.getAll("file").filter((f): f is File => typeof f !== "string");
     if (!files.length) throw badRequest("Elegí al menos un archivo.");
     await assertRoom(t.id, files.length);
+    await assertStorageRoom(t.id, files.reduce((n, f) => n + f.size, 0));
     const folder = sanitizeFolder(String(form.get("folder") ?? ""));
     const tags = sanitizeTags(String(form.get("tags") ?? ""));
 

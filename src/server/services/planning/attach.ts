@@ -10,6 +10,7 @@ import { db, schema } from "../../db/client";
 import { HttpError, badRequest, conflict } from "../../lib/errors";
 import { copyFile, deleteFile, newKey, saveFile } from "../../lib/storage";
 import { enqueueFile } from "../file-jobs";
+import { assertStorageRoom } from "../quota";
 import { MAX_FILES_PER_ACTIVITY, fileExtension } from "@shared/domain/files";
 import { MAX_TEXT_FOR_ACTIVITY, appendMaterialText, materialAsActivityText } from "@shared/domain/library";
 import { ACTIVITY_LIMITS } from "@shared/contracts/activities";
@@ -94,6 +95,7 @@ export async function attachMaterialToActivity(m: MaterialRow, activityId: strin
     throw badRequest(`No pudimos leer «${m.title}». Reintentá la lectura en Mis materiales o subilo en otro formato.`);
   }
   await assertFileRoom(activityId);
+  await assertStorageRoom(m.teacherId, m.sizeBytes ?? 0);
   const ext = fileExtension(m.storageKey) || fileExtension(m.fileName ?? "");
   const key = newKey("activities", activityId, ext);
   try {

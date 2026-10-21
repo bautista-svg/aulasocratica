@@ -1,0 +1,83 @@
+OK   alumno entra a la actividad de A  -> 201
+OK   chat del alumno responde (SSE)  -> 200
+OK   B GET /api/classrooms/:id  -> 404 not_found
+OK   B PATCH /api/classrooms/:id  -> 404 not_found
+OK   B DELETE /api/classrooms/:id  -> 404 not_found
+OK   B GET /api/classrooms/:id/activities  -> 404 not_found
+OK   B GET /api/classrooms/:id/students  -> 404 not_found
+OK   B POST /api/classrooms/:id/students  -> 404 not_found
+OK   B PATCH /api/classrooms/:id/students/:id  -> 404 not_found
+OK   B DELETE /api/classrooms/:id/students/:id  -> 404 not_found
+OK   B PATCH /api/classrooms/:id/students/:id  -> 404 not_found
+OK   B DELETE /api/classrooms/:id/students/:id  -> 404 not_found
+OK   B GET /api/classrooms/:id/alerts  -> 404 not_found
+OK   B PATCH /api/classrooms/:id/alerts/:id  -> 404 not_found
+OK   B PATCH /api/classrooms/:id/alerts/:id  -> 404 not_found
+OK   B DELETE /api/classrooms/:id/alerts/:id  -> 404 not_found
+OK   B PUT /api/classrooms/:id/alerts/builtin/left_app  -> 404 not_found
+OK   B GET /api/activities/:id  -> 404 not_found
+OK   B PATCH /api/activities/:id  -> 404 not_found
+OK   B POST /api/activities  -> 404 not_found
+OK   B POST /api/activities  -> 404 not_found
+OK   B POST /api/activities/:id/tutor  -> 404 not_found
+OK   B POST /api/activities/:id/publish  -> 404 not_found
+OK   B POST /api/activities/:id/unpublish  -> 404 not_found
+OK   B POST /api/activities/:id/duplicate  -> 404 not_found
+OK   B POST /api/activities/:id/duplicate  -> 404 not_found
+OK   B POST /api/activities/:id/reset  -> 404 not_found
+OK   B DELETE /api/activities/:id  -> 404 not_found
+OK   B PATCH /api/activities/:id/link  -> 404 not_found
+OK   B POST /api/activities/:id/link/regenerate  -> 404 not_found
+OK   B GET /api/activities/:id/files  -> 404 not_found
+OK   B GET /api/activities/:id/files/:id/download  -> 404 not_found
+OK   B GET /api/activities/:id/files/:id/download  -> 404 not_found
+OK   B GET /api/activities/:id/files/:id/text  -> 404 not_found
+OK   B PATCH /api/activities/:id/files/:id  -> 404 not_found
+OK   B DELETE /api/activities/:id/files/:id  -> 404 not_found
+OK   B POST /api/activities/:id/files/:id/retry  -> 404 not_found
+OK   B POST /api/activities/:id/ai/rubric  -> 404 not_found
+OK   B GET /api/sessions/:id  -> 404 not_found
+OK   B GET /api/sessions/:id/journey.pdf  -> 404 not_found
+OK   B POST /api/sessions/:id/end  -> 404 not_found
+OK   B POST /api/sessions/:id/reopen  -> 404 not_found
+OK   B DELETE /api/sessions/:id  -> 404 not_found
+OK   B POST /api/sessions/:id/summary  -> 404 not_found
+OK   B POST /api/sessions/:id/xray/analyze  -> 404 not_found
+OK   B PUT /api/sessions/:id/rubric  -> 404 not_found
+OK   B GET /api/students/:id  -> 404 not_found
+OK   B GET /api/live/:id  -> 404 not_found
+OK   B GET /api/live/:id/stream  -> 404 not_found
+OK   B POST /api/live/:id/end-all  -> 404 not_found
+OK   B GET /api/tutors/:id  -> 404 not_found
+OK   B PATCH /api/tutors/:id  -> 404 not_found
+OK   B POST /api/tutors/:id/duplicate  -> 404 not_found
+OK   B DELETE /api/tutors/:id  -> 404 not_found
+OK   B GET /api/materials/:id  -> 404 not_found
+OK   B PATCH /api/materials/:id  -> 404 not_found
+OK   B GET /api/materials/:id/text  -> 404 not_found
+OK   B GET /api/materials/:id/download  -> 404 not_found
+OK   B POST /api/materials/:id/attach  -> 404 not_found
+OK   B DELETE /api/materials/:id  -> 404 not_found
+OK   B GET /api/reports/:id  -> 404 not_found
+OK   B PATCH /api/reports/:id  -> 404 not_found
+OK   B POST /api/reports/:id/refresh  -> 404 not_found
+OK   B GET /api/reports/:id/export.csv  -> 404 not_found
+OK   B GET /api/reports/:id/export.pdf  -> 404 not_found
+OK   B DELETE /api/reports/:id  -> 404 not_found
+OK   B POST /api/reports  -> 404 not_found
+OK   B POST /api/reports  -> 404 not_found
+OK   B POST /api/reports  -> 404 not_found
+OK   B POST /api/reports  -> 404 not_found
+OK   B POST /api/planning/create  -> 404 not_found
+OK   B POST /api/planning/proposals  -> 400 invalid
+OK   la actividad de A sigue intacta
+OK   el alumno de A sigue intacto
+OK   alumno de A no puede bajar archivo de la actividad B  -> 404
+OK   alumno de A baja su propio archivo  -> 200 text/plain; charset=utf-8
+OK   cookie de alumno de A no abre sesión en el link de B
+OK   token de alumno de A con el nombre de cookie de B → 401  -> 401
+OK   cookie de alumno no sirve para rutas de docente  -> 401
+OK   token de enlace inexistente → 404
+Entropía del token de enlace: 22 caracteres base64url (randomToken(16) = 128 bits)
+
+Todas las verificaciones pasaron

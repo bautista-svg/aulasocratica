@@ -79,10 +79,10 @@ export function WorkspacesPanel({ dailyLimit }: { dailyLimit: number | null }) {
                     <td className="tabular px-3 py-2.5 text-right">{fmtNum(w.activities)}</td>
                     <td className="tabular px-3 py-2.5 text-right">{fmtNum(w.studentSessions)}</td>
                     <td className="tabular px-3 py-2.5 text-right whitespace-nowrap">
-                      {fmtCompact(w.aiTokensToday)}
-                      {dailyLimit && w.aiTokensToday > 0 ? (
+                      {`US$ ${w.aiUsdToday.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                      {dailyLimit && w.aiUsdToday > 0 ? (
                         <span className="block text-xs text-text-3">
-                          {w.aiTokensToday / dailyLimit < 0.01 ? "menos del 1%" : `${Math.min(100, Math.round((w.aiTokensToday / dailyLimit) * 100))}%`} del límite
+                          {w.aiUsdToday / dailyLimit < 0.01 ? "menos del 1%" : `${Math.min(100, Math.round((w.aiUsdToday / dailyLimit) * 100))}%`} del límite
                         </span>
                       ) : null}
                     </td>

@@ -138,7 +138,7 @@ function UsageChart({ ai }: { ai: AdminOverview["ai"] }) {
         <p className="mt-4 text-[13px] leading-5 text-text-3">
           Costo estimado con precios de referencia de US$ {ai.pricePerMTok.input.toLocaleString("es-AR", { minimumFractionDigits: 2 })} por millón de tokens de entrada y US${" "}
           {ai.pricePerMTok.output.toLocaleString("es-AR", { minimumFractionDigits: 2 })} por millón de salida. No es la factura: el costo real depende de los precios vigentes del
-          proveedor, el uso de caché y los impuestos. Límite diario por espacio: {fmtCompact(ai.dailyTokensPerWorkspace)} tokens.
+          proveedor, el uso de caché y los impuestos. Límites diarios de gasto en IA: US$ {ai.dailyUsdPerWorkspace} por espacio y US$ {ai.dailyUsdGlobal} para todo el servicio.
         </p>
       </div>
     </Card>

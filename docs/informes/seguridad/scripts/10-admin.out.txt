@@ -1,0 +1,18 @@
+OK   overview sin sesión → 401  -> 401
+intentos fallidos de admin: 401,401,401,401,401,429
+OK   bloqueo por IP tras 5 fallos  -> 401,401,401,401,401,429
+OK   con la IP bloqueada, ni la contraseña correcta entra (bloqueo efectivo)
+nota: el bloqueo es por IP; con TRUST_PROXY=true la IP sale de CF-Connecting-IP/X-Forwarded-For (ver hallazgo de IP falsificable)
+(para entrar como admin hace falta otra IP o esperar 15 min: se reinicia la instancia antes de la segunda parte)
+OK   B no puede usar materiales de A en Crear con IA  -> 404 not_found
+OK   B no puede usar el aula de A en Crear con IA  -> 404 not_found
+
+Todas las verificaciones pasaron
+login admin: 200 | Set-Cookie: as_admin=<token>; Max-Age=28800; Path=/api/admin; HttpOnly; SameSite=Strict
+OK   overview/workspaces sin nombres de alumnos
+OK   correos enmascarados
+campos de un espacio en /admin/workspaces: id, shortId, createdAt, lastSeenAt, hasAccount, maskedEmail, classrooms, activities, studentSessions, aiTokensToday, suspended
+totales: {"workspaces":77,"withAccount":2,"active7":77,"active30":77,"suspended":0,"classrooms":17,"activities":29,"published":14,"studentSessions":61,"messages7":18}
+OK   logout de admin revoca el token (lista en memoria)  -> 401
+
+Todas las verificaciones pasaron

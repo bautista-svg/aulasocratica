@@ -54,7 +54,8 @@ export interface AdminOverview {
     byPurpose: AdminUsagePurpose[];
     totalCostUsd: number;
     pricePerMTok: { input: number; output: number };
-    dailyTokensPerWorkspace: number;
+    dailyUsdPerWorkspace: number;
+    dailyUsdGlobal: number;
   };
 }
 
@@ -69,7 +70,8 @@ export interface AdminWorkspace {
   classrooms: number;
   activities: number;
   studentSessions: number;
-  aiTokensToday: number;
+  /** Estimated AI spending today in USD (same formula as the daily cap). */
+  aiUsdToday: number;
   suspended: boolean;
 }
 

@@ -1,0 +1,10 @@
+OK   con CF-Connecting-IP rotado se crean más de 20 espacios por hora (límite por IP evadido)  -> 30/30 creados
+OK   con X-Forwarded-For rotado (primer valor) también se evade  -> 25/25 creados
+OK   un alumno agota el presupuesto diario de IA del docente  -> ai_quota en el mensaje 8
+OK   después, las funciones de IA del docente también fallan (429 ai_quota)  -> 429 ai_quota
+OK   y el resto de la clase se queda sin tutor por el día  -> 429 Este espacio alcanzó el límite diario de uso de IA. Se renueva a las 21 h (hora de Argentina).
+OK   SSE sin límite de conexiones por docente  -> 150/150 abiertas
+15 duplicados en 7150 ms: 15 OK; disco 21 MB → 336 MB (cada copia duplica los 20 MB de archivos)
+OK   Duplicar no tiene límite de frecuencia ni cuota de disco
+
+Todas las verificaciones pasaron

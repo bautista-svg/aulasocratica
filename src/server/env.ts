@@ -22,8 +22,14 @@ const schema = z.object({
   ANTHROPIC_WORKSPACE_ID: z.string().optional(),
   ANTHROPIC_BASE_URL: z.string().url().optional(),
   AI_MODEL: z.string().default("claude-haiku-5-5"),
-  /** Daily AI token budget per teacher workspace (input + output, all students included). */
-  AI_DAILY_TOKENS_PER_WORKSPACE: z.coerce.number().int().positive().default(4_000_000),
+  /** Daily AI spending cap per teacher workspace in USD (all its students included). */
+  AI_DAILY_USD_PER_WORKSPACE: z.coerce.number().positive().default(3),
+  /** Daily AI spending cap for the whole service in USD (protects against mass abuse). */
+  AI_DAILY_USD_GLOBAL: z.coerce.number().positive().default(40),
+  /** Tutor replies per student per day in one activity. */
+  AI_DAILY_REPLIES_PER_STUDENT: z.coerce.number().int().positive().default(150),
+  /** Disk quota for uploaded files per teacher workspace, in MB. */
+  STORAGE_QUOTA_MB_PER_WORKSPACE: z.coerce.number().int().positive().default(2048),
   /** Shared password for the read-only /admin overview. Empty = /admin disabled. */
   ADMIN_PASSWORD: z.string().default(""),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),

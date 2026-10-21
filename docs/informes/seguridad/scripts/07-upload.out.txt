@@ -1,0 +1,23 @@
+"dibujo.svg" → 400 "dibujo.svg": se aceptan PDF, Word (.docx), texto, fotos (JPG, PNG, WEBP) y audios (MP3, M4A, WAV, OGG). [esperado: rechazado]
+"pagina.html" → 400 "pagina.html": se aceptan PDF, Word (.docx), texto, fotos (JPG, PNG, WEBP) y audios (MP3, M4A, WAV, OGG). [esperado: rechazado]
+"sin-extension" → 400 "sin-extension": se aceptan PDF, Word (.docx), texto, fotos (JPG, PNG, WEBP) y audios (MP3, M4A, WAV, OGG). [esperado: rechazado]
+"x.exe" → 400 "x.exe": se aceptan PDF, Word (.docx), texto, fotos (JPG, PNG, WEBP) y audios (MP3, M4A, WAV, OGG). [esperado: rechazado]
+"foto.png" → 201 kind=image mime=image/png fileName="foto.png" [esperado: aceptado (sin verificar bytes)]
+"doc.pdf" → 201 kind=pdf mime=application/pdf fileName="doc.pdf" [esperado: aceptado (sin verificar bytes)]
+"notas.txt" → 201 kind=text mime=text/plain fileName="notas.txt" [esperado: aceptado como text/plain]
+"evil\"; filename=hack.exe\r\nX-Injected: 1.txt" → 201 kind=text mime=text/plain fileName="evil\"; filename=hack.exeX-Injected: 1.txt" [esperado: nombre saneado]
+"..\\..\\..\\etc\\passwd.txt" → 201 kind=text mime=text/plain fileName="passwd.txt" [esperado: sin carpetas]
+"tarea‮txt.pdf" → 201 kind=pdf mime=application/pdf fileName="tarea‮txt.pdf" [esperado: override bidi]
+OK   SVG rechazado
+OK   HTML rechazado
+descarga inline de foto.png (contenido HTML): 200 image/png | inline; filename="foto.png"; filename*=UTF-8''foto.png | nosniff: nosniff | CSP: (ninguna)
+OK   archivo con bytes HTML se sirve como image/png + nosniff (el navegador no lo interpreta como HTML)
+Content-Disposition con nombre hostil: attachment; filename="evil filenamehack.exeX-Injected 1.txt"; filename*=UTF-8''evil%22%3B%20filename%3Dhack.exeX-Injected%3A%201.txt | X-Injected: null
+OK   sin inyección de encabezados por nombre de archivo
+alumno abre notas.txt (bytes HTML): 200 text/plain; charset=utf-8 inline; filename="notas.txt"; filename*=UTF-8''notas.txt
+OK   texto con HTML se sirve como text/plain inline + nosniff
+doc.pdf (bytes HTML) quedó en estado: failed - No pudimos abrir este PDF. Puede estar dañado o protegido con contraseña.
+OK   archivo que no se pudo leer no se sirve al alumno  -> 404
+Range fuera de rango → 416 bytes */54
+
+Todas las verificaciones pasaron

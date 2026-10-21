@@ -55,7 +55,7 @@ export function useRecover(onRecovered?: (r: RecoveryCodeResponse) => void) {
 
 export function useChangePassword() {
   return useMutation({
-    mutationFn: (body: { currentPassword: string; newPassword: string }) => api.post<{ ok: true }>("/api/auth/password", body),
+    mutationFn: (body: { currentPassword: string; newPassword: string }) => api.post<{ ok: true; recoveryCode: string }>("/api/auth/password", body),
   });
 }
 

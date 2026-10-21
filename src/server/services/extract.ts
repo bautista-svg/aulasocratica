@@ -4,9 +4,8 @@
 // - Word (.docx): converted locally with mammoth.
 // - Images: Claude transcribes visible text and describes relevant diagrams.
 // - Audio: Claude cannot listen; the teacher can type a transcript (teacherNote).
-import { extractText, getDocumentProxy } from "unpdf";
+import { Worker } from "node:worker_threads";
 import { PDFDocument } from "pdf-lib";
-import mammoth from "mammoth";
 import type Anthropic from "@anthropic-ai/sdk";
 import { generateText, type UsageContext } from "../ai/client";
 import type { FileKind } from "@shared/domain/files";
@@ -37,6 +36,42 @@ const IMAGE_SYSTEM =
   "Después, si la imagen tiene dibujos, esquemas, gráficos o fórmulas que importen para una actividad, describilos brevemente entre corchetes. " +
   "No inventes contenido que no se vea. Si no hay texto legible, describí lo que muestra la imagen en dos o tres oraciones.";
 
+// ── Isolated local extraction (worker thread with hard memory/time limits) ──
+
+const WORKER_URL = new URL(
+  import.meta.url.endsWith(".ts") ? "../workers/extract-worker.ts" : "./extract-worker.mjs",
+  import.meta.url,
+);
+const WORKER_TIMEOUT_MS = 120_000;
+
+type WorkerResult = { ok: true; pages?: string[]; totalPages?: number; text?: string } | { ok: false; code: string };
+
+function runIsolated(kind: "pdf" | "docx", data: Uint8Array): Promise<WorkerResult> {
+  return new Promise((resolve) => {
+    const worker = new Worker(WORKER_URL, {
+      workerData: { kind, data },
+      resourceLimits: { maxOldGenerationSizeMb: 384, maxYoungGenerationSizeMb: 64, stackSizeMb: 8 },
+    });
+    let settled = false;
+    const done = (r: WorkerResult) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      void worker.terminate();
+      resolve(r);
+    };
+    const timer = setTimeout(() => done({ ok: false, code: "timeout" }), WORKER_TIMEOUT_MS);
+    worker.once("message", (m: WorkerResult) => done(m));
+    // Out of memory (ERR_WORKER_OUT_OF_MEMORY) or any crash: the API process is unaffected.
+    worker.once("error", () => done({ ok: false, code: "worker_crashed" }));
+    worker.once("exit", (code) => done({ ok: false, code: code === 0 ? "no_result" : "worker_crashed" }));
+  });
+}
+
+const DOCX_ERRORS: Record<string, string> = {
+  docx_too_large: "Este documento de Word es demasiado grande para leerlo. Guardalo como PDF y subilo de nuevo.",
+};
+
 function clean(text: string): string {
   return text
     .replace(/\u0000/g, "")
@@ -47,16 +82,12 @@ function clean(text: string): string {
 }
 
 async function extractPdf(data: Uint8Array, ctx: UsageContext): Promise<ExtractResult> {
-  let pages: string[];
-  let totalPages: number;
-  try {
-    const pdf = await getDocumentProxy(new Uint8Array(data));
-    const r = await extractText(pdf, { mergePages: false });
-    pages = r.text;
-    totalPages = r.totalPages;
-  } catch {
+  const r = await runIsolated("pdf", new Uint8Array(data));
+  if (!r.ok || !r.pages) {
     throw new HttpError(422, "No pudimos abrir este PDF. Puede estar dañado o protegido con contraseña.", "pdf_unreadable");
   }
+  const pages = r.pages;
+  const totalPages = r.totalPages ?? pages.length;
   const chars = pages.reduce((n, p) => n + p.trim().length, 0);
   if (totalPages === 0) return { text: "", pageCount: 0, note: "El PDF no tiene páginas." };
 
@@ -84,12 +115,12 @@ async function extractPdf(data: Uint8Array, ctx: UsageContext): Promise<ExtractR
 }
 
 async function extractDocx(data: Uint8Array): Promise<ExtractResult> {
-  try {
-    const r = await mammoth.extractRawText({ buffer: Buffer.from(data) });
-    return { text: clean(r.value), pageCount: null, note: null };
-  } catch {
-    throw new HttpError(422, "No pudimos leer este documento de Word. Probá guardarlo de nuevo como .docx o como PDF.", "docx_unreadable");
+  const r = await runIsolated("docx", data);
+  if (!r.ok || r.text === undefined) {
+    const msg = (!r.ok && DOCX_ERRORS[r.code]) || "No pudimos leer este documento de Word. Probá guardarlo de nuevo como .docx o como PDF.";
+    throw new HttpError(422, msg, "docx_unreadable");
   }
+  return { text: clean(r.text), pageCount: null, note: null };
 }
 
 async function extractImage(data: Uint8Array, mime: string, ctx: UsageContext): Promise<ExtractResult> {

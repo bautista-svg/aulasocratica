@@ -1,7 +1,7 @@
 // Background processing of uploaded files (activity files and library materials).
 // Status goes pending → processing → ready | failed; a crash mid-way is recovered at boot
 // (rows stuck in "processing" go back to "pending") and the teacher can always retry.
-import { and, eq, inArray, lt, or } from "drizzle-orm";
+import { and, eq, lt } from "drizzle-orm";
 import { db, schema } from "../db/client";
 import { readFile } from "../lib/storage";
 import { extractFile } from "./extract";
@@ -110,33 +110,55 @@ export async function waitForFile(t: Target, timeoutMs = 120_000): Promise<void>
   }
 }
 
-// Recovery: anything left pending/processing for more than a minute is picked up again.
+// Recovery. "pending" rows (queued but not started, e.g. before a restart) are picked up again.
+// A row left in "processing" means a previous attempt was interrupted mid-way: it is marked
+// failed instead of retried automatically, so a file that crashes the reader can never cause
+// a restart loop. The teacher can retry it by hand.
+const INTERRUPTED = "La lectura se interrumpió. Tocá «Reintentar»; si vuelve a fallar, subilo en otro formato (por ejemplo PDF).";
+
 registerJob({
   name: "resume_file_processing",
   everyMs: 60_000,
   run: async () => {
-    const stale = new Date(Date.now() - 60_000);
+    const stale = new Date(Date.now() - 10 * 60_000);
+    const interruptedFiles = await db
+      .select({ id: schema.activityFiles.id })
+      .from(schema.activityFiles)
+      .where(and(eq(schema.activityFiles.processingStatus, "processing"), lt(schema.activityFiles.updatedAt, stale)))
+      .limit(50);
+    for (const f of interruptedFiles) {
+      if (active.has(`activity_files:${f.id}`)) continue;
+      await db.update(schema.activityFiles).set({ processingStatus: "failed", processingError: INTERRUPTED }).where(eq(schema.activityFiles.id, f.id));
+    }
+    const interruptedMats = await db
+      .select({ id: schema.materials.id })
+      .from(schema.materials)
+      .where(and(eq(schema.materials.processingStatus, "processing"), lt(schema.materials.updatedAt, stale)))
+      .limit(50);
+    for (const m of interruptedMats) {
+      if (active.has(`materials:${m.id}`)) continue;
+      await db.update(schema.materials).set({ processingStatus: "failed", processingError: INTERRUPTED }).where(eq(schema.materials.id, m.id));
+    }
+
     const files = await db
       .select({ id: schema.activityFiles.id })
       .from(schema.activityFiles)
-      .where(
-        and(
-          inArray(schema.activityFiles.processingStatus, ["pending", "processing"]),
-          or(lt(schema.activityFiles.updatedAt, stale), eq(schema.activityFiles.processingStatus, "pending")),
-        ),
-      )
+      .where(eq(schema.activityFiles.processingStatus, "pending"))
       .limit(50);
-    const mats = await db
-      .select({ id: schema.materials.id })
-      .from(schema.materials)
-      .where(
-        and(
-          inArray(schema.materials.processingStatus, ["pending", "processing"]),
-          or(lt(schema.materials.updatedAt, stale), eq(schema.materials.processingStatus, "pending")),
-        ),
-      )
-      .limit(50);
+    const mats = await db.select({ id: schema.materials.id }).from(schema.materials).where(eq(schema.materials.processingStatus, "pending")).limit(50);
     for (const f of files) enqueueFile({ table: "activity_files", id: f.id });
     for (const m of mats) enqueueFile({ table: "materials", id: m.id });
   },
 });
+
+/** At boot nothing can be running yet: anything still "processing" was interrupted by the restart. */
+export async function markInterruptedAtBoot(): Promise<void> {
+  await db
+    .update(schema.activityFiles)
+    .set({ processingStatus: "failed", processingError: INTERRUPTED })
+    .where(eq(schema.activityFiles.processingStatus, "processing"));
+  await db
+    .update(schema.materials)
+    .set({ processingStatus: "failed", processingError: INTERRUPTED })
+    .where(eq(schema.materials.processingStatus, "processing"));
+}

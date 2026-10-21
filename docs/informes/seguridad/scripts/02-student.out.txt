@@ -1,0 +1,23 @@
+GET /api/s/:token sin sesión → {"availability":"available","message":null,"startsAt":null,"expiresAt":null,"activity":{"title":"Actividad de Docente Estudiantes","subject":"","classroom":"Aula de Docente Estudiantes","teacherName":"Docente Estudiantes"},"workspace":null}
+OK   Lucía entra
+código de Lucía: 7BH6W9 ( 6 caracteres, alfabeto de 32 → 32^6 ≈ 1.07e9 )
+Set-Cookie del alumno: as_s_a75813a6bfdd410a9aa4e1af26573dfe=<token>; Max-Age=2592000; Path=/api/s; HttpOnly; SameSite=Lax
+OK   join "lucia fernandez" con trabajo existente → 409 resume_required (no se apodera)  -> 409 Ya hay un trabajo empezado como «Lucía Fernández» en esta actividad. Para seguirlo en este dispositivo, escribí tu código.
+OK   join "LUCÍA  FERNÁNDEZ" con trabajo existente → 409 resume_required (no se apodera)  -> 409 Ya hay un trabajo empezado como «Lucía Fernández» en esta actividad. Para seguirlo en este dispositivo, escribí tu código.
+OK   join "Lucia-Fernandez" con trabajo existente → 409 resume_required (no se apodera)  -> 409 Ya hay un trabajo empezado como «Lucía Fernández» en esta actividad. Para seguirlo en este dispositivo, escribí tu código.
+OK   join "lucía.fernández!" con trabajo existente → 409 resume_required (no se apodera)  -> 409 Ya hay un trabajo empezado como «Lucía Fernández» en esta actividad. Para seguirlo en este dispositivo, escribí tu código.
+join con homoglifo (а cirílica): 201 Lucíа Fernández
+lista del aula: "Lucía Fernández", "Lucíа Fernández"
+resume nombre inexistente → 404 not_found; nombre existente → 400 wrong_code
+OK   resume distingue nombres existentes (enumeración de nombres de alumnos)  -> 404 vs 400
+tras 6 intentos fallidos: 429 locked
+OK   con el bloqueo activo el código correcto también se rechaza (bloqueo por sesión)  -> 429 locked
+OK   la alumna sigue trabajando en su dispositivo durante el bloqueo
+OK   límite por IP de /resume se activa (30 / 10 min)  -> 19 respuestas 429 de 40
+OK   cualquiera con el enlace puede tomar un nombre de la lista que todavía no entró  -> 201 → Mateo Gómez
+el Mateo real después → 409 resume_required
+OK   el workspace del alumno no menciona a otros alumnos
+alta masiva desde una IP: 52 alumnos creados antes del límite (60 / 10 min por IP y actividad); lista del aula 3 → 55
+OK   'No soy yo' revoca el token del dispositivo (reusar la cookie vieja no abre la sesión)
+
+Todas las verificaciones pasaron

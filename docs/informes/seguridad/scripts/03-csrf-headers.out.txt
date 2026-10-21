@@ -1,0 +1,30 @@
+OK   PATCH con Origin ajeno → 403  -> 403
+OK   PATCH sin Origin ni x-aula-client → 403  -> 403
+OK   POST con Origin: null → 403  -> 403
+OK   form cross-site a /api/auth/start → 403  -> 403
+OK   form text/plain cross-site a regenerate → 403  -> 403
+OK   DELETE workspace cross-site → 403  -> 403
+OK   form propio a /api/auth/start → 303 /app con cookie  -> 303 /app
+Set-Cookie docente: as_t=<token>; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax
+OK   GET a una ruta de mutación no muta (404 de ruta)  -> 404
+OK   preflight desde origen ajeno sin Access-Control-Allow-Origin  -> 404 acao=null
+OK   GET con Origin ajeno sin ACAO / ACAC
+Headers de HTML (/app/aulas): {"csp":"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'","xfo":"DENY","xcto":"nosniff","rp":"strict-origin-when-cross-origin","pp":"camera=(), geolocation=(), microphone=(self), payment=()","coop":"same-origin","corp":"same-origin","hsts":"(no: PUBLIC_URL http en esta instancia)"}
+OK   CSP con script-src 'self' y frame-ancestors 'none'
+OK   X-Frame-Options DENY
+OK   landing también con CSP
+OK   landing sin <script> inline
+OK   estático /..%2f..%2fpackage.json no filtra archivos fuera de dist/client  -> 200 text/html; charset=UTF-8
+OK   estático /assets/..%2f..%2f..%2fpackage.json no filtra archivos fuera de dist/client  -> 200 text/html; charset=UTF-8
+OK   estático /%2e%2e/%2e%2e/.env no filtra archivos fuera de dist/client  -> 200 text/html; charset=UTF-8
+OK   estático /assets/%2e%2e%2f%2e%2e%2fserver%2findex.mjs no filtra archivos fuera de dist/client  -> 200 text/html; charset=UTF-8
+OK   estático /..\..\package.json no filtra archivos fuera de dist/client  -> 200 text/html; charset=UTF-8
+OK   estático /index.mjs.map no filtra archivos fuera de dist/client  -> 200 text/html; charset=UTF-8
+OK   estático /../server/index.mjs no filtra archivos fuera de dist/client  -> 200 text/html; charset=UTF-8
+JSON inválido → 400 {"error":{"code":"invalid","message":"El cuerpo de la solicitud no es JSON válido."}}
+JSON de 2 MB → 413 {"error":{"code":"too_large","message":"Los datos enviados son demasiado grandes."}}
+id no uuid → 404 {"error":{"code":"not_found","message":"El trabajo del alumno no existe o no tenés acceso."}}
+/api/health → {"status":"ok","db":"ok","version":"dev"}
+/api/health/ai sin sesión → 401
+
+Todas las verificaciones pasaron

@@ -1,3 +1,4 @@
+import { assertStorageRoom } from "../quota";
 // Creating, duplicating, resetting and deleting activities. Each operation either fully
 // happens or leaves nothing half-done: database changes run in a transaction and files
 // copied to disk for a failed operation are removed again.
@@ -92,6 +93,7 @@ export async function duplicateActivity(source: ActivityRow, targetClassroomId: 
   await assertRoomForActivity(targetClassroomId);
   const newId = randomUUID();
   const files = await db.select().from(schema.activityFiles).where(eq(schema.activityFiles.activityId, source.id));
+  await assertStorageRoom(source.teacherId, files.reduce((n, f) => n + f.sizeBytes, 0));
   const copies: (typeof schema.activityFiles.$inferInsert)[] = [];
   let skipped = 0;
   for (const f of files) {

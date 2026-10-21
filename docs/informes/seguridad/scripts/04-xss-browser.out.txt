@@ -1,0 +1,26 @@
+XSS — inspección en navegador (panel Browser del escritorio) de la instancia local, 2026-10-21.
+Datos sembrados con 04-xss-seed.mjs: cada campo controlado por docente o alumno lleva
+  <img src=x data-xss="TAG" onerror="window.__xss='TAG'"><script>window.__xss='TAG'</script>"'><svg/onload=window.__xss='TAG'>{{7*7}}
+(nombre del espacio, aula, escuela, título/asignatura/objetivos/consigna/material/indicaciones de la actividad,
+rúbrica y niveles, preguntas de reflexión, nombre de archivo, material de biblioteca (enlace), alerta propia,
+tutor propio, nombre del alumno, mensaje del alumno con Markdown y [x](javascript:…), respuesta final,
+comentario de rúbrica, título y narrativa del informe con [l](javascript:alert(1))).
+
+Chequeo en cada pantalla, tras 2,5 s de render:
+  window.__xss (se setea si algún payload ejecuta)                  → null en todas
+  document.querySelectorAll('[data-xss],[onerror],[onload],a[href^="javascript"]').length → 0 en todas
+  ¿el payload se ve como texto?                                     → sí (React lo escapa)
+
+/app                                   injected=0 xss=null texto visible
+/app/aulas/:id                         injected=0 xss=null texto visible
+/app/actividades/:id                   injected=0 xss=null texto visible, 0 <script> inline
+/app/sesiones/:id (conversación)       injected=0 xss=null; el enlace Markdown javascript: se muestra solo como texto (sin href)
+/app/alumnos/:id                       injected=0 xss=null
+/app/informes/:id                      injected=0 xss=null; narrativa en <textarea> (texto plano); título de pestaña escapado
+/app/materiales                        injected=0 xss=null
+/app/tutores                           injected=0 xss=null
+/app/radiografia                       injected=0 xss=null
+/clase/:token (vista del alumno)       injected=0 xss=null; únicos href: #contenido y /api/s/:token/files/:id
+
+Además: grep de src/client sin dangerouslySetInnerHTML / innerHTML / document.write / eval.
+Las cookies de prueba se cargaron en 127.0.0.1 (no en localhost, para no pisar cookies de otras instancias) y se borraron al terminar.

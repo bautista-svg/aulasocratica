@@ -3,6 +3,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { and, eq, gte, sql } from "drizzle-orm";
+import { AI_PRICES_PER_MTOK } from "@shared/domain/ai-cost";
 import type { z } from "zod";
 import { env } from "../env";
 import { db, schema } from "../db/client";
@@ -76,14 +77,44 @@ const startOfDay = () => {
   return d;
 };
 
-/** Throws 429 when the workspace already used today's AI budget. */
+// Cost in USD from the stored token counts (input_tokens includes cache reads/writes).
+const u = schema.aiUsage;
+// Prices are code constants (not user input), inlined as numeric literals so Postgres
+// can type the arithmetic.
+const price = (v: number) => sql.raw(Number(v).toFixed(6));
+const COST_SQL = sql<number>`coalesce(sum(
+  greatest(${u.inputTokens} - ${u.cacheReadTokens} - ${u.cacheWriteTokens}, 0) * ${price(AI_PRICES_PER_MTOK.input)}
+  + ${u.cacheWriteTokens} * ${price(AI_PRICES_PER_MTOK.cacheWrite)}
+  + ${u.cacheReadTokens} * ${price(AI_PRICES_PER_MTOK.cacheRead)}
+  + ${u.outputTokens} * ${price(AI_PRICES_PER_MTOK.output)}
+) / 1000000.0, 0)::float`;
+
+let globalSpend: { at: number; usd: number } | null = null;
+
+/** Tests only: forget the cached service-wide spend. */
+export function resetAiSpendCache() {
+  globalSpend = null;
+}
+
+async function spentTodayGlobal(): Promise<number> {
+  if (globalSpend && Date.now() - globalSpend.at < 30_000) return globalSpend.usd;
+  const [row] = await db.select({ usd: COST_SQL }).from(u).where(gte(u.createdAt, startOfDay()));
+  globalSpend = { at: Date.now(), usd: Number(row?.usd ?? 0) };
+  return globalSpend.usd;
+}
+
+export async function spentTodayByWorkspace(teacherId: string): Promise<number> {
+  const [row] = await db.select({ usd: COST_SQL }).from(u).where(and(eq(u.teacherId, teacherId), gte(u.createdAt, startOfDay())));
+  return Number(row?.usd ?? 0);
+}
+
+/** Throws when today's AI spending cap (whole service or this workspace) was reached. */
 export async function assertBudget(teacherId: string | null): Promise<void> {
+  if ((await spentTodayGlobal()) >= env.AI_DAILY_USD_GLOBAL) {
+    throw new HttpError(503, "El servicio alcanzó su límite diario de uso de IA. Se renueva a las 21 h (hora de Argentina).", "ai_quota_global");
+  }
   if (!teacherId) return;
-  const [row] = await db
-    .select({ total: sql<number>`coalesce(sum(${schema.aiUsage.inputTokens} + ${schema.aiUsage.outputTokens}), 0)::int` })
-    .from(schema.aiUsage)
-    .where(and(eq(schema.aiUsage.teacherId, teacherId), gte(schema.aiUsage.createdAt, startOfDay())));
-  if ((row?.total ?? 0) >= env.AI_DAILY_TOKENS_PER_WORKSPACE) {
+  if ((await spentTodayByWorkspace(teacherId)) >= env.AI_DAILY_USD_PER_WORKSPACE) {
     throw new HttpError(
       429,
       "Este espacio alcanzó el límite diario de uso de IA. Se renueva a las 21 h (hora de Argentina).",

@@ -1,0 +1,3 @@
+docx generado: 597 KB comprimido → 200 MB de XML (C:\Users\gonib\AppData\Local\Temp\bomba-200mb.docx)
+subida: 201 pending
+t+3s health=sin respuesta (TypeError) (1291 ms) archivo=?

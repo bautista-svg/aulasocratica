@@ -10,6 +10,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db, schema } from "../../db/client";
 import { anthropic, aiError, assertBudget, recordUsage, MODEL, type UsageContext } from "../../ai/client";
+import { env } from "../../env";
 import { HttpError } from "../../lib/errors";
 import { hit } from "../../lib/rate-limit";
 import { publish } from "../../lib/events";
@@ -74,6 +75,20 @@ export async function tutorChat(c: Context, ctx: StudentCtx, body: ChatBody): Pr
       throw new HttpError(429, "Mandaste muchos mensajes seguidos. Tomate un momento para pensar y seguí en un minuto.", "rate_limited");
     }
     await assertBudget(activity.teacherId);
+    // Per-student daily cap: one student can never use up the whole class's budget.
+    const [today] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(schema.messages)
+      .where(
+        and(
+          eq(schema.messages.sessionId, session.id),
+          eq(schema.messages.role, "assistant"),
+          sql`${schema.messages.createdAt} > now() - interval '24 hours'`,
+        ),
+      );
+    if ((today?.n ?? 0) >= env.AI_DAILY_REPLIES_PER_STUDENT) {
+      throw new HttpError(429, "Llegaste al máximo de mensajes con el tutor por hoy en esta actividad. Avisale a tu docente.", "student_quota");
+    }
     anthropic(); // 503 before storing anything when the AI is not configured
 
     let userMessageId: string | null = null;

@@ -8,6 +8,7 @@ import { requireTeacher, teacherOf } from "../auth/teacher";
 import { ownedClassroom, isUuid } from "../services/access";
 import { audit } from "../services/audit";
 import { deleteFile } from "../lib/storage";
+import { reconcileReports } from "../services/reports/reconcile";
 import {
   classroomBody,
   classroomPatch,
@@ -130,7 +131,9 @@ export const classroomRoutes = new Hono<AppEnv>()
     const files = acts.length
       ? await db.select({ key: schema.activityFiles.storageKey }).from(schema.activityFiles).where(inArray(schema.activityFiles.activityId, acts.map((a) => a.id)))
       : [];
+    const names = await db.select({ n: schema.students.fullName }).from(schema.students).where(eq(schema.students.classroomId, room.id));
     await db.delete(schema.classrooms).where(eq(schema.classrooms.id, room.id));
+    await reconcileReports(t.id, names.map((x) => x.n));
     for (const f of files) await deleteFile(f.key);
     await audit(c, t.id, "classroom_deleted", "classroom", room.id, { activities: acts.length });
     return c.json({ ok: true });
@@ -223,8 +226,9 @@ export const classroomRoutes = new Hono<AppEnv>()
     const [row] = await db
       .delete(schema.students)
       .where(and(eq(schema.students.id, studentId), eq(schema.students.classroomId, room.id)))
-      .returning({ id: schema.students.id });
+      .returning({ id: schema.students.id, fullName: schema.students.fullName });
     if (!row) throw notFound("El alumno");
+    await reconcileReports(t.id, [row.fullName]);
     await audit(c, t.id, "student_deleted", "student", studentId);
     return c.json({ ok: true });
   })

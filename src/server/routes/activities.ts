@@ -7,6 +7,8 @@ import { eq } from "drizzle-orm";
 import type { AppEnv } from "../types";
 import { db, schema } from "../db/client";
 import { badRequest, notFound, readJson, tooMany } from "../lib/errors";
+import { assertStorageRoom } from "../services/quota";
+import { namesRemoved, reconcileReports, studentsWithWork } from "../services/reports/reconcile";
 import { requireTeacher, teacherOf } from "../auth/teacher";
 import { ownedActivity, ownedClassroom, ownedTutor } from "../services/access";
 import { audit } from "../services/audit";
@@ -176,6 +178,9 @@ export const activityRoutes = new Hono<AppEnv>()
     const targetId = body.classroomId ?? activity.classroomId;
     const room = await ownedClassroom(t.id, targetId);
     if (room.isArchived) throw badRequest("Esa aula está archivada. Elegí otra o restaurala.");
+    if (!hit(`duplicate:${t.id}`, 30, 60 * 60_000)) {
+      throw tooMany("Duplicaste muchas actividades seguidas. Esperá unos minutos y probá de nuevo.");
+    }
     const r = await duplicateActivity(activity, room.id);
     return c.json({ activity: await loadActivity(t.id, r.id), copiedFiles: r.copiedFiles, skippedFiles: r.skippedFiles }, 201);
   })
@@ -183,7 +188,9 @@ export const activityRoutes = new Hono<AppEnv>()
   .post("/:id/reset", async (c) => {
     const { t, activity } = await owned(c);
     const body = await readJson(c, resetBody);
+    const before = await studentsWithWork(activity.id);
     const r = await resetActivity(activity, { regenerateLink: body.regenerateLink === true });
+    await reconcileReports(t.id, await namesRemoved(before));
     await audit(c, t.id, "activity_reset", "activity", activity.id, { ...r.deleted, linkRegenerated: r.linkRegenerated });
     publish(activity.id, "activity");
     return c.json({ ok: true, ...r, activity: await loadActivity(t.id, activity.id) });
@@ -193,6 +200,7 @@ export const activityRoutes = new Hono<AppEnv>()
     const { t, activity } = await owned(c);
     await readJson(c, deleteActivityBody);
     const r = await deleteActivity(activity);
+    await reconcileReports(t.id);
     await audit(c, t.id, "activity_deleted", "activity", activity.id, r);
     publish(activity.id, "activity");
     return c.json({ ok: true, classroomId: activity.classroomId });
@@ -236,6 +244,7 @@ export const activityRoutes = new Hono<AppEnv>()
     const { t, activity } = await owned(c);
     assertUploadRate(t.id);
     const parts = await readFileParts(c);
+    await assertStorageRoom(t.id, parts.reduce((n, f) => n + f.size, 0));
     const r = await saveActivityUploads(activity.id, parts);
     return c.json(r, 201);
   })

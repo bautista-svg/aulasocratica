@@ -6,12 +6,13 @@ import { sqlClient } from "./db/client";
 import { ensureStorage } from "./lib/storage";
 import { log, errorFields } from "./lib/logger";
 import { startJobs, stopJobs } from "./jobs";
-import "./services/file-jobs";
+import { markInterruptedAtBoot } from "./services/file-jobs";
 import "./services/retention";
 
 async function main() {
   ensureStorage();
   await runMigrations();
+  await markInterruptedAtBoot();
   const app = createApp({ staticDir: isProd ? defaultStaticDir() : null });
   const server = serve({ fetch: app.fetch, port: env.PORT, hostname: "0.0.0.0" }, (info) => {
     log.info("server_started", { port: info.port, env: env.NODE_ENV });
