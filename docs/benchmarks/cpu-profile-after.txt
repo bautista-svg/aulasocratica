@@ -1,0 +1,129 @@
+# CPU profile of the server (optimized build) under mixed load: 20 concurrent clients, 9 endpoints, 25 s sampled
+total sampled 25001 ms
+== by package/file
+ 20.3%  nm:drizzle-orm
+ 17.8%  app (dist/server)
+  9.6%  nm:postgres
+  6.9%  ((idle))
+  5.4%  (writeBuffer)
+  4.9%  node:internal/deps/undici/undici
+  4.3%  node:buffer
+  3.9%  nm:hono
+  3.3%  ((garbage collector))
+  3.0%  (utf8Slice)
+  2.9%  ((program))
+  2.3%  (runMicrotasks)
+  1.7%  nm:@hono/node-server
+  1.4%  (writev)
+  1.1%  (native)
+  1.0%  node:internal/webstreams/readablestream
+  0.7%  (write)
+  0.7%  node:internal/encoding
+  0.6%  node:internal/buffer
+  0.6%  node:internal/stream_base_commons
+  0.5%  node:events
+  0.5%  node:internal/streams/writable
+  0.5%  node:internal/streams/readable
+  0.5%  node:inspector
+  0.4%  node:_http_server
+  0.4%  node:_http_outgoing
+  0.4%  node:zlib
+  0.4%  node:_http_incoming
+  0.3%  node:internal/process/task_queues
+  0.3%  node:internal/timers
+== by function (self)
+  6.9%  (idle) :-1
+  6.6%  is nm:drizzle-orm/entity.js:2
+  6.0%  liveSnapshot app:index.mjs:4702
+  5.4%  writeBuffer :-1
+  3.3%  (garbage collector) :-1
+  3.0%  slice node:buffer:635
+  3.0%  utf8Slice :-1
+  2.9%  (program) :-1
+  2.3%  runMicrotasks :-1
+  2.2%  (anon) nm:drizzle-orm/utils.js:9
+  2.1%  json nm:hono/dist/context.js:335
+  1.9%  DataRow nm:postgres/src/connection.js:491
+  1.9%  mapFromDriverValue nm:drizzle-orm/pg-core/columns/timestamp.js:29
+  1.5%  (anon) nm:drizzle-orm/sql/sql.js:82
+  1.5%  (anon) app:index.mjs:1690
+  1.4%  writev :-1
+  1.3%  Result nm:postgres/src/result.js:1
+  1.2%  buildQueryFromSourceParams nm:drizzle-orm/sql/sql.js:69
+  1.1%  (anon) :-1
+  0.8%  (anon) app:index.mjs:4753
+  0.8%  (anon) nm:drizzle-orm/postgres-js/session.js:50
+  0.8%  lastSignalAt app:index.mjs:3522
+  0.8%  helpCounts app:index.mjs:3593
+  0.7%  parse nm:postgres/src/types.js:19
+  0.7%  write app:index.mjs:125
+  0.7%  write :-1
+  0.7%  encode node:internal/encoding:350
+  0.6%  (anon) app:index.mjs:1749
+  0.6%  parse nm:postgres/src/types.js:13
+  0.6%  data nm:postgres/src/connection.js:300
+
+# CPU profile of the server (optimized build): only GET /api/live/:id, 10 concurrent clients, 15 s sampled
+total sampled 15003 ms
+== by package/file
+ 34.3%  app (dist/server)
+ 12.2%  nm:drizzle-orm
+ 10.0%  nm:postgres
+  5.4%  node:buffer
+  5.3%  ((idle))
+  4.2%  (utf8Slice)
+  3.8%  nm:hono
+  3.6%  ((garbage collector))
+  3.5%  (writeBuffer)
+  2.6%  node:internal/deps/undici/undici
+  1.7%  ((program))
+  1.5%  (runMicrotasks)
+  1.0%  node:internal/buffer
+  1.0%  nm:@hono/node-server
+  0.8%  node:inspector
+  0.7%  (native)
+  0.6%  (writev)
+  0.6%  node:events
+  0.6%  node:internal/webstreams/readablestream
+  0.6%  node:internal/encoding
+  0.5%  node:internal/streams/readable
+  0.4%  node:zlib
+  0.3%  node:internal/stream_base_commons
+  0.3%  (write)
+  0.3%  node:_http_server
+  0.3%  node:_http_outgoing
+  0.3%  node:internal/streams/writable
+  0.2%  node:internal/process/task_queues
+  0.2%  node:_http_incoming
+  0.2%  node:internal/timers
+== by function (self)
+ 18.7%  liveSnapshot app:index.mjs:4702
+  5.3%  (idle) :-1
+  4.2%  utf8Slice :-1
+  4.2%  is nm:drizzle-orm/entity.js:2
+  4.0%  slice node:buffer:635
+  3.6%  (garbage collector) :-1
+  3.5%  writeBuffer :-1
+  3.0%  DataRow nm:postgres/src/connection.js:491
+  2.9%  (anon) app:index.mjs:4753
+  2.6%  helpCounts app:index.mjs:3593
+  2.5%  json nm:hono/dist/context.js:335
+  2.5%  lastSignalAt app:index.mjs:3522
+  1.9%  parse nm:postgres/src/types.js:13
+  1.7%  (program) :-1
+  1.5%  runMicrotasks :-1
+  1.2%  tutorQuestion app:index.mjs:1541
+  1.1%  (anon) nm:drizzle-orm/utils.js:9
+  1.1%  (anon) nm:drizzle-orm/sql/sql.js:82
+  1.0%  data nm:postgres/src/connection.js:300
+  0.9%  buildQueryFromSourceParams nm:drizzle-orm/sql/sql.js:69
+  0.8%  Result nm:postgres/src/result.js:1
+  0.8%  post node:inspector:117
+  0.7%  currentStage app:index.mjs:3549
+  0.7%  (anon) :-1
+  0.7%  progressFor app:index.mjs:3663
+  0.6%  mapFromDriverValue nm:drizzle-orm/pg-core/columns/timestamp.js:29
+  0.6%  writev :-1
+  0.6%  FastBuffer node:internal/buffer:955
+  0.6%  encode node:internal/encoding:350
+  0.6%  handle nm:postgres/src/connection.js:460

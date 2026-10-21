@@ -1,0 +1,192 @@
+{
+  "label": "after",
+  "date": "2026-10-21T05:28:05.028Z",
+  "runs": 3,
+  "settings": "Chrome (Playwright), 412x823, CPU 4x via CDP, no network throttling, Event Timing durationThreshold 16 ms",
+  "chrome": "155.0.8059.80",
+  "scenarios": {
+    "student-chat": {
+      "medianInpMs": 48,
+      "medianP75Ms": 40,
+      "maxInpMs": 88,
+      "samples": [
+        {
+          "interactionsOver16ms": 70,
+          "inpMs": 88,
+          "p75Ms": 40,
+          "top": [
+            "88ms keydown «composer»",
+            "80ms keydown «Cre»",
+            "72ms keydown «Creo»",
+            "72ms keyup «Cre»",
+            "40ms keydown «y también agua»"
+          ],
+          "worst": {
+            "name": "keydown",
+            "inputDelay": 0,
+            "processing": 30,
+            "presentation": 58
+          }
+        },
+        {
+          "interactionsOver16ms": 70,
+          "inpMs": 48,
+          "p75Ms": 40,
+          "top": [
+            "48ms keydown «composer»",
+            "48ms keydown «Cr»",
+            "40ms keydown «y también agua»",
+            "40ms keydown «y también agu»",
+            "40ms keydown «y también ag»"
+          ],
+          "worst": {
+            "name": "keydown",
+            "inputDelay": 0,
+            "processing": 29,
+            "presentation": 19
+          }
+        },
+        {
+          "interactionsOver16ms": 70,
+          "inpMs": 48,
+          "p75Ms": 40,
+          "top": [
+            "48ms keydown «y t»",
+            "48ms keydown «composer»",
+            "48ms keydown «Cr»",
+            "40ms keydown «y también»",
+            "40ms keydown «y tamb»"
+          ],
+          "worst": {
+            "name": "keydown",
+            "inputDelay": 1,
+            "processing": 1,
+            "presentation": 46
+          }
+        }
+      ]
+    },
+    "teacher-live": {
+      "medianInpMs": 312,
+      "medianP75Ms": 216,
+      "maxInpMs": 320,
+      "samples": [
+        {
+          "interactionsOver16ms": 10,
+          "inpMs": 312,
+          "p75Ms": 184,
+          "top": [
+            "312ms pointerdown «Configuración»",
+            "288ms pointerdown «Todos29»",
+            "184ms pointerdown «En vivo29»",
+            "184ms pointerdown «Todos29»",
+            "160ms pointerdown «Trabajando24»"
+          ],
+          "worst": {
+            "name": "pointerdown",
+            "inputDelay": 37,
+            "processing": 4,
+            "presentation": 271
+          }
+        },
+        {
+          "interactionsOver16ms": 10,
+          "inpMs": 320,
+          "p75Ms": 216,
+          "top": [
+            "320ms pointerdown «Todos29»",
+            "216ms pointerdown «Configuración»",
+            "216ms pointerdown «Todos29»",
+            "200ms pointerdown «En vivo29»",
+            "176ms pointerdown «Trabajando24»"
+          ],
+          "worst": {
+            "name": "pointerdown",
+            "inputDelay": 6,
+            "processing": 3,
+            "presentation": 311
+          }
+        },
+        {
+          "interactionsOver16ms": 10,
+          "inpMs": 280,
+          "p75Ms": 216,
+          "top": [
+            "280ms pointerdown «Configuración»",
+            "256ms pointerdown «Todos29»",
+            "216ms pointerdown «Todos29»",
+            "168ms pointerdown «En vivo29»",
+            "144ms pointerdown «Trabajando24»"
+          ],
+          "worst": {
+            "name": "pointerdown",
+            "inputDelay": 6,
+            "processing": 3,
+            "presentation": 272
+          }
+        }
+      ]
+    },
+    "teacher-classroom": {
+      "medianInpMs": 176,
+      "medianP75Ms": 112,
+      "maxInpMs": 184,
+      "samples": [
+        {
+          "interactionsOver16ms": 5,
+          "inpMs": 176,
+          "p75Ms": 112,
+          "top": [
+            "176ms pointerdown «Alumnos»",
+            "112ms pointerdown «Alumnos»",
+            "112ms pointerdown «Alertas»",
+            "48ms pointerdown «Actividades»",
+            "48ms pointerdown «Actividades»"
+          ],
+          "worst": {
+            "name": "pointerdown",
+            "inputDelay": 9,
+            "processing": 3,
+            "presentation": 164
+          }
+        },
+        {
+          "interactionsOver16ms": 5,
+          "inpMs": 184,
+          "p75Ms": 112,
+          "top": [
+            "184ms pointerdown «Alumnos»",
+            "112ms pointerdown «Alertas»",
+            "96ms pointerdown «Alumnos»",
+            "56ms pointerdown «Actividades»",
+            "48ms pointerdown «Actividades»"
+          ],
+          "worst": {
+            "name": "pointerdown",
+            "inputDelay": 10,
+            "processing": 3,
+            "presentation": 172
+          }
+        },
+        {
+          "interactionsOver16ms": 5,
+          "inpMs": 160,
+          "p75Ms": 80,
+          "top": [
+            "160ms pointerdown «Alumnos»",
+            "80ms pointerdown «Alumnos»",
+            "80ms pointerdown «Alertas»",
+            "48ms pointerdown «Actividades»",
+            "48ms pointerdown «Actividades»"
+          ],
+          "worst": {
+            "name": "pointerdown",
+            "inputDelay": 8,
+            "processing": 2,
+            "presentation": 150
+          }
+        }
+      ]
+    }
+  }
+}

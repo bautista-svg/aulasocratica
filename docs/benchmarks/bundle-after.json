@@ -1,0 +1,123 @@
+{
+  "label": "after",
+  "date": "2026-10-21T06:07:30.715Z",
+  "note": "raw = minified bytes; br = Brotli q11 (what the server sends, precompressed). Per route: entry chunk + route chunk + static imports.",
+  "entryChunk": {
+    "file": "assets/index-CEv6O6F5.js",
+    "raw": 46533,
+    "br": 13877,
+    "renderedBytesByPackage": {
+      "nm:tailwind-merge": 56672,
+      "app code": 26786,
+      "nm:clsx": 531
+    }
+  },
+  "entryClosure": {
+    "raw": 378567,
+    "br": 105495,
+    "files": 4
+  },
+  "routes": {
+    "admin": {
+      "raw": 489684,
+      "br": 138422,
+      "files": 15
+    },
+    "app": {
+      "raw": 440591,
+      "br": 126060,
+      "files": 16
+    },
+    "app.actividades.$activityId": {
+      "raw": 769860,
+      "br": 215941,
+      "files": 42
+    },
+    "app.alumnos.$studentId": {
+      "raw": 401617,
+      "br": 114327,
+      "files": 15
+    },
+    "app.aulas.$classroomId": {
+      "raw": 577023,
+      "br": 166124,
+      "files": 30
+    },
+    "app.aulas.index": {
+      "raw": 478768,
+      "br": 135720,
+      "files": 17
+    },
+    "app.crear": {
+      "raw": 734068,
+      "br": 209912,
+      "files": 39
+    },
+    "app.cuenta": {
+      "raw": 556166,
+      "br": 160548,
+      "files": 26
+    },
+    "app.index": {
+      "raw": 510905,
+      "br": 146376,
+      "files": 28
+    },
+    "app.informes.$reportId": {
+      "raw": 552691,
+      "br": 158491,
+      "files": 23
+    },
+    "app.informes.index": {
+      "raw": 570156,
+      "br": 158873,
+      "files": 19
+    },
+    "app.materiales": {
+      "raw": 659402,
+      "br": 187399,
+      "files": 29
+    },
+    "app.radiografia": {
+      "raw": 443740,
+      "br": 125713,
+      "files": 17
+    },
+    "app.sesiones.$sessionId": {
+      "raw": 598314,
+      "br": 171804,
+      "files": 30
+    },
+    "app.tutores": {
+      "raw": 675141,
+      "br": 192042,
+      "files": 31
+    },
+    "clase.$token": {
+      "raw": 460538,
+      "br": 131553,
+      "files": 21
+    },
+    "index": {
+      "raw": 388126,
+      "br": 108586,
+      "files": 6
+    },
+    "ingresar": {
+      "raw": 549970,
+      "br": 157901,
+      "files": 23
+    },
+    "privacidad": {
+      "raw": 390475,
+      "br": 109630,
+      "files": 8
+    }
+  },
+  "allJs": {
+    "raw": 1151529,
+    "br": 335353,
+    "files": 90,
+    "chunks": 90
+  }
+}
