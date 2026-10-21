@@ -5,8 +5,8 @@
 //   activity reading material of 2,000–9,000 characters (the editor allows 20,000);
 //   plus 9 other workspaces at one third of that volume each (multi-tenant tables).
 // The same seed (PRNG) always produces the same ids, names and texts; timestamps are relative to
-// "now" so the live activity really is live. It applies the migrations in drizzle/ first and
-// TRUNCATES every table of the target database.
+// "now" so the live activity really is live. It DROPS the public schema of the target database and
+// rebuilds it from the migrations in drizzle/ (only databases named *perf* or *bench* are accepted).
 // Usage: DATABASE_URL=postgres://…/aula_perf node scripts/bench/seed.mjs [--out data-perf/seed-info.json]
 import fs from "node:fs";
 import path from "node:path";
@@ -204,7 +204,10 @@ function addSession(ws, activityId, studentId, live, index, link) {
   const nMsgs = (live ? int(14, 26) : int(8, 32)) & ~1; // even: user + assistant turns
   const nEvents = live ? int(30, 50) : int(28, 52);
   let t = startedAt;
-  const step = () => (t += int(20, 90) * 1000);
+  // Live sessions fit every message and event between their start and one minute ago (never in
+  // the future, so a new message really is the latest one); the others take 20–90 s per step.
+  const liveStep = Math.floor((NOW - MIN - startedAt) / (nMsgs + nEvents + 2));
+  const step = () => (t += live ? int(Math.floor(liveStep / 2), liveStep) : int(20, 90) * 1000);
   const evs = [];
   const ev = (type, details = {}, messageId = null) => evs.push({ id: uuid(), session_id: id, event_type: type, source: "observed", message_id: messageId, details: JSON.stringify(details), created_at: at(step()) });
   ev("session_entered", { resumed: false });
@@ -271,9 +274,11 @@ for (let i = 1; i <= 9; i++) workspace(`Otro espacio ${i} (bench)`, 1 / 3);
 
 // ── Write ──
 const started = Date.now();
+// The schema is rebuilt from this checkout's migrations, so a "before" run never keeps indexes
+// that a later migration added.
+await sql.unsafe("drop schema if exists drizzle cascade; drop schema public cascade; create schema public;");
 await migrate(drizzle(sql), { migrationsFolder: path.resolve("drizzle") });
 const tables = Object.keys(T);
-await sql.unsafe(`truncate ${[...tables, "tutors", "activity_files", "reports", "audit_logs", "ai_usage"].map((t) => `"${t}"`).join(", ")} cascade`);
 for (const table of tables) {
   const rows = T[table];
   if (!rows.length) continue;
