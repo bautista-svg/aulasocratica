@@ -1,7 +1,7 @@
 // "En vivo" tab of an activity. Shows ONLY the students who joined THIS activity (its
 // learning sessions), never the whole classroom roster. Updates through Server-Sent Events
 // with polling as a fallback.
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -41,10 +41,12 @@ function LivePanelView({ activityId }: { activityId: string }) {
   const { connected } = useActivityStream(activityId, () => refetch());
   const now = useNow(5_000);
   useImmediateAlertToasts(q.data);
+  // Every refresh (polling, events) re-renders the whole view: rendering the new snapshot as a
+  // deferred, interruptible update keeps clicks responsive and avoids one long blocking task.
+  const snap = useDeferredValue(q.data);
 
-  if (q.isPending) return <LiveSkeleton />;
   if (q.isError && !q.data) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
-  const snap = q.data!;
+  if (!snap) return <LiveSkeleton />;
   const ago = Math.max(0, Math.round((now - q.dataUpdatedAt) / 1000));
 
   return (
