@@ -9,6 +9,9 @@ import { env } from "../env";
 import { db, schema } from "../db/client";
 import { HttpError } from "../lib/errors";
 import { log, errorFields } from "../lib/logger";
+import { wellFormed } from "./well-formed";
+
+export { wellFormed };
 
 let client: Anthropic | null = null;
 
@@ -63,8 +66,13 @@ export function aiError(err: unknown, ctx: UsageContext): HttpError {
     return new HttpError(503, "La IA no está disponible por un problema de configuración del servidor.", "ai_config");
   }
   if (err instanceof Anthropic.BadRequestError) {
-    // A missing/invalid workspace id surfaces as a 400 on every request.
-    return new HttpError(503, "La IA no está disponible por un problema de configuración del servidor.", "ai_config");
+    // A missing/invalid workspace id or key surfaces as a 400 on every request: that is configuration.
+    // Any other 400 is about this request (its content), not about the server.
+    const detail = String((err as Error).message ?? "").toLowerCase();
+    if (/workspace|api[ _-]?key|authentication|credential|permission/.test(detail)) {
+      return new HttpError(503, "La IA no está disponible por un problema de configuración del servidor.", "ai_config");
+    }
+    return new HttpError(502, "La IA no pudo procesar este pedido. Probá de nuevo; si vuelve a pasar, probá con otro material o avisanos.", "ai_rejected");
   }
   if (err instanceof Anthropic.APIConnectionError || err instanceof Anthropic.InternalServerError) {
     return new HttpError(503, "No pudimos comunicarnos con la IA. Probá de nuevo en unos segundos.", "ai_unreachable");
@@ -163,9 +171,9 @@ export async function generateStructured<S extends z.ZodType>(req: StructuredReq
     response = await anthropic().messages.parse({
       model: MODEL,
       max_tokens: req.maxTokens ?? 8000,
-      system: req.system,
+      system: wellFormed(req.system),
       output_config: { effort: req.effort ?? "medium", format: zodOutputFormat(req.schema) },
-      messages: [{ role: "user", content: req.content }],
+      messages: [{ role: "user", content: wellFormed(req.content) }],
     });
   } catch (err) {
     await recordUsage(req, null, false);
@@ -189,9 +197,9 @@ export async function generateText(req: UsageContext & { system: string; content
     response = await anthropic().messages.create({
       model: MODEL,
       max_tokens: req.maxTokens ?? 16000,
-      system: req.system,
+      system: wellFormed(req.system),
       output_config: { effort: "low" },
-      messages: [{ role: "user", content: req.content }],
+      messages: [{ role: "user", content: wellFormed(req.content) }],
     });
   } catch (err) {
     await recordUsage(req, null, false);

@@ -9,7 +9,7 @@ import { streamSSE } from "hono/streaming";
 import type Anthropic from "@anthropic-ai/sdk";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db, schema } from "../../db/client";
-import { anthropic, aiError, assertBudget, recordUsage, MODEL, type UsageContext } from "../../ai/client";
+import { anthropic, aiError, assertBudget, recordUsage, wellFormed, MODEL, type UsageContext } from "../../ai/client";
 import { env } from "../../env";
 import { HttpError } from "../../lib/errors";
 import { hit } from "../../lib/rate-limit";
@@ -240,8 +240,8 @@ function streamReply(
           max_tokens: TUTOR_MAX_TOKENS,
           thinking: { type: "disabled" },
           output_config: { effort: "low" },
-          system: opts.system,
-          messages: opts.messages,
+          system: wellFormed(opts.system),
+          messages: wellFormed(opts.messages),
         });
         for await (const event of stream) {
           if (event.type === "content_block_delta" && event.delta.type === "text_delta") {

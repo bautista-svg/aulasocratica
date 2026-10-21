@@ -126,6 +126,32 @@ describe("class proposals", () => {
     expect(aiMock.lastRequest()).toBe(before); // the AI was not called
   });
 
+  it("never sends half of a character to the AI (the API rejects the whole request)", async () => {
+    const a = await newTeacher();
+    const half = "𝑥".slice(0, 1); // a lone UTF-16 surrogate, as left by cutting text at a fixed length
+    aiMock.json({ proposals: [aiProposal(), aiProposal({ title: "B" }), aiProposal({ title: "C" })] });
+    const r = await call("POST", "/api/planning/proposals", { cookie: a.cookie, body: { ...baseInput, extraText: `Fórmula con 𝑥 y una letra cortada ${half}` } });
+    expect(r.status).toBe(200);
+    const sent = JSON.stringify(aiMock.lastRequest()!.body);
+    expect(sent).toContain("Fórmula con 𝑥");
+    // JSON.stringify writes only lone surrogates as escapes (\udXXX): none may remain.
+    expect(sent).not.toMatch(/\\ud[89a-f][0-9a-f]{2}/i);
+  });
+
+  it("tells a rejected request apart from a configuration problem", async () => {
+    const a = await newTeacher();
+    aiMock.error(400, "invalid_request_error", "The request body is not valid JSON: unexpected end of hex escape at line 1 column 74791");
+    const r = await call("POST", "/api/planning/proposals", { cookie: a.cookie, body: baseInput });
+    expect(r.status).toBe(502);
+    expect(r.body.error.code).toBe("ai_rejected");
+    expect(r.body.error.message).not.toMatch(/configuración/);
+
+    aiMock.error(400, "invalid_request_error", "anthropic-workspace-id header is required for this API key");
+    const cfg = await call("POST", "/api/planning/proposals", { cookie: a.cookie, body: baseInput });
+    expect(cfg.status).toBe(503);
+    expect(cfg.body.error.code).toBe("ai_config");
+  });
+
   it("explains when the AI is unavailable and validates the input", async () => {
     const a = await newTeacher();
     aiMock.error(401, "authentication_error", "invalid x-api-key");
