@@ -1,0 +1,250 @@
+@import "tailwindcss" source("../");
+
+/*
+ * Aula Socrática — design tokens.
+ * Ink navy (the logo bubble) and lilac (its question mark) on cool paper; leaf green
+ * only for "logrado". Fraunces is reserved for headings and for the tutor's questions,
+ * which hang a lilac "?" in the margin — the product's signature.
+ */
+
+@font-face {
+  font-family: "Figtree";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 300 900;
+  src: url("../../node_modules/@fontsource-variable/figtree/files/figtree-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Fraunces";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("../../node_modules/@fontsource-variable/fraunces/files/fraunces-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Fraunces";
+  font-style: italic;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("../../node_modules/@fontsource-variable/fraunces/files/fraunces-latin-wght-italic.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* Metric-matched fallbacks so the swap to web fonts does not shift the layout. */
+@font-face {
+  font-family: "Figtree Fallback";
+  src: local("Arial"), local("Helvetica Neue"), local("Roboto");
+  size-adjust: 102%;
+  ascent-override: 93%;
+  descent-override: 24%;
+}
+@font-face {
+  font-family: "Fraunces Fallback";
+  src: local("Georgia"), local("Times New Roman");
+  size-adjust: 104%;
+  ascent-override: 95%;
+  descent-override: 25%;
+}
+
+@theme {
+  --font-sans: "Figtree", "Figtree Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", "Fraunces Fallback", Georgia, serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, monospace;
+
+  --color-paper: #f6f7fb;
+  --color-surface: #ffffff;
+  --color-sunken: #eef0f7;
+  --color-line: #dde1ec;
+  --color-line-strong: #c5cbdb;
+
+  --color-ink: #14295c;
+  --color-ink-hover: #1d3a7e;
+  --color-ink-soft: #e6ebf6;
+
+  --color-text: #172036;
+  --color-text-2: #4b5470;
+  --color-text-3: #646c88;
+
+  --color-lilac: #9b87e8;
+  --color-lilac-ink: #5b45b8;
+  --color-lilac-soft: #efebfc;
+
+  --color-leaf: #3f6b22;
+  --color-leaf-bright: #7db04a;
+  --color-leaf-soft: #e7f1df;
+
+  --color-amber: #85570a;
+  --color-amber-soft: #fcf1d9;
+
+  --color-rose: #b4232f;
+  --color-rose-hover: #9a1c27;
+  --color-rose-soft: #fbe7e8;
+
+  --color-heat-0: #f1f3f8;
+  --color-heat-1: #dcebd0;
+  --color-heat-2: #b9d99c;
+  --color-heat-3: #f1d78a;
+  --color-heat-4: #eca866;
+  --color-heat-5: #d9534f;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+
+  --shadow-1: 0 1px 2px rgb(20 41 92 / 0.06);
+  --shadow-2: 0 1px 2px rgb(20 41 92 / 0.05), 0 10px 28px -14px rgb(20 41 92 / 0.22);
+  --shadow-pop: 0 2px 6px rgb(20 41 92 / 0.08), 0 24px 48px -16px rgb(20 41 92 / 0.32);
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+    -webkit-tap-highlight-color: transparent;
+  }
+  html {
+    font-family: var(--font-sans);
+    background: var(--color-paper);
+    color: var(--color-text);
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "ss01" on;
+  }
+  body {
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  ::selection {
+    background: var(--color-lilac-soft);
+    color: var(--color-ink);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-lilac-ink);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  button, [role="button"], a, input, select, textarea {
+    touch-action: manipulation;
+  }
+  input, textarea, select {
+    font-size: max(16px, 1rem); /* avoids iOS zoom on focus */
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .font-display {
+    font-optical-sizing: auto;
+    letter-spacing: -0.01em;
+  }
+
+  /* Signature: a tutor question with a lilac question mark hanging in the margin. */
+  .q-hang {
+    position: relative;
+    padding-left: 1.6em;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 420;
+    color: var(--color-ink);
+  }
+  .q-hang::before {
+    content: "?";
+    content: "?" / "";
+    position: absolute;
+    left: 0.1em;
+    top: -0.08em;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 700;
+    font-size: 1.35em;
+    line-height: 1;
+    color: var(--color-lilac);
+  }
+
+  /* The thread that connects steps of a student's thinking path. */
+  .thread {
+    position: relative;
+  }
+  .thread::before {
+    content: "";
+    position: absolute;
+    left: 11px;
+    top: 14px;
+    bottom: 14px;
+    width: 2px;
+    border-radius: 2px;
+    background: linear-gradient(var(--color-line-strong), var(--color-lilac) 50%, var(--color-leaf-bright));
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .safe-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom), 0px);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes caret {
+  50% {
+    opacity: 0;
+  }
+}
+@keyframes pulse-dot {
+  0%, 100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+@utility animate-rise {
+  animation: rise 220ms var(--ease-out-soft) both;
+}
+@utility animate-caret {
+  animation: caret 1s steps(1) infinite;
+}
+@utility animate-pulse-dot {
+  animation: pulse-dot 1.2s ease-in-out infinite;
+}
+@utility skeleton {
+  background: linear-gradient(90deg, var(--color-sunken) 25%, #f7f8fc 37%, var(--color-sunken) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+  border-radius: var(--radius-sm);
+}

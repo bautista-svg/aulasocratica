@@ -1,0 +1,14 @@
+node_modules/
+dist/
+data/
+.env
+.env.*
+!.env.example
+_original/
+*.zip
+test-results/
+playwright-report/
+coverage/
+*.log
+.DS_Store
+src/client/routeTree.gen.ts

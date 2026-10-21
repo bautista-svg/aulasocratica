@@ -1,0 +1,26 @@
+{
+  "label": "original-local",
+  "date": "2026-10-21T01:39:14.641Z",
+  "runsPerUrl": 10,
+  "apiPattern": "_serverFn|supabase|/api/",
+  "urls": {
+    "http://localhost:4100/": {
+      "apiCalls": 0,
+      "apiP50Ms": null,
+      "apiP95Ms": null,
+      "navTtfbP50Ms": 2,
+      "domContentLoadedP50Ms": 455,
+      "loadP50Ms": 865,
+      "jsHeapP50Bytes": 4382729
+    },
+    "http://localhost:4100/clase/token-inexistente": {
+      "apiCalls": 0,
+      "apiP50Ms": null,
+      "apiP95Ms": null,
+      "navTtfbP50Ms": 2,
+      "domContentLoadedP50Ms": 430,
+      "loadP50Ms": 845,
+      "jsHeapP50Bytes": 13125991
+    }
+  }
+}

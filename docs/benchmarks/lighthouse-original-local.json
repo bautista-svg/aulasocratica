@@ -1,0 +1,206 @@
+{
+  "label": "original-local",
+  "date": "2026-10-21T01:37:26.876Z",
+  "runsPerUrl": 3,
+  "machine": {
+    "platform": "win32",
+    "cpus": "12th Gen Intel(R) Core(TM) i9-12900F",
+    "cpuCount": 24,
+    "memGB": 34
+  },
+  "settings": "Lighthouse default mobile: Moto G Power emulation, simulated throttling (150ms RTT, 1.6Mbps down, 4x CPU)",
+  "urls": {
+    "http://localhost:4100/": {
+      "median": {
+        "performanceScore": 0.62,
+        "accessibilityScore": 0.96,
+        "bestPracticesScore": 1,
+        "seoScore": 1,
+        "fcpMs": 6113.645,
+        "lcpMs": 6563.374,
+        "cls": 0,
+        "tbtMs": 0,
+        "speedIndexMs": 6113.645,
+        "ttfbMs": 4,
+        "totalTransferBytes": 961773,
+        "jsTransferBytes": 700168,
+        "requests": 33
+      },
+      "samples": [
+        {
+          "performanceScore": 0.62,
+          "accessibilityScore": 0.96,
+          "bestPracticesScore": 1,
+          "seoScore": 1,
+          "fcpMs": 6113.645,
+          "lcpMs": 6563.374,
+          "cls": 0,
+          "tbtMs": 0,
+          "speedIndexMs": 6113.645,
+          "ttfbMs": 6,
+          "totalTransferBytes": 961773,
+          "jsTransferBytes": 700168,
+          "requests": 33
+        },
+        {
+          "performanceScore": 0.62,
+          "accessibilityScore": 0.96,
+          "bestPracticesScore": 1,
+          "seoScore": 1,
+          "fcpMs": 6113.89,
+          "lcpMs": 6564.068,
+          "cls": 0,
+          "tbtMs": 0,
+          "speedIndexMs": 6113.89,
+          "ttfbMs": 4,
+          "totalTransferBytes": 961773,
+          "jsTransferBytes": 700168,
+          "requests": 33
+        },
+        {
+          "performanceScore": 0.62,
+          "accessibilityScore": 0.96,
+          "bestPracticesScore": 1,
+          "seoScore": 1,
+          "fcpMs": 6112.093750000001,
+          "lcpMs": 6487.9125,
+          "cls": 0,
+          "tbtMs": 0,
+          "speedIndexMs": 6112.093750000001,
+          "ttfbMs": 3,
+          "totalTransferBytes": 961773,
+          "jsTransferBytes": 700168,
+          "requests": 33
+        }
+      ]
+    },
+    "http://localhost:4100/auth": {
+      "median": {
+        "performanceScore": 0.61,
+        "accessibilityScore": 0.98,
+        "bestPracticesScore": 1,
+        "seoScore": 1,
+        "fcpMs": 6173.6849999999995,
+        "lcpMs": 6790.822,
+        "cls": 0,
+        "tbtMs": 0,
+        "speedIndexMs": 6173.6849999999995,
+        "ttfbMs": 3,
+        "totalTransferBytes": 989472,
+        "jsTransferBytes": 728564,
+        "requests": 35
+      },
+      "samples": [
+        {
+          "performanceScore": 0.62,
+          "accessibilityScore": 0.98,
+          "bestPracticesScore": 1,
+          "seoScore": 1,
+          "fcpMs": 6172.085000000001,
+          "lcpMs": 6637.302,
+          "cls": 0,
+          "tbtMs": 0,
+          "speedIndexMs": 6172.085000000001,
+          "ttfbMs": 3,
+          "totalTransferBytes": 989473,
+          "jsTransferBytes": 728564,
+          "requests": 35
+        },
+        {
+          "performanceScore": 0.61,
+          "accessibilityScore": 0.98,
+          "bestPracticesScore": 1,
+          "seoScore": 1,
+          "fcpMs": 6177.046249999999,
+          "lcpMs": 6795.255499999999,
+          "cls": 0,
+          "tbtMs": 0,
+          "speedIndexMs": 6177.046249999999,
+          "ttfbMs": 3,
+          "totalTransferBytes": 989472,
+          "jsTransferBytes": 728564,
+          "requests": 35
+        },
+        {
+          "performanceScore": 0.61,
+          "accessibilityScore": 0.98,
+          "bestPracticesScore": 1,
+          "seoScore": 1,
+          "fcpMs": 6173.6849999999995,
+          "lcpMs": 6790.822,
+          "cls": 0,
+          "tbtMs": 0,
+          "speedIndexMs": 6173.6849999999995,
+          "ttfbMs": 4,
+          "totalTransferBytes": 989472,
+          "jsTransferBytes": 728564,
+          "requests": 35
+        }
+      ]
+    },
+    "http://localhost:4100/clase/token-inexistente": {
+      "median": {
+        "performanceScore": 0.55,
+        "accessibilityScore": 0.97,
+        "bestPracticesScore": 1,
+        "seoScore": 0.66,
+        "fcpMs": 13467.470000000001,
+        "lcpMs": 17915.205,
+        "cls": 0,
+        "tbtMs": 99.5,
+        "speedIndexMs": 13467.470000000001,
+        "ttfbMs": 2,
+        "totalTransferBytes": 3004895,
+        "jsTransferBytes": 2747669,
+        "requests": 75
+      },
+      "samples": [
+        {
+          "performanceScore": 0.55,
+          "accessibilityScore": 0.97,
+          "bestPracticesScore": 1,
+          "seoScore": 0.66,
+          "fcpMs": 13467.470000000001,
+          "lcpMs": 17915.205,
+          "cls": 0,
+          "tbtMs": 99.5,
+          "speedIndexMs": 13467.470000000001,
+          "ttfbMs": 4,
+          "totalTransferBytes": 3004895,
+          "jsTransferBytes": 2747669,
+          "requests": 75
+        },
+        {
+          "performanceScore": 0.55,
+          "accessibilityScore": 0.97,
+          "bestPracticesScore": 1,
+          "seoScore": 0.66,
+          "fcpMs": 13470.692,
+          "lcpMs": 17921.788,
+          "cls": 0,
+          "tbtMs": 100,
+          "speedIndexMs": 13470.692,
+          "ttfbMs": 2,
+          "totalTransferBytes": 3004895,
+          "jsTransferBytes": 2747669,
+          "requests": 75
+        },
+        {
+          "performanceScore": 0.55,
+          "accessibilityScore": 0.97,
+          "bestPracticesScore": 1,
+          "seoScore": 0.66,
+          "fcpMs": 13466.725999999999,
+          "lcpMs": 17763.839,
+          "cls": 0,
+          "tbtMs": 87,
+          "speedIndexMs": 13466.725999999999,
+          "ttfbMs": 2,
+          "totalTransferBytes": 3004895,
+          "jsTransferBytes": 2747669,
+          "requests": 75
+        }
+      ]
+    }
+  }
+}
