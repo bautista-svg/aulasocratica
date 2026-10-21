@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TUTOR_TYPES } from "../domain/pedagogy";
 
 /** A saved tutor in "Mis tutores". Built-in presets are copied into every workspace (presetKey set). */
 export interface TutorSummary {
@@ -27,8 +28,12 @@ export interface TutorDetail extends TutorSummary {
 const text = (max: number) => z.string().trim().max(max, `Usá hasta ${max} caracteres.`);
 
 export const tutorBody = z.object({
-  name: z.string().trim().min(1, "Poné un nombre.").max(120),
-  tutorType: z.string().min(1).max(40),
+  name: z.string().trim().min(1, "Poné un nombre.").max(120, "Usá hasta 120 caracteres."),
+  tutorType: z
+    .string()
+    .min(1)
+    .max(40)
+    .refine((v) => v in TUTOR_TYPES, "Elegí un tipo de tutor de la lista."),
   subject: text(80).default(""),
   studentAge: text(60).default(""),
   objectives: text(2000).default(""),
@@ -40,3 +45,27 @@ export const tutorBody = z.object({
   rules: text(3000).default(""),
 });
 export type TutorInput = z.input<typeof tutorBody>;
+
+/** PATCH: any subset of the fields (no defaults applied, so missing fields stay as they are). */
+export const tutorPatch = z.object({
+  name: z.string().trim().min(1, "Poné un nombre.").max(120, "Usá hasta 120 caracteres.").optional(),
+  tutorType: z
+    .string()
+    .min(1)
+    .max(40)
+    .refine((v) => v in TUTOR_TYPES, "Elegí un tipo de tutor de la lista.")
+    .optional(),
+  subject: text(80).optional(),
+  studentAge: text(60).optional(),
+  objectives: text(2000).optional(),
+  questionStyle: text(1000).optional(),
+  difficulty: z.enum(["basica", "intermedia", "avanzada"]).optional(),
+  helpLevel: z.enum(["autonomous", "moderate", "intensive"]).optional(),
+  strategies: text(2000).optional(),
+  closingCriteria: text(1000).optional(),
+  rules: text(3000).optional(),
+});
+export type TutorPatch = z.input<typeof tutorPatch>;
+
+/** Max custom tutors (presets do not count). */
+export const MAX_CUSTOM_TUTORS = 200;

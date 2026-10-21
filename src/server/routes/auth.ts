@@ -94,7 +94,7 @@ export const authRoutes = new Hono<AppEnv>()
       await audit(c, null, "login_failed", "teacher", null, { ip: clientIp(c) });
       throw new HttpError(401, "El correo o la contraseña no coinciden.", "bad_credentials");
     }
-    if (account.isSuspended) throw new HttpError(403, "Este espacio fue suspendido.", "suspended");
+    if (account.isSuspended) throw new HttpError(403, "Este espacio fue suspendido por el administrador del sitio.", "suspended");
     const current = c.get("teacher");
     let merged = false;
     if (current && current.id !== account.id && !current.hasAccount) {
@@ -126,10 +126,21 @@ export const authRoutes = new Hono<AppEnv>()
       .update(schema.teachers)
       .set({ passwordHash: await hashPassword(body.newPassword), recoveryCodeHash: code.hash })
       .where(eq(schema.teachers.id, account.id));
+    // Same as sign-in: keep what was done on this device without an account.
+    const current = c.get("teacher");
+    let merged = false;
+    if (current && current.id !== account.id && !current.hasAccount) {
+      if (await workspaceHasContent(current.id)) {
+        await mergeWorkspaces(current.id, account.id);
+        merged = true;
+      } else {
+        await db.delete(schema.teachers).where(eq(schema.teachers.id, current.id));
+      }
+    }
     await db.delete(schema.teacherSessions).where(eq(schema.teacherSessions.teacherId, account.id));
     await createTeacherSession(c, account.id);
-    await audit(c, account.id, "password_recovered", "teacher", account.id);
-    return c.json({ teacher: toMe(account), recoveryCode: code.display });
+    await audit(c, account.id, "password_recovered", "teacher", account.id, { merged });
+    return c.json({ teacher: toMe(account), recoveryCode: code.display, merged });
   })
 
   .post("/password", requireTeacher, rateLimit("password", 10, 15 * 60_000), async (c) => {

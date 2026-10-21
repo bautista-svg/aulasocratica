@@ -60,74 +60,95 @@ export const TUTOR_FORMAT_TYPES: Record<string, string> = {
 
 export const TUTOR_TYPES: Record<string, string> = { ...TUTOR_FOCUS_TYPES, ...TUTOR_FORMAT_TYPES };
 
-/** Teacher-facing explanation of each type, shown when choosing it. */
+/**
+ * Teacher-facing explanation of each type, shown when choosing it. Every text describes only
+ * what the tutor really does here: it converses by chat (and by voice when the teacher turns
+ * voice on for the activity). It never sees paper, runs code, browses the web or grades.
+ */
 export const TUTOR_TYPE_INFO: Record<string, { description: string; whenToUse: string }> = {
   conversacion_guiada: {
-    description: "Diálogo abierto con un agente que guía al estudiante hacia los objetivos del aprendizaje.",
-    whenToUse: "Elegila cuando importa más el razonamiento que la respuesta y el tema no tiene una única solución correcta.",
+    description:
+      "Conversación por pasos cortos y en orden: el tutor anuncia en qué paso están y avanza solo cuando el estudiante resolvió el anterior.",
+    whenToUse: "Elegila cuando el tema tiene una secuencia de pasos y querés que nadie se saltee ninguno.",
   },
   contenido_teorico: {
-    description: "Diálogo guiado sobre un texto que vos aportás: el estudiante lo lee y después lo piensa en voz alta.",
-    whenToUse: "Elegila cuando el material es tuyo y querés saber cómo cayó.",
+    description:
+      "Conversación sobre el material que cargás: el tutor pide definiciones con sus palabras, ejemplos propios y relaciones entre conceptos. Si el estudiante se traba, puede explicar brevemente una idea del material, sin resolver la consigna.",
+    whenToUse: "Elegila cuando el material es tuyo y querés saber cómo lo entendieron.",
   },
   conversacion_personaje: {
-    description: "Conversación en rol: el agente interpreta a un personaje definido con propósito pedagógico.",
-    whenToUse: "Elegila cuando la perspectiva es la clase: un momento histórico, una decisión profesional, un punto de vista que vale la pena habitar.",
+    description:
+      "El tutor habla en primera persona como el personaje que indiques en las reglas (por ejemplo, San Martín), con datos fieles al material, y le devuelve preguntas al estudiante.",
+    whenToUse:
+      "Elegila cuando la perspectiva es la clase: un momento histórico, una decisión profesional, un punto de vista que vale la pena habitar.",
   },
   repaso: {
-    description: "Repaso conversacional: la IA recorre preguntas simples de a una para chequear qué quedó del tema.",
+    description:
+      "Preguntas breves de recuperación sobre lo ya trabajado, de a una y de menor a mayor dificultad. El tutor pide que el estudiante explique con sus palabras.",
     whenToUse: "Elegilo después de enseñar un tema y antes de evaluarlo.",
   },
   debate_clase: {
-    description: "Fomenta el pensamiento crítico con temas de argumentación estructurados según tu materia.",
+    description:
+      "El tutor plantea una pregunta polémica del tema, pide que el estudiante tome postura y le presenta argumentos de otras posturas como si fueran de compañeros, sin decir cuál es la correcta.",
     whenToUse: "Elegilo para temas con posiciones enfrentadas legítimas y sustancia suficiente para discutir.",
   },
   debate_socratico: {
-    description: "Diálogo de preguntas socráticas que guía al estudiante a examinar y justificar sus ideas.",
-    whenToUse: "Elegilo cuando el estudiante ya sostiene una creencia que vale la pena examinar y aprende más cuestionándola que defendiéndola.",
+    description:
+      "El tutor toma la postura contraria a la del estudiante y la discute con preguntas y contraejemplos, para que fortalezca o revise sus razones.",
+    whenToUse:
+      "Elegilo cuando el estudiante ya sostiene una idea que vale la pena examinar y aprende más cuestionándola que defendiéndola.",
   },
   seleccion_multiple: {
-    description: "Evaluación rápida o preparación para exámenes con opción múltiple, emparejamiento y completar espacios.",
-    whenToUse: "Elegilo cuando necesitás una lectura rápida y comparable de todo el grupo.",
+    description:
+      "El tutor propone en el chat preguntas de opción múltiple (A, B, C, D), de a una. No dice cuál es la correcta: pide que el estudiante justifique su elección y por qué descartó las otras. No calcula puntajes.",
+    whenToUse: "Elegilo para repasar o preparar una evaluación con preguntas cerradas, sin perder la justificación.",
   },
   produccion_escrita: {
-    description: "Consigna clara de producción escrita con rúbrica de evaluación explícita.",
-    whenToUse: "Elegila cuando lo que te importa es el argumento y su estructura.",
+    description:
+      "Acompaña la escritura de un texto propio: planificar, escribir un borrador y revisarlo. El tutor pregunta por propósito, destinatario, orden de las ideas y claridad; no escribe el texto por el estudiante.",
+    whenToUse:
+      "Elegila cuando lo que te importa es el texto del estudiante y su estructura. Si querés evaluarlo con criterios, armá la rúbrica en la actividad.",
   },
   escritura_mano: {
-    description: "Actividad de captura y análisis de escritura manuscrita.",
-    whenToUse: "Elegila en alfabetización y numeración iniciales, o cada vez que lo que evaluás es el proceso en papel.",
+    description:
+      "El estudiante resuelve en papel y después le explica o escribe al tutor qué hizo, paso a paso. El tutor no ve el papel: pregunta sobre el procedimiento que el estudiante le cuenta.",
+    whenToUse:
+      "Elegila cuando el trabajo en papel es parte de lo que se aprende (cuentas, construcciones, borradores) y querés que lo expliquen.",
   },
   expresion_oral: {
-    description: "Práctica y evaluación de la expresión oral del estudiante.",
-    whenToUse: "Elegila para práctica de idioma, defensa oral, o cualquier objetivo donde la fluidez y la exposición sean parte de lo que se aprende.",
+    description:
+      "Prepara al estudiante para explicar un tema en voz alta: el tutor le pide respuestas como si las dijera frente a la clase y lo ayuda a ordenar sus ideas. Si activás la voz en la actividad, puede hablarle; si no, escribe. No evalúa pronunciación ni fluidez.",
+    whenToUse: "Elegila para preparar una exposición, una lección oral o una defensa de un trabajo.",
   },
   comprension_lectora: {
-    description: "Acompaña la lectura con preguntas sobre qué dice el texto, qué quiere decir y en qué parte se apoya cada idea.",
+    description:
+      "Acompaña la lectura con preguntas sobre qué dice el texto, qué quiere decir y en qué parte se apoya cada idea.",
     whenToUse: "Elegilo cuando el objetivo es entender un texto en profundidad, no solo encontrar datos.",
   },
   matematico: {
-    description: "Diálogo para razonar en matemática: probar con ejemplos, buscar contraejemplos y justificar cada paso.",
+    description: "Conversación para razonar en matemática: probar con ejemplos, buscar contraejemplos y justificar cada paso.",
     whenToUse: "Elegilo cuando importa el procedimiento y la justificación más que el resultado.",
   },
   pensamiento_critico: {
-    description: "Trabaja supuestos, evidencias, puntos de vista alternativos y consecuencias.",
+    description: "Pregunta por supuestos, evidencias, puntos de vista alternativos y consecuencias.",
     whenToUse: "Elegilo cuando el tema invita a cuestionar fuentes, opiniones o información.",
   },
   argumentacion: {
     description: "Ayuda a construir una postura propia con tesis, razones, ejemplos y respuesta a las objeciones.",
-    whenToUse: "Elegilo cuando querés que el estudiante defienda una idea, por escrito u oralmente.",
+    whenToUse: "Elegilo cuando querés que el estudiante defienda una idea con razones y responda a otras posturas.",
   },
   resolucion_problemas: {
     description: "Guía a identificar datos e incógnita y a armar un plan antes de resolver.",
     whenToUse: "Elegilo para problemas de varios pasos, cuando los chicos se apuran a calcular sin entender.",
   },
   investigacion: {
-    description: "Acompaña a formular preguntas investigables y a valorar la confiabilidad de las fuentes.",
+    description:
+      "Acompaña a formular preguntas investigables y a valorar la confiabilidad de las fuentes. El tutor no busca en internet: trabaja con las fuentes del material o con las que el estudiante le cuente.",
     whenToUse: "Elegilo en proyectos o trabajos que piden buscar y seleccionar información.",
   },
   programacion: {
-    description: "Pide predecir qué hace el código antes de probarlo y explicar cada parte.",
+    description:
+      "Pide predecir qué hace el código antes de probarlo y explicar cada parte. El tutor no ejecuta código: el estudiante lo prueba por su cuenta y le cuenta qué pasó.",
     whenToUse: "Elegilo para aprender a programar entendiendo, no copiando código.",
   },
   metacognicion: {

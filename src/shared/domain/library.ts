@@ -2,8 +2,30 @@
 export const MAX_TAGS = 10;
 export const MAX_TAG_LENGTH = 30;
 export const MAX_FOLDER_LENGTH = 80;
-/** Max characters of a text/link material appended to an activity's written material. */
+/** Materials per workspace. */
+export const MAX_MATERIALS = 500;
+export const MAX_MATERIAL_TITLE = 200;
+/** A written text material (the teacher types or pastes it). */
+export const MAX_TEXT_BODY = 100_000;
+export const MAX_LINK_NOTE = 2000;
+/**
+ * Max characters of a text material appended to an activity's written material. Longer texts
+ * are attached whole as a text file instead (nothing is cut).
+ */
 export const MAX_TEXT_FOR_ACTIVITY = 6000;
+/** Max materials chosen at once (wizard, attach). */
+export const MAX_PICK = 10;
+/** Characters per page of the extracted-text preview. */
+export const PREVIEW_PAGE_CHARS = 12_000;
+
+export type MaterialKind = "file" | "link" | "text";
+export const MATERIAL_KIND_LABEL: Record<MaterialKind, string> = { file: "Archivo", link: "Enlace", text: "Texto" };
+
+/** Default title for an uploaded file: its name without extension. */
+export function titleFromFileName(name: string): string {
+  const base = name.replace(/\.[a-z0-9]{1,8}$/i, "").replace(/[_]+/g, " ").replace(/\s+/g, " ").trim();
+  return (base || "Archivo").slice(0, MAX_MATERIAL_TITLE);
+}
 
 export function sanitizeTags(input: string | string[]): string[] {
   const raw = Array.isArray(input) ? input : input.split(/[,;\n]/);
@@ -37,6 +59,14 @@ export function materialAsActivityText(m: { title: string; kind: string; url: st
     return `— ${title} —\nEnlace: ${m.url ?? ""}${note}`;
   }
   return `— ${title} —\n${m.body.trim().slice(0, MAX_TEXT_FOR_ACTIVITY)}`;
+}
+
+/** Appends a block to an activity's written material without touching what is already there. */
+export function appendMaterialText(current: string, block: string): string {
+  const cur = current.replace(/\s+$/, "");
+  const add = block.trim();
+  if (!add) return current;
+  return cur ? `${cur}\n\n${add}` : add;
 }
 
 export interface LibraryFilter {

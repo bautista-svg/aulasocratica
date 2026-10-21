@@ -1,8 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { z } from "zod";
+import { PageSpinner } from "@client/components/ui/spinner";
+import { useMe } from "@client/lib/session";
+import { CreateWizard } from "@client/features/planning/create-wizard";
 
-// TODO(module owner): placeholder — replace with the real "Crear con IA" wizard.
 export const Route = createFileRoute("/app/crear")({
   validateSearch: z.object({ aula: z.string().uuid().optional() }),
-  component: () => <p className="p-8 text-text-2">Pantalla pendiente.</p>,
+  component: CreatePage,
 });
+
+function CreatePage() {
+  const { aula } = Route.useSearch();
+  const me = useMe();
+  useEffect(() => {
+    document.title = "Crear con IA · Aula Socrática";
+  }, []);
+  const teacherId = me.data?.teacher?.id;
+  if (!teacherId) return <PageSpinner />;
+  // Keyed by workspace: the saved wizard belongs to this workspace only.
+  return <CreateWizard key={teacherId} teacherId={teacherId} aula={aula} />;
+}

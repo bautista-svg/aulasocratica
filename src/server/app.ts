@@ -42,10 +42,11 @@ export function createApp(opts: { staticDir?: string | null } = {}) {
     c.header("Server-Timing", `app;dur=${ms}`);
   });
   app.use("*", securityHeaders);
+  // gzip for JSON/HTML (SSE is excluded by Hono's filter; static assets are precompressed).
+  app.use("*", compress());
   app.onError(onError);
 
   const api = new Hono<AppEnv>();
-  api.use("*", compress());
   api.use("*", sameOriginMutations);
   // Uploads get a larger limit; everything else is small JSON.
   api.use("*", async (c, next) => {
@@ -88,6 +89,13 @@ export function createApp(opts: { staticDir?: string | null } = {}) {
   const staticDir = opts.staticDir;
   if (staticDir && fs.existsSync(staticDir)) {
     const indexHtml = fs.readFileSync(path.join(staticDir, "index.html"), "utf8");
+    const landingPath = path.join(staticDir, "landing.html");
+    const landingHtml = fs.existsSync(landingPath) ? fs.readFileSync(landingPath, "utf8") : indexHtml;
+    // The public landing is prerendered at build time (fast first paint without JS).
+    app.get("/", (c) => {
+      c.header("Cache-Control", "no-cache");
+      return c.html(landingHtml);
+    });
     app.use(
       "/assets/*",
       serveStatic({

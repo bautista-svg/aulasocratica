@@ -83,7 +83,7 @@ export const loadTeacher: MiddlewareHandler<AppEnv> = async (c, next) => {
         await db.update(schema.teachers).set({ lastSeenAt: new Date(now) }).where(eq(schema.teachers.id, row.teacherId));
       }
     } else if (row?.isSuspended) {
-      throw new HttpError(403, "Este espacio fue suspendido. Escribinos si creés que es un error.", "suspended");
+      throw new HttpError(403, "Este espacio fue suspendido por el administrador del sitio.", "suspended");
     }
   }
   await next();

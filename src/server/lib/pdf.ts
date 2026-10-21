@@ -156,6 +156,8 @@ export class PdfWriter {
     const range = this.doc.bufferedPageRange();
     for (let i = range.start; i < range.start + range.count; i++) {
       this.doc.switchToPage(i);
+      // The footer sits inside the bottom margin: without this PDFKit would add a page per footer.
+      this.doc.page.margins = { ...this.doc.page.margins, bottom: 0 };
       const bottom = this.doc.page.height - 40;
       this.doc
         .font("Helvetica")

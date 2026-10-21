@@ -76,9 +76,9 @@ export function AppShell({ me, children }: { me: Me; children: ReactNode }) {
             <span className="flex size-9 items-center justify-center rounded-full bg-lilac-soft text-lilac-ink">
               <UserRound className="size-[18px]" aria-hidden="true" />
             </span>
-            <span className="min-w-0">
+            <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-semibold text-text">{workspaceLabel}</span>
-              <span className="block text-xs text-text-3">{me.hasAccount ? me.email : "Sin cuenta · este dispositivo"}</span>
+              <span className="block truncate text-xs text-text-3">{me.hasAccount ? me.email : "Sin cuenta · este dispositivo"}</span>
             </span>
           </Link>
         </div>

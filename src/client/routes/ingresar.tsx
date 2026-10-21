@@ -1,6 +1,291 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
+import { z } from "zod";
+import { toast } from "sonner";
+import { ArrowLeft } from "lucide-react";
+import { Button, buttonClass } from "@client/components/ui/button";
+import { Field, FormError, Input } from "@client/components/ui/field";
+import { Notice } from "@client/components/ui/misc";
+import { ApiError, errorMessage } from "@client/lib/api";
+import { useMe, useStartWorkspace } from "@client/lib/session";
+import { useLogin, useRecover } from "@client/features/account/api";
+import { PasswordInput, PASSWORD_MIN, StrengthMeter } from "@client/features/account/password-input";
+import { RecoveryCodePanel } from "@client/features/account/recovery-code-panel";
+import { PublicLayout } from "@client/features/account/public-layout";
+import { usePageTitle } from "@client/features/account/page-title";
 
-// TODO(module owner): placeholder — replace with the real screen.
 export const Route = createFileRoute("/ingresar")({
-  component: () => <p className="p-8 text-text-2">Pantalla pendiente.</p>,
+  validateSearch: z.object({ modo: z.enum(["recuperar"]).optional() }),
+  component: SignInPage,
 });
+
+function SignInPage() {
+  const { modo } = Route.useSearch();
+  const recovering = modo === "recuperar";
+  usePageTitle(recovering ? "Recuperar la cuenta" : "Ingresar");
+  const me = useMe();
+  const teacher = me.data?.teacher ?? null;
+  // Kept here: after recovering, "me" already has an account and the page would switch to "Ya estás en tu cuenta".
+  const [recovered, setRecovered] = useState<{ code: string; email: string } | null>(null);
+
+  return (
+    <PublicLayout
+      nav={
+        teacher ? (
+          <Link to="/app" className={buttonClass("ghost", "sm")}>
+            Mi espacio
+          </Link>
+        ) : undefined
+      }
+    >
+      <div className="mx-auto w-full max-w-md px-5 pt-6 pb-16 sm:pt-12">
+        {recovered ? (
+          <NewCode code={recovered.code} email={recovered.email} />
+        ) : teacher?.hasAccount ? (
+          <AlreadyIn email={teacher.email} />
+        ) : recovering ? (
+          <RecoverForm anonymousHere={Boolean(teacher)} onRecovered={setRecovered} />
+        ) : (
+          <LoginForm anonymousHere={Boolean(teacher)} />
+        )}
+        {!teacher?.hasAccount && !recovered ? <StartWithoutAccount hasWorkspace={Boolean(teacher)} /> : null}
+      </div>
+    </PublicLayout>
+  );
+}
+
+function AlreadyIn({ email }: { email: string | null }) {
+  return (
+    <>
+      <h1 className="font-display text-[32px] leading-tight font-semibold text-ink">Ya estás en tu cuenta</h1>
+      <p className="mt-3 leading-7 text-text-2">
+        Este dispositivo tiene abierta la cuenta <strong className="break-all text-text">{email}</strong>. Para entrar con otra, primero cerrá la
+        sesión desde Mi espacio.
+      </p>
+      <Link to="/app" className={buttonClass("primary", "lg", "mt-6 w-full")}>
+        Ir a mi espacio
+      </Link>
+    </>
+  );
+}
+
+function LoginForm({ anonymousHere }: { anonymousHere: boolean }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const login = useLogin();
+  const navigate = useNavigate();
+  const fields = login.error instanceof ApiError ? login.error.fields : {};
+
+  return (
+    <>
+      <h1 className="font-display text-[32px] leading-tight font-semibold text-ink">Entrar a tu cuenta</h1>
+      <p className="mt-3 leading-7 text-text-2">Con el correo y la contraseña que agregaste a tu espacio.</p>
+      {anonymousHere ? (
+        <Notice tone="lilac" className="mt-5">
+          En este dispositivo ya tenés un espacio sin cuenta. Si entrás, lo que hiciste acá se suma a tu cuenta: no se pierde nada.
+        </Notice>
+      ) : null}
+      <form
+        className="mt-6 grid gap-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          login.mutate(
+            { email: email.trim(), password },
+            {
+              onSuccess: (r) => {
+                toast.success(
+                  "¡Hola de nuevo!",
+                  r.merged ? { description: "Sumamos a tu cuenta lo que habías hecho en este dispositivo." } : undefined,
+                );
+                void navigate({ to: "/app" });
+              },
+            },
+          );
+        }}
+      >
+        <Field label="Correo" error={fields.email}>
+          {(p) => (
+            <Input
+              id={p.id}
+              aria-describedby={p.describedBy}
+              invalid={p.invalid}
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoFocus
+            />
+          )}
+        </Field>
+        <Field label="Contraseña" error={fields.password}>
+          {(p) => (
+            <PasswordInput
+              id={p.id}
+              aria-describedby={p.describedBy}
+              invalid={p.invalid}
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          )}
+        </Field>
+        <FormError message={login.isError && !fields.email && !fields.password ? errorMessage(login.error) : null} />
+        <Button type="submit" size="lg" loading={login.isPending} disabled={!email.trim() || !password}>
+          Entrar
+        </Button>
+      </form>
+      <p className="mt-5 text-[15px]">
+        <Link to="/ingresar" search={{ modo: "recuperar" }} className="font-semibold text-ink underline decoration-lilac underline-offset-4">
+          Olvidé mi contraseña
+        </Link>
+      </p>
+    </>
+  );
+}
+
+function NewCode({ code, email }: { code: string; email: string }) {
+  const navigate = useNavigate();
+  return (
+    <>
+      <h1 className="mb-5 font-display text-[32px] leading-tight font-semibold text-ink">Listo: ya tenés una contraseña nueva</h1>
+      <RecoveryCodePanel
+        code={code}
+        email={email}
+        title="Tu código de recuperación nuevo"
+        doneLabel="Ir a mi espacio"
+        onDone={() => void navigate({ to: "/app" })}
+      />
+      <p className="mt-4 text-sm leading-6 text-text-2">El código que usaste recién ya no sirve. Cerramos la sesión en tus otros dispositivos.</p>
+    </>
+  );
+}
+
+function RecoverForm({ anonymousHere, onRecovered }: { anonymousHere: boolean; onRecovered: (r: { code: string; email: string }) => void }) {
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const recover = useRecover((r) => onRecovered({ code: r.recoveryCode, email: r.teacher.email ?? email.trim() }));
+  const fields = recover.error instanceof ApiError ? recover.error.fields : {};
+
+  return (
+    <>
+      <Link to="/ingresar" className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-text-2 hover:text-ink">
+        <ArrowLeft className="size-4" aria-hidden="true" /> Volver a ingresar
+      </Link>
+      <h1 className="font-display text-[32px] leading-tight font-semibold text-ink">Recuperar la cuenta</h1>
+      <p className="mt-3 leading-7 text-text-2">
+        No mandamos correos. Para crear una contraseña nueva necesitás el código de recuperación que guardaste al crear la cuenta (o el último que
+        generaste).
+      </p>
+      {anonymousHere ? (
+        <Notice tone="ink" className="mt-5">
+          En este dispositivo tenés un espacio sin cuenta: lo que hiciste ahí se suma a tu cuenta al recuperarla.
+        </Notice>
+      ) : null}
+      <form
+        className="mt-6 grid gap-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          recover.mutate({ email: email.trim(), recoveryCode: code.trim(), newPassword: password });
+        }}
+      >
+        <Field label="Correo" error={fields.email}>
+          {(p) => (
+            <Input
+              id={p.id}
+              aria-describedby={p.describedBy}
+              invalid={p.invalid}
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoFocus
+            />
+          )}
+        </Field>
+        <Field
+          label="Código de recuperación"
+          error={fields.recoveryCode}
+          hint="Son 16 letras y números, por ejemplo ABCD-EFGH-JKLM-NPQR. Da igual si usás mayúsculas."
+        >
+          {(p) => (
+            <Input
+              id={p.id}
+              aria-describedby={p.describedBy}
+              invalid={p.invalid}
+              required
+              autoComplete="one-time-code"
+              autoCapitalize="characters"
+              spellCheck={false}
+              className="font-mono tracking-wider"
+              maxLength={40}
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+            />
+          )}
+        </Field>
+        <Field label="Contraseña nueva" error={fields.newPassword} hint={`Al menos ${PASSWORD_MIN} caracteres.`}>
+          {(p) => (
+            <>
+              <PasswordInput
+                id={p.id}
+                aria-describedby={p.describedBy}
+                invalid={p.invalid}
+                autoComplete="new-password"
+                required
+                maxLength={200}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <StrengthMeter password={password} />
+            </>
+          )}
+        </Field>
+        <FormError message={recover.isError && !fields.email && !fields.recoveryCode && !fields.newPassword ? errorMessage(recover.error) : null} />
+        <Button
+          type="submit"
+          size="lg"
+          loading={recover.isPending}
+          disabled={!email.trim() || code.trim().length < 8 || password.length < PASSWORD_MIN}
+        >
+          Crear contraseña nueva
+        </Button>
+      </form>
+    </>
+  );
+}
+
+function StartWithoutAccount({ hasWorkspace }: { hasWorkspace: boolean }) {
+  const start = useStartWorkspace();
+  const navigate = useNavigate();
+  return (
+    <div className="mt-10 border-t border-line pt-6">
+      {hasWorkspace ? (
+        <p className="text-[15px] text-text-2">
+          ¿Preferís seguir sin cuenta?{" "}
+          <Link to="/app" className="font-semibold text-ink underline decoration-lilac underline-offset-4">
+            Volver a mi espacio en este dispositivo
+          </Link>
+        </p>
+      ) : (
+        <>
+          <p className="text-[15px] text-text-2">¿No tenés cuenta? No hace falta: empezá ahora y, si querés, le agregás una cuenta después.</p>
+          <Button
+            variant="secondary"
+            className="mt-3 w-full"
+            loading={start.isPending}
+            onClick={() => start.mutate(undefined, { onSuccess: () => void navigate({ to: "/app" }) })}
+          >
+            Empezar sin cuenta
+          </Button>
+          <FormError message={start.isError ? errorMessage(start.error) : null} />
+        </>
+      )}
+    </div>
+  );
+}
