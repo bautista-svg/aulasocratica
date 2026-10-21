@@ -3,7 +3,7 @@ import { startAiMock, stopAiMock, aiMock } from "./ai-mock";
 import { resetRateLimits } from "@server/lib/rate-limit";
 
 beforeAll(async () => {
-  await startAiMock();
+  await startAiMock(Number(process.env.AI_MOCK_PORT ?? 47811));
   const { runMigrations } = await import("@server/db/migrate");
   await runMigrations();
 });
