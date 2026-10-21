@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { z } from "zod";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { optionalEnum, searchParams } from "@client/lib/search";
 import { toast } from "sonner";
 import { Archive, ArchiveRestore, ChevronRight, Copy, MoreHorizontal, RotateCcw, Send, Share2, Trash2, Undo2 } from "lucide-react";
 import { Badge, ErrorState, Notice, Skeleton } from "@client/components/ui/misc";
@@ -25,7 +25,7 @@ type Tab = (typeof TABS)[number];
 const TAB_LABELS: Record<Tab, string> = { configuracion: "Configuración", compartir: "Compartir", "en-vivo": "En vivo" };
 
 export const Route = createFileRoute("/app/actividades/$activityId")({
-  validateSearch: z.object({ tab: z.enum(TABS).optional() }),
+  validateSearch: searchParams({ tab: optionalEnum(TABS) }),
   component: ActivityPage,
 });
 
@@ -56,9 +56,7 @@ function ActivityPage() {
 }
 
 function ActivityEditor({ activity }: { activity: ActivityEditorData }) {
-  const { tab } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const current: Tab = tab ?? (activity.status === "published" ? "en-vivo" : "configuracion");
   const goTab = useCallback((t: Tab) => void navigate({ search: (s) => ({ ...s, tab: t }), replace: true }), [navigate]);
 
   const form = useActivityForm(activity);
@@ -69,11 +67,6 @@ function ActivityEditor({ activity }: { activity: ActivityEditorData }) {
   const bypass = useRef(false);
   const state = activityState(activity);
   const [publishing, setPublishing] = useState(false);
-  // The live view (SSE + polling) starts the first time its tab is opened, then stays mounted.
-  const [liveOpened, setLiveOpened] = useState(current === "en-vivo");
-  useEffect(() => {
-    if (current === "en-vivo") setLiveOpened(true);
-  }, [current]);
 
   async function publish() {
     const hadChanges = form.dirty;
@@ -197,32 +190,67 @@ function ActivityEditor({ activity }: { activity: ActivityEditorData }) {
         </Notice>
       ) : null}
 
-      <Tabs
-        value={current}
-        onValueChange={(v) => goTab(v as Tab)}
-        items={[
-          {
-            value: "configuracion",
-            label: "Configuración",
-            badge: form.dirty ? <span className="size-2 rounded-full bg-amber" aria-label="(con cambios sin guardar)" /> : undefined,
-            content: <ConfigPanel activity={activity} form={form} saving={draftSave.pending} onSave={() => void draftSave.run()} />,
-          },
-          { value: "compartir", label: "Compartir", content: <SharePanel activity={activity} onPublish={() => void publish()} publishing={publishing} /> },
-          {
-            value: "en-vivo",
-            label: "En vivo",
-            badge:
-              activity.participants > 0 ? (
-                <span className="rounded-full bg-sunken px-2 py-0.5 text-xs font-semibold text-text-2 tabular">{activity.participants}</span>
-              ) : undefined,
-            content: liveOpened ? <LivePanel activityId={activity.id} /> : null,
-          },
-        ]}
+      <ActivityTabs
+        activity={activity}
+        goTab={goTab}
+        dirty={form.dirty}
+        config={<ConfigPanel activity={activity} form={form} saving={draftSave.pending} onSave={() => void draftSave.run()} />}
+        share={<SharePanel activity={activity} onPublish={() => void publish()} publishing={publishing} />}
       />
 
       <LifecycleDialogs activity={activity} open={dialog} onClose={() => setDialog(null)} onLeave={() => (bypass.current = true)} />
       <UnsavedGuard dirty={form.dirty} onSave={() => draftSave.run()} bypass={bypass} />
     </>
+  );
+}
+
+/**
+ * The tabs read the tab from the URL themselves, so switching tabs re-renders only them: the
+ * panels arrive as elements created by the editor and React skips them when they did not change.
+ */
+function ActivityTabs({
+  activity,
+  goTab,
+  dirty,
+  config,
+  share,
+}: {
+  activity: ActivityEditorData;
+  goTab: (t: Tab) => void;
+  dirty: boolean;
+  config: ReactNode;
+  share: ReactNode;
+}) {
+  const { tab } = Route.useSearch();
+  const current: Tab = tab ?? (activity.status === "published" ? "en-vivo" : "configuracion");
+  // The live view (SSE + polling) starts the first time its tab is opened, then stays mounted.
+  const [liveOpened, setLiveOpened] = useState(current === "en-vivo");
+  useEffect(() => {
+    if (current === "en-vivo") setLiveOpened(true);
+  }, [current]);
+  return (
+    <Tabs
+      value={current}
+      onValueChange={(v) => goTab(v as Tab)}
+      items={[
+        {
+          value: "configuracion",
+          label: "Configuración",
+          badge: dirty ? <span className="size-2 rounded-full bg-amber" aria-label="(con cambios sin guardar)" /> : undefined,
+          content: config,
+        },
+        { value: "compartir", label: "Compartir", content: share },
+        {
+          value: "en-vivo",
+          label: "En vivo",
+          badge:
+            activity.participants > 0 ? (
+              <span className="rounded-full bg-sunken px-2 py-0.5 text-xs font-semibold text-text-2 tabular">{activity.participants}</span>
+            ) : undefined,
+          content: liveOpened ? <LivePanel activityId={activity.id} /> : null,
+        },
+      ]}
+    />
   );
 }
 

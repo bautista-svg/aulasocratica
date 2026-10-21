@@ -1,12 +1,21 @@
-import { Outlet, createRootRouteWithContext } from "@tanstack/react-router";
+import { Suspense, lazy, useState } from "react";
+import { Outlet, createRootRouteWithContext, useRouterState } from "@tanstack/react-router";
 import type { QueryClient } from "@tanstack/react-query";
-import { Toaster } from "sonner";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   component: Root,
 });
 
+// sonner is loaded on demand: the landing, the student page and the privacy page never show a
+// toast, so they do not download it. Once mounted, the container stays (toasts created before it
+// mounts are replayed by sonner).
+const AppToaster = lazy(() => import("@client/components/app/toaster"));
+const withoutToasts = (path: string) => path === "/" || path === "/privacidad" || path.startsWith("/clase/");
+
 function Root() {
+  const needsToaster = useRouterState({ select: (s) => !withoutToasts(s.location.pathname) });
+  const [toaster, setToaster] = useState(needsToaster);
+  if (needsToaster && !toaster) setToaster(true);
   return (
     <>
       <a
@@ -16,21 +25,11 @@ function Root() {
         Saltar al contenido
       </a>
       <Outlet />
-      <Toaster
-        position="top-center"
-        closeButton
-        containerAriaLabel="Avisos"
-        toastOptions={{
-          closeButtonAriaLabel: "Cerrar aviso",
-          classNames: {
-            toast: "!rounded-md !border !border-line !bg-surface !text-text !shadow-pop !font-sans",
-            title: "!text-[15px] !font-semibold",
-            description: "!text-sm !text-text-2",
-            error: "!border-rose/30",
-            success: "!border-leaf/30",
-          },
-        }}
-      />
+      {toaster ? (
+        <Suspense fallback={null}>
+          <AppToaster />
+        </Suspense>
+      ) : null}
     </>
   );
 }

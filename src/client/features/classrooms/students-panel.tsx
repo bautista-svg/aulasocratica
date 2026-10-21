@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { MoreHorizontal, Pencil, Trash2, UserPlus, Users } from "lucide-react";
@@ -15,7 +15,8 @@ import { useClassroomActivities, useClassroomStudents, useStudentMutations } fro
 import { workStatusLabel } from "@client/features/live/bits";
 import { useSingleFlight } from "@client/features/activities/single-flight";
 
-export function StudentsPanel({
+// Memoized: the classroom tabs re-render on every tab change; this panel only depends on its props.
+export const StudentsPanel = memo(function StudentsPanel({
   classroomId,
   activityFilter,
   onFilterChange,
@@ -153,7 +154,7 @@ export function StudentsPanel({
       />
     </div>
   );
-}
+});
 
 function AddStudentsDialog({ open, onOpenChange, classroomId }: { open: boolean; onOpenChange: (o: boolean) => void; classroomId: string }) {
   const [text, setText] = useState("");

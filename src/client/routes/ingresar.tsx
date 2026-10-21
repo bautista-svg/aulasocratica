@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
-import { z } from "zod";
+import { optionalEnum, searchParams } from "@client/lib/search";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
 import { Button, buttonClass } from "@client/components/ui/button";
@@ -16,7 +16,7 @@ import { PublicLayout } from "@client/features/account/public-layout";
 import { usePageTitle } from "@client/lib/page-title";
 
 export const Route = createFileRoute("/ingresar")({
-  validateSearch: z.object({ modo: z.enum(["recuperar"]).optional() }),
+  validateSearch: searchParams({ modo: optionalEnum(["recuperar"]) }),
   component: SignInPage,
 });
 

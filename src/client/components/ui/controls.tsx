@@ -3,7 +3,7 @@ import * as RC from "@radix-ui/react-checkbox";
 import * as RT from "@radix-ui/react-tabs";
 import * as RM from "@radix-ui/react-dropdown-menu";
 import { Check, Copy } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { startTransition, useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { cn } from "@client/lib/cn";
 import { Button } from "./button";
@@ -66,7 +66,11 @@ export function Checkbox({ checked, onCheckedChange, label, description, disable
   );
 }
 
-/** Tabs whose panels stay mounted (hidden), so switching tabs never loses unsaved edits. */
+/**
+ * Tabs whose panels stay mounted (hidden), so switching tabs never loses unsaved edits.
+ * The active panel renders first; the hidden ones mount right after, inside a transition
+ * (interruptible), so the first render of a heavy page is not one long blocking task.
+ */
 export function Tabs({
   value,
   onValueChange,
@@ -80,6 +84,8 @@ export function Tabs({
   className?: string;
   listClassName?: string;
 }) {
+  const [mountAll, setMountAll] = useState(false);
+  useEffect(() => startTransition(() => setMountAll(true)), []);
   return (
     <RT.Root value={value} onValueChange={onValueChange} className={className}>
       <RT.List
@@ -101,7 +107,7 @@ export function Tabs({
       </RT.List>
       {items.map((it) => (
         <RT.Content key={it.value} value={it.value} forceMount className="outline-none data-[state=inactive]:hidden">
-          {it.content}
+          {mountAll || it.value === value ? it.content : null}
         </RT.Content>
       ))}
     </RT.Root>

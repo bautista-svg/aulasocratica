@@ -1,0 +1,215 @@
+{
+  "label": "after",
+  "date": "2026-10-21T05:40:58.776Z",
+  "runs": 5,
+  "pages": {
+    "app-inicio": {
+      "median": {
+        "tbtMs": 54,
+        "fcpMs": 1856,
+        "ttiMs": 3314,
+        "longTasks": 2,
+        "longTaskMs": 154,
+        "allBlockingMs": 54
+      },
+      "samples": [
+        {
+          "tbtMs": 71,
+          "fcpMs": 1858.0425,
+          "ttiMs": 3314.085,
+          "longTasks": 2,
+          "longTaskMs": 171,
+          "allBlockingMs": 71
+        },
+        {
+          "tbtMs": 45.000000000000455,
+          "fcpMs": 1849.0175,
+          "ttiMs": 3310.0350000000035,
+          "longTasks": 2,
+          "longTaskMs": 145.00000000000045,
+          "allBlockingMs": 45.000000000000455
+        },
+        {
+          "tbtMs": 54,
+          "fcpMs": 1781.9325,
+          "ttiMs": 3313.8650000000007,
+          "longTasks": 2,
+          "longTaskMs": 154,
+          "allBlockingMs": 54
+        },
+        {
+          "tbtMs": 80.00000000000045,
+          "fcpMs": 1901.6225,
+          "ttiMs": 3339.796000000003,
+          "longTasks": 2,
+          "longTaskMs": 180.00000000000045,
+          "allBlockingMs": 80.00000000000045
+        },
+        {
+          "tbtMs": 53,
+          "fcpMs": 1856.0025,
+          "ttiMs": 3266.806999999999,
+          "longTasks": 2,
+          "longTaskMs": 153,
+          "allBlockingMs": 53
+        }
+      ]
+    },
+    "app-aula": {
+      "median": {
+        "tbtMs": 92,
+        "fcpMs": 1904,
+        "ttiMs": 3623,
+        "longTasks": 3,
+        "longTaskMs": 242,
+        "allBlockingMs": 92
+      },
+      "samples": [
+        {
+          "tbtMs": 69.99999999999955,
+          "fcpMs": 1853.53125,
+          "ttiMs": 3630.7625000000007,
+          "longTasks": 3,
+          "longTaskMs": 219.99999999999955,
+          "allBlockingMs": 69.99999999999955
+        },
+        {
+          "tbtMs": 137.9999999999991,
+          "fcpMs": 1908.8362500000003,
+          "ttiMs": 3623.3449999999975,
+          "longTasks": 4,
+          "longTaskMs": 337.9999999999991,
+          "allBlockingMs": 137.9999999999991
+        },
+        {
+          "tbtMs": 80.00000000000045,
+          "fcpMs": 2005.1974999999998,
+          "ttiMs": 3615.5925000000025,
+          "longTasks": 3,
+          "longTaskMs": 230.00000000000045,
+          "allBlockingMs": 80.00000000000045
+        },
+        {
+          "tbtMs": 91.99999999999909,
+          "fcpMs": 1903.8812500000004,
+          "ttiMs": 3769.3724999999995,
+          "longTasks": 3,
+          "longTaskMs": 241.9999999999991,
+          "allBlockingMs": 91.99999999999909
+        },
+        {
+          "tbtMs": 107.99999999999864,
+          "fcpMs": 1859.7124999999999,
+          "ttiMs": 3615.164999999996,
+          "longTasks": 3,
+          "longTaskMs": 257.99999999999864,
+          "allBlockingMs": 107.99999999999864
+        }
+      ]
+    },
+    "app-actividad-en-vivo": {
+      "median": {
+        "tbtMs": 283,
+        "fcpMs": 1873,
+        "ttiMs": 4079,
+        "longTasks": 4,
+        "longTaskMs": 496,
+        "allBlockingMs": 296
+      },
+      "samples": [
+        {
+          "tbtMs": 268,
+          "fcpMs": 1874.6475,
+          "ttiMs": 4081.626,
+          "longTasks": 4,
+          "longTaskMs": 473,
+          "allBlockingMs": 273
+        },
+        {
+          "tbtMs": 338,
+          "fcpMs": 1809.6175,
+          "ttiMs": 4074.564000000002,
+          "longTasks": 6,
+          "longTaskMs": 649,
+          "allBlockingMs": 349
+        },
+        {
+          "tbtMs": 282.99999999999955,
+          "fcpMs": 1873.2075,
+          "ttiMs": 4079.1620000000016,
+          "longTasks": 4,
+          "longTaskMs": 495.99999999999955,
+          "allBlockingMs": 295.99999999999955
+        },
+        {
+          "tbtMs": 272,
+          "fcpMs": 1795.8725,
+          "ttiMs": 4070.9879999999985,
+          "longTasks": 4,
+          "longTaskMs": 493,
+          "allBlockingMs": 293
+        },
+        {
+          "tbtMs": 342.0000000000023,
+          "fcpMs": 1882.7325,
+          "ttiMs": 4086.9991000000055,
+          "longTasks": 5,
+          "longTaskMs": 603.0000000000023,
+          "allBlockingMs": 353.0000000000023
+        }
+      ]
+    },
+    "clase-chat": {
+      "median": {
+        "tbtMs": 68,
+        "fcpMs": 1848,
+        "ttiMs": 3068,
+        "longTasks": 2,
+        "longTaskMs": 179,
+        "allBlockingMs": 79
+      },
+      "samples": [
+        {
+          "tbtMs": 69.5,
+          "fcpMs": 1847.514,
+          "ttiMs": 3072.071,
+          "longTasks": 2,
+          "longTaskMs": 179,
+          "allBlockingMs": 79
+        },
+        {
+          "tbtMs": 67.99999999999977,
+          "fcpMs": 1846.725,
+          "ttiMs": 3075.6875,
+          "longTasks": 2,
+          "longTaskMs": 179,
+          "allBlockingMs": 79
+        },
+        {
+          "tbtMs": 60.99999999999977,
+          "fcpMs": 1850.483,
+          "ttiMs": 3016.2245000000003,
+          "longTasks": 2,
+          "longTaskMs": 161,
+          "allBlockingMs": 61
+        },
+        {
+          "tbtMs": 49.99999999999909,
+          "fcpMs": 1803.2069999999999,
+          "ttiMs": 3002.138,
+          "longTasks": 2,
+          "longTaskMs": 150,
+          "allBlockingMs": 50
+        },
+        {
+          "tbtMs": 74,
+          "fcpMs": 1851.0459999999998,
+          "ttiMs": 3067.7690000000002,
+          "longTasks": 2,
+          "longTaskMs": 186,
+          "allBlockingMs": 86
+        }
+      ]
+    }
+  }
+}

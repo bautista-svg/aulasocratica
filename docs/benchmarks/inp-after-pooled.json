@@ -1,0 +1,62 @@
+{
+  "label": "after",
+  "date": "2026-10-21T05:53:25.823Z",
+  "blocks": 2,
+  "settings": "Bloques alternados A/B (inp-compare.sh); cada bloque: seed nuevo, servidor nuevo, N corridas por escenario",
+  "scenarios": {
+    "student-chat": {
+      "runs": 10,
+      "medianInpMs": 80,
+      "p75InpMs": 88,
+      "maxInpMs": 88,
+      "all": [
+        64,
+        80,
+        48,
+        88,
+        80,
+        72,
+        80,
+        88,
+        88,
+        80
+      ]
+    },
+    "teacher-live": {
+      "runs": 10,
+      "medianInpMs": 168,
+      "p75InpMs": 184,
+      "maxInpMs": 200,
+      "all": [
+        168,
+        200,
+        168,
+        152,
+        184,
+        160,
+        200,
+        168,
+        168,
+        152
+      ]
+    },
+    "teacher-classroom": {
+      "runs": 10,
+      "medianInpMs": 112,
+      "p75InpMs": 136,
+      "maxInpMs": 160,
+      "all": [
+        112,
+        96,
+        152,
+        112,
+        96,
+        128,
+        112,
+        96,
+        160,
+        136
+      ]
+    }
+  }
+}

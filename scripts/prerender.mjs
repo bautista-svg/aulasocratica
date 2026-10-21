@@ -27,7 +27,18 @@ const { renderLanding } = await import(pathToFileURL(tmp).href);
 const html = renderLanding();
 const shell = fs.readFileSync(path.join(outDir, "index.html"), "utf8");
 if (!shell.includes('<div id="root"></div>')) throw new Error("index.html sin <div id=\"root\"></div>");
-const page = shell.replace('<div id="root"></div>', `<div id="root">${html}</div>`);
+// The landing is the first page most visitors see and is complete without JS: its CSS goes inline
+// (no render-blocking request before the first paint) and the font preloads of the app shell are
+// dropped (the text paints right away with the metric-matched fallback and swaps when the font
+// arrives; preloading would compete with the first paint on slow connections).
+const cssLink = /<link rel="stylesheet" crossorigin href="\/assets\/([^"]+\.css)">/;
+const css = cssLink.exec(shell);
+if (!css) throw new Error("index.html sin la hoja de estilos");
+const inlineCss = fs.readFileSync(path.join(outDir, "assets", css[1]), "utf8").replace(/<\/style/gi, "<\\/style");
+const page = shell
+  .replace(css[0], () => `<style>${inlineCss}</style>`)
+  .replace(/\s*<link rel="preload" as="font"[^>]*>/g, "")
+  .replace('<div id="root"></div>', `<div id="root">${html}</div>`);
 fs.writeFileSync(path.join(outDir, "landing.html"), page);
 const zlib = await import("node:zlib");
 fs.writeFileSync(path.join(outDir, "landing.html.br"), zlib.brotliCompressSync(Buffer.from(page)));

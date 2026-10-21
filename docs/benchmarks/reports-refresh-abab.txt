@@ -1,0 +1,14 @@
+Reconstrucción de informes ("Actualizar datos", POST /api/reports/:id/refresh): 12 llamadas secuenciales por bloque,
+bloques alternados antes/después, cada uno con seed nuevo y servidor nuevo. Valor: mediana de Server-Timing app;dur (ms).
+Informe general = overview del espacio principal; informe de aula = group del aula con más sesiones.
+
+bloque  build    informe general  informe de aula
+1       antes    150              47
+2       después  140              45
+3       antes    146              48
+4       después  139              24
+
+Respuestas de ~5,7 KB y ~6,0 KB (sin cambio). La diferencia que mostró la corrida única de api-suite (secuencial,
+justo después de 30 s de carga mixta) no se reproduce al alternar: la reconstrucción no empeoró. El costo dominante
+del informe general es una sola consulta con subconsultas correlacionadas por aula (78–116 ms, ver
+explain-reports-after.txt), que no se modificó.

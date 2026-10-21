@@ -1,0 +1,745 @@
+======== activity (logged 0.097 ms)
+                                                                     QUERY PLAN                                                                      
+-----------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=0.086..0.088 rows=1 loops=1)
+   Buffers: shared hit=12
+   ->  Nested Loop Left Join (actual time=0.086..0.087 rows=1 loops=1)
+         Join Filter: (tutors.id = activities.tutor_id)
+         Buffers: shared hit=12
+         ->  Hash Join (actual time=0.038..0.039 rows=1 loops=1)
+               Hash Cond: (classrooms.id = activities.classroom_id)
+               Buffers: shared hit=5
+               ->  Seq Scan on classrooms (actual time=0.005..0.005 rows=1 loops=1)
+                     Buffers: shared hit=2
+               ->  Hash (actual time=0.019..0.019 rows=1 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 10kB
+                     Buffers: shared hit=3
+                     ->  Index Scan using activities_pkey on activities (actual time=0.013..0.014 rows=1 loops=1)
+                           Index Cond: (id = '71d73c9e-a1d6-4a15-9a67-6e7c34c2553d'::uuid)
+                           Filter: (teacher_id = '6d3f0c1b-d6e3-4626-a438-8e4d5fbe1f51'::uuid)
+                           Buffers: shared hit=3
+         ->  Seq Scan on tutors (actual time=0.001..0.001 rows=0 loops=1)
+         SubPlan 1
+           ->  Aggregate (actual time=0.030..0.030 rows=1 loops=1)
+                 Buffers: shared hit=4
+                 ->  Index Only Scan using learning_sessions_activity_status_idx on learning_sessions ls (actual time=0.020..0.026 rows=29 loops=1)
+                       Index Cond: (activity_id = activities.id)
+                       Heap Fetches: 0
+                       Buffers: shared hit=4
+         SubPlan 2
+           ->  Aggregate (actual time=0.012..0.012 rows=1 loops=1)
+                 Buffers: shared hit=3
+                 ->  Index Only Scan using learning_sessions_activity_status_idx on learning_sessions ls_1 (actual time=0.010..0.011 rows=5 loops=1)
+                       Index Cond: ((activity_id = activities.id) AND (status = 'completed'::text))
+                       Heap Fetches: 0
+                       Buffers: shared hit=3
+ Planning:
+   Buffers: shared hit=534
+ Planning Time: 2.879 ms
+ Execution Time: 0.247 ms
+(36 rows)
+
+======== activity (logged 0.018 ms)
+                                  QUERY PLAN                                  
+------------------------------------------------------------------------------
+ Sort (actual time=0.022..0.023 rows=0 loops=1)
+   Sort Key: created_at
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=3
+   ->  Seq Scan on activity_files (actual time=0.003..0.003 rows=0 loops=1)
+         Filter: (activity_id = '71d73c9e-a1d6-4a15-9a67-6e7c34c2553d'::uuid)
+ Planning:
+   Buffers: shared hit=74
+ Planning Time: 0.347 ms
+ Execution Time: 0.038 ms
+(10 rows)
+
+======== classroom-activities (logged 0.147 ms)
+                                                                                      QUERY PLAN                                                                                      
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort (actual time=0.172..0.174 rows=4 loops=1)
+   Sort Key: activities.updated_at DESC
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=44
+   ->  Bitmap Heap Scan on activities (actual time=0.110..0.167 rows=4 loops=1)
+         Recheck Cond: ((classroom_id = '00e75337-1d14-4c9d-a5a6-802e081f4ef9'::uuid) AND (teacher_id = '6d3f0c1b-d6e3-4626-a438-8e4d5fbe1f51'::uuid))
+         Heap Blocks: exact=1
+         Buffers: shared hit=44
+         ->  BitmapAnd (actual time=0.027..0.028 rows=0 loops=1)
+               Buffers: shared hit=5
+               ->  Bitmap Index Scan on activities_classroom_idx (actual time=0.003..0.003 rows=4 loops=1)
+                     Index Cond: (classroom_id = '00e75337-1d14-4c9d-a5a6-802e081f4ef9'::uuid)
+                     Buffers: shared hit=2
+               ->  Bitmap Index Scan on activities_teacher_idx (actual time=0.019..0.019 rows=120 loops=1)
+                     Index Cond: (teacher_id = '6d3f0c1b-d6e3-4626-a438-8e4d5fbe1f51'::uuid)
+                     Buffers: shared hit=3
+         SubPlan 1
+           ->  Aggregate (actual time=0.011..0.011 rows=1 loops=4)
+                 Buffers: shared hit=12
+                 ->  Index Only Scan using learning_sessions_activity_status_idx on learning_sessions ls (actual time=0.006..0.009 rows=29 loops=4)
+                       Index Cond: (activity_id = activities.id)
+                       Heap Fetches: 0
+                       Buffers: shared hit=12
+         SubPlan 2
+           ->  Aggregate (actual time=0.006..0.006 rows=1 loops=4)
+                 Buffers: shared hit=9
+                 ->  Index Only Scan using learning_sessions_activity_status_idx on learning_sessions ls_1 (actual time=0.004..0.005 rows=22 loops=4)
+                       Index Cond: ((activity_id = activities.id) AND (status = 'completed'::text))
+                       Heap Fetches: 0
+                       Buffers: shared hit=9
+         SubPlan 3
+           ->  Aggregate (actual time=0.003..0.003 rows=1 loops=4)
+                 Buffers: shared hit=8
+                 ->  Index Only Scan using learning_sessions_activity_status_idx on learning_sessions ls_2 (actual time=0.002..0.002 rows=0 loops=4)
+                       Index Cond: ((activity_id = activities.id) AND (status = 'in_progress'::text) AND (last_activity_at > '2026-10-21 06:01:35.732+00'::timestamp with time zone))
+                       Heap Fetches: 0
+                       Buffers: shared hit=8
+         SubPlan 4
+           ->  Aggregate (actual time=0.010..0.010 rows=1 loops=4)
+                 Buffers: shared hit=9
+                 ->  Index Only Scan using student_alerts_open_idx on student_alerts sa (actual time=0.009..0.009 rows=9 loops=4)
+                       Index Cond: (activity_id = activities.id)
+                       Heap Fetches: 0
+                       Buffers: shared hit=9
+ Planning:
+   Buffers: shared hit=84
+ Planning Time: 0.571 ms
+ Execution Time: 0.292 ms
+(48 rows)
+
+======== classroom-students (logged 0.065 ms)
+                                                 QUERY PLAN                                                 
+------------------------------------------------------------------------------------------------------------
+ Sort (actual time=0.049..0.050 rows=30 loops=1)
+   Sort Key: full_name
+   Sort Method: quicksort  Memory: 27kB
+   Buffers: shared hit=6
+   ->  Bitmap Heap Scan on students (actual time=0.014..0.016 rows=30 loops=1)
+         Recheck Cond: (classroom_id = '00e75337-1d14-4c9d-a5a6-802e081f4ef9'::uuid)
+         Heap Blocks: exact=1
+         Buffers: shared hit=3
+         ->  Bitmap Index Scan on students_classroom_name_unique (actual time=0.005..0.005 rows=30 loops=1)
+               Index Cond: (classroom_id = '00e75337-1d14-4c9d-a5a6-802e081f4ef9'::uuid)
+               Buffers: shared hit=2
+ Planning:
+   Buffers: shared hit=57
+ Planning Time: 0.458 ms
+ Execution Time: 0.078 ms
+(15 rows)
+
+======== classroom-students (logged 0.234 ms)
+                                                       QUERY PLAN                                                        
+-------------------------------------------------------------------------------------------------------------------------
+ Sort (actual time=0.173..0.177 rows=116 loops=1)
+   Sort Key: learning_sessions.last_activity_at DESC
+   Sort Method: quicksort  Memory: 40kB
+   Buffers: shared hit=28
+   ->  Nested Loop (actual time=0.025..0.144 rows=116 loops=1)
+         Buffers: shared hit=28
+         ->  Bitmap Heap Scan on activities (actual time=0.008..0.009 rows=4 loops=1)
+               Recheck Cond: (classroom_id = '00e75337-1d14-4c9d-a5a6-802e081f4ef9'::uuid)
+               Heap Blocks: exact=1
+               Buffers: shared hit=3
+               ->  Bitmap Index Scan on activities_classroom_idx (actual time=0.004..0.004 rows=4 loops=1)
+                     Index Cond: (classroom_id = '00e75337-1d14-4c9d-a5a6-802e081f4ef9'::uuid)
+                     Buffers: shared hit=2
+         ->  Bitmap Heap Scan on learning_sessions (actual time=0.014..0.025 rows=29 loops=4)
+               Recheck Cond: (activity_id = activities.id)
+               Heap Blocks: exact=14
+               Buffers: shared hit=25
+               ->  Bitmap Index Scan on learning_sessions_activity_status_idx (actual time=0.011..0.011 rows=29 loops=4)
+                     Index Cond: (activity_id = activities.id)
+                     Buffers: shared hit=11
+ Planning:
+   Buffers: shared hit=25
+ Planning Time: 0.392 ms
+ Execution Time: 0.229 ms
+(24 rows)
+
+======== classrooms (logged 0.842 ms)
+                                                                                     QUERY PLAN                                                                                      
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort (actual time=1.102..1.105 rows=28 loops=1)
+   Sort Key: classrooms.updated_at DESC
+   Sort Method: quicksort  Memory: 28kB
+   Buffers: shared hit=545
+   ->  Seq Scan on classrooms (actual time=0.093..1.085 rows=28 loops=1)
+         Filter: ((NOT is_archived) AND (teacher_id = '6d3f0c1b-d6e3-4626-a438-8e4d5fbe1f51'::uuid))
+         Rows Removed by Filter: 92
+         Buffers: shared hit=545
+         SubPlan 1
+           ->  Aggregate (actual time=0.002..0.002 rows=1 loops=28)
+                 Buffers: shared hit=57
+                 ->  Index Only Scan using activities_classroom_idx on activities a (actual time=0.001..0.002 rows=4 loops=28)
+                       Index Cond: (classroom_id = classrooms.id)
+                       Heap Fetches: 0
+                       Buffers: shared hit=57
+         SubPlan 2
+           ->  Aggregate (actual time=0.013..0.013 rows=1 loops=28)
+                 Buffers: shared hit=97
+                 ->  Bitmap Heap Scan on activities a_1 (actual time=0.007..0.010 rows=3 loops=28)
+                       Recheck Cond: (classroom_id = classrooms.id)
+                       Filter: (status = 'published'::text)
+                       Rows Removed by Filter: 1
+                       Heap Blocks: exact=41
+                       Buffers: shared hit=97
+                       ->  Bitmap Index Scan on activities_classroom_idx (actual time=0.004..0.004 rows=4 loops=28)
+                             Index Cond: (classroom_id = classrooms.id)
+                             Buffers: shared hit=56
+         SubPlan 3
+           ->  Aggregate (actual time=0.006..0.007 rows=1 loops=28)
+                 Buffers: shared hit=66
+                 ->  Index Only Scan using students_classroom_name_unique on students s (actual time=0.003..0.005 rows=30 loops=28)
+                       Index Cond: (classroom_id = classrooms.id)
+                       Heap Fetches: 0
+                       Buffers: shared hit=66
+         SubPlan 4
+           ->  Aggregate (actual time=0.015..0.016 rows=1 loops=28)
+                 Buffers: shared hit=322
+                 ->  Nested Loop (actual time=0.015..0.015 rows=0 loops=28)
+                       Buffers: shared hit=322
+                       ->  Bitmap Heap Scan on activities a_2 (actual time=0.004..0.005 rows=4 loops=28)
+                             Recheck Cond: (classroom_id = classrooms.id)
+                             Heap Blocks: exact=41
+                             Buffers: shared hit=97
+                             ->  Bitmap Index Scan on activities_classroom_idx (actual time=0.004..0.004 rows=4 loops=28)
+                                   Index Cond: (classroom_id = classrooms.id)
+                                   Buffers: shared hit=56
+                       ->  Index Only Scan using learning_sessions_activity_status_idx on learning_sessions ls (actual time=0.002..0.002 rows=0 loops=112)
+                             Index Cond: ((activity_id = a_2.id) AND (status = 'in_progress'::text) AND (last_activity_at > '2026-10-21 06:01:28.407+00'::timestamp with time zone))
+                             Heap Fetches: 0
+                             Buffers: shared hit=225
+ Planning:
+   Buffers: shared hit=43
+ Planning Time: 0.923 ms
+ Execution Time: 1.241 ms
+(54 rows)
+
+======== dashboard (logged 0.044 ms)
+                                 QUERY PLAN                                  
+-----------------------------------------------------------------------------
+ Sort (actual time=0.030..0.031 rows=30 loops=1)
+   Sort Key: updated_at DESC
+   Sort Method: quicksort  Memory: 27kB
+   Buffers: shared hit=3
+   ->  Seq Scan on classrooms (actual time=0.005..0.011 rows=30 loops=1)
+         Filter: (teacher_id = '6d3f0c1b-d6e3-4626-a438-8e4d5fbe1f51'::uuid)
+         Rows Removed by Filter: 90
+         Buffers: shared hit=3
+ Planning Time: 0.030 ms
+ Execution Time: 0.050 ms
+(10 rows)
+
+======== dashboard (logged 1.469 ms)
+                                                                                      QUERY PLAN                                                                                      
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort (actual time=1.685..1.691 rows=120 loops=1)
+   Sort Key: activities.updated_at DESC
+   Sort Method: quicksort  Memory: 44kB
+   Buffers: shared hit=1125
+   ->  Seq Scan on activities (actual time=0.058..1.615 rows=120 loops=1)
+         Filter: (teacher_id = '6d3f0c1b-d6e3-4626-a438-8e4d5fbe1f51'::uuid)
+         Rows Removed by Filter: 360
+         Buffers: shared hit=1125
+         SubPlan 1
+           ->  Aggregate (actual time=0.004..0.004 rows=1 loops=120)
+                 Buffers: shared hit=272
+                 ->  Index Only Scan using learning_sessions_activity_status_idx on learning_sessions ls (actual time=0.002..0.003 rows=25 loops=120)
+                       Index Cond: (activity_id = activities.id)
+                       Heap Fetches: 0
+                       Buffers: shared hit=272
+         SubPlan 2
+           ->  Aggregate (actual time=0.003..0.003 rows=1 loops=120)
+                 Buffers: shared hit=252
+                 ->  Index Only Scan using learning_sessions_activity_status_idx on learning_sessions ls_1 (actual time=0.001..0.002 rows=18 loops=120)
+                       Index Cond: ((activity_id = activities.id) AND (status = 'completed'::text))
+                       Heap Fetches: 0
+                       Buffers: shared hit=252
+         SubPlan 3
+           ->  Aggregate (actual time=0.001..0.001 rows=1 loops=120)
+                 Buffers: shared hit=241
+                 ->  Index Only Scan using learning_sessions_activity_status_idx on learning_sessions ls_2 (actual time=0.001..0.001 rows=0 loops=120)
+                       Index Cond: ((activity_id = activities.id) AND (status = 'in_progress'::text) AND (last_activity_at > '2026-10-21 06:01:21.042+00'::timestamp with time zone))
+                       Heap Fetches: 0
+                       Buffers: shared hit=241
+         SubPlan 4
+           ->  Aggregate (actual time=0.002..0.002 rows=1 loops=120)
+                 Buffers: shared hit=241
+                 ->  Index Only Scan using student_alerts_open_idx on student_alerts sa (actual time=0.001..0.002 rows=8 loops=120)
+                       Index Cond: (activity_id = activities.id)
+                       Heap Fetches: 0
+                       Buffers: shared hit=241
+ Planning Time: 0.109 ms
+ Execution Time: 1.801 ms
+(38 rows)
+
+======== dashboard (logged 1.338 ms)
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Nested Loop (actual time=1.836..1.876 rows=5 loops=1)
+   Buffers: shared hit=407
+   ->  Nested Loop (actual time=1.825..1.850 rows=5 loops=1)
+         Buffers: shared hit=392
+         ->  Limit (actual time=1.793..1.796 rows=5 loops=1)
+               Buffers: shared hit=377
+               ->  Sort (actual time=1.792..1.794 rows=5 loops=1)
+                     Sort Key: (CASE WHEN (student_alerts.severity = 'immediate'::text) THEN 0 ELSE 1 END), student_alerts.created_at DESC
+                     Sort Method: top-N heapsort  Memory: 27kB
+                     Buffers: shared hit=377
+                     ->  Hash Join (actual time=0.160..1.521 rows=902 loops=1)
+                           Hash Cond: (student_alerts.activity_id = activities.id)
+                           Buffers: shared hit=374
+                           ->  Seq Scan on student_alerts (actual time=0.005..1.103 rows=3587 loops=1)
+                                 Filter: (status = 'open'::text)
+                                 Rows Removed by Filter: 3614
+                                 Buffers: shared hit=255
+                           ->  Hash (actual time=0.147..0.147 rows=120 loops=1)
+                                 Buckets: 1024  Batches: 1  Memory Usage: 19kB
+                                 Buffers: shared hit=119
+                                 ->  Seq Scan on activities (actual time=0.003..0.126 rows=120 loops=1)
+                                       Filter: (teacher_id = '6d3f0c1b-d6e3-4626-a438-8e4d5fbe1f51'::uuid)
+                                       Rows Removed by Filter: 360
+                                       Buffers: shared hit=119
+         ->  Index Scan using learning_sessions_pkey on learning_sessions (actual time=0.010..0.010 rows=1 loops=5)
+               Index Cond: (id = student_alerts.session_id)
+               Buffers: shared hit=15
+   ->  Index Scan using students_pkey on students (actual time=0.005..0.005 rows=1 loops=5)
+         Index Cond: (id = learning_sessions.student_id)
+         Buffers: shared hit=15
+ Planning:
+   Buffers: shared hit=67
+ Planning Time: 0.655 ms
+ Execution Time: 1.936 ms
+(34 rows)
+
+======== dashboard (logged 1.014 ms)
+                                                                    QUERY PLAN                                                                    
+--------------------------------------------------------------------------------------------------------------------------------------------------
+ Result (actual time=1.430..1.436 rows=1 loops=1)
+   Buffers: shared hit=668
+   InitPlan 1
+     ->  Aggregate (actual time=0.016..0.016 rows=1 loops=1)
+           Buffers: shared hit=3
+           ->  Seq Scan on classrooms c (actual time=0.005..0.013 rows=28 loops=1)
+                 Filter: ((NOT is_archived) AND (teacher_id = '6d3f0c1b-d6e3-4626-a438-8e4d5fbe1f51'::uuid))
+                 Rows Removed by Filter: 92
+                 Buffers: shared hit=3
+   InitPlan 2
+     ->  Aggregate (actual time=0.277..0.279 rows=1 loops=1)
+           Buffers: shared hit=122
+           ->  Hash Join (actual time=0.036..0.274 rows=107 loops=1)
+                 Hash Cond: (a.classroom_id = c_1.id)
+                 Buffers: shared hit=122
+                 ->  Seq Scan on activities a (actual time=0.004..0.231 rows=115 loops=1)
+                       Filter: ((status <> 'archived'::text) AND (teacher_id = '6d3f0c1b-d6e3-4626-a438-8e4d5fbe1f51'::uuid))
+                       Rows Removed by Filter: 365
+                       Buffers: shared hit=119
+                 ->  Hash (actual time=0.021..0.021 rows=100 loops=1)
+                       Buckets: 1024  Batches: 1  Memory Usage: 13kB
+                       Buffers: shared hit=3
+                       ->  Seq Scan on classrooms c_1 (actual time=0.001..0.009 rows=100 loops=1)
+                             Filter: (NOT is_archived)
+                             Rows Removed by Filter: 20
+                             Buffers: shared hit=3
+   InitPlan 3
+     ->  Aggregate (actual time=0.192..0.193 rows=1 loops=1)
+           Buffers: shared hit=122
+           ->  Hash Join (actual time=0.038..0.187 rows=93 loops=1)
+                 Hash Cond: (a_1.classroom_id = c_2.id)
+                 Buffers: shared hit=122
+                 ->  Seq Scan on activities a_1 (actual time=0.004..0.145 rows=100 loops=1)
+                       Filter: ((teacher_id = '6d3f0c1b-d6e3-4626-a438-8e4d5fbe1f51'::uuid) AND (status = 'published'::text))
+                       Rows Removed by Filter: 380
+                       Buffers: shared hit=119
+                 ->  Hash (actual time=0.022..0.022 rows=100 loops=1)
+                       Buckets: 1024  Batches: 1  Memory Usage: 13kB
+                       Buffers: shared hit=3
+                       ->  Seq Scan on classrooms c_2 (actual time=0.001..0.009 rows=100 loops=1)
+                             Filter: (NOT is_archived)
+                             Rows Removed by Filter: 20
+                             Buffers: shared hit=3
+   InitPlan 4
+     ->  Aggregate (actual time=0.518..0.519 rows=1 loops=1)
+           Buffers: shared hit=49
+           ->  Hash Join (actual time=0.073..0.488 rows=840 loops=1)
+                 Hash Cond: (s.classroom_id = c_3.id)
+                 Buffers: shared hit=49
+                 ->  Seq Scan on students s (actual time=0.009..0.204 rows=3600 loops=1)
+                       Buffers: shared hit=46
+                 ->  Hash (actual time=0.049..0.049 rows=28 loops=1)
+                       Buckets: 1024  Batches: 1  Memory Usage: 10kB
+                       Buffers: shared hit=3
+                       ->  Seq Scan on classrooms c_3 (actual time=0.002..0.038 rows=28 loops=1)
+                             Filter: ((NOT is_archived) AND (teacher_id = '6d3f0c1b-d6e3-4626-a438-8e4d5fbe1f51'::uuid))
+                             Rows Removed by Filter: 92
+                             Buffers: shared hit=3
+   InitPlan 5
+     ->  Aggregate (actual time=0.380..0.380 rows=1 loops=1)
+           Buffers: shared hit=360
+           ->  Nested Loop (actual time=0.023..0.348 rows=902 loops=1)
+                 Buffers: shared hit=360
+                 ->  Seq Scan on activities a_2 (actual time=0.003..0.075 rows=120 loops=1)
+                       Filter: (teacher_id = '6d3f0c1b-d6e3-4626-a438-8e4d5fbe1f51'::uuid)
+                       Rows Removed by Filter: 360
+                       Buffers: shared hit=119
+                 ->  Index Only Scan using student_alerts_open_idx on student_alerts sa (actual time=0.001..0.002 rows=8 loops=120)
+                       Index Cond: (activity_id = a_2.id)
+                       Heap Fetches: 0
+                       Buffers: shared hit=241
+   InitPlan 6
+     ->  Seq Scan on classrooms c_4 (actual time=0.002..0.002 rows=1 loops=1)
+           Filter: (teacher_id = '6d3f0c1b-d6e3-4626-a438-8e4d5fbe1f51'::uuid)
+           Buffers: shared hit=2
+   InitPlan 7
+     ->  Index Only Scan using activities_teacher_idx on activities a_3 (actual time=0.014..0.014 rows=1 loops=1)
+           Index Cond: (teacher_id = '6d3f0c1b-d6e3-4626-a438-8e4d5fbe1f51'::uuid)
+           Heap Fetches: 0
+           Buffers: shared hit=3
+   InitPlan 8
+     ->  Seq Scan on activities a_4 (actual time=0.003..0.003 rows=1 loops=1)
+           Filter: (((status = 'published'::text) OR (published_at IS NOT NULL)) AND (teacher_id = '6d3f0c1b-d6e3-4626-a438-8e4d5fbe1f51'::uuid))
+           Buffers: shared hit=2
+   InitPlan 9
+     ->  Nested Loop (actual time=0.020..0.020 rows=1 loops=1)
+           Buffers: shared hit=5
+           ->  Seq Scan on activities a_5 (actual time=0.003..0.003 rows=1 loops=1)
+                 Filter: (teacher_id = '6d3f0c1b-d6e3-4626-a438-8e4d5fbe1f51'::uuid)
+                 Buffers: shared hit=2
+           ->  Index Only Scan using learning_sessions_activity_student_unique on learning_sessions ls (actual time=0.016..0.016 rows=1 loops=1)
+                 Index Cond: (activity_id = a_5.id)
+                 Heap Fetches: 0
+                 Buffers: shared hit=3
+ Planning:
+   Buffers: shared hit=54
+ Planning Time: 0.941 ms
+ Execution Time: 1.625 ms
+(98 rows)
+
+======== live (logged 0.240 ms)
+                                                       QUERY PLAN                                                        
+-------------------------------------------------------------------------------------------------------------------------
+ Hash Join (actual time=0.050..0.358 rows=29 loops=1)
+   Hash Cond: (students.id = learning_sessions.student_id)
+   Buffers: shared hit=51
+   ->  Seq Scan on students (actual time=0.003..0.139 rows=3600 loops=1)
+         Buffers: shared hit=46
+   ->  Hash (actual time=0.040..0.040 rows=29 loops=1)
+         Buckets: 1024  Batches: 1  Memory Usage: 14kB
+         Buffers: shared hit=5
+         ->  Bitmap Heap Scan on learning_sessions (actual time=0.022..0.026 rows=29 loops=1)
+               Recheck Cond: (activity_id = '71d73c9e-a1d6-4a15-9a67-6e7c34c2553d'::uuid)
+               Heap Blocks: exact=2
+               Buffers: shared hit=5
+               ->  Bitmap Index Scan on learning_sessions_activity_status_idx (actual time=0.012..0.012 rows=29 loops=1)
+                     Index Cond: (activity_id = '71d73c9e-a1d6-4a15-9a67-6e7c34c2553d'::uuid)
+                     Buffers: shared hit=3
+ Planning:
+   Buffers: shared hit=30
+ Planning Time: 0.284 ms
+ Execution Time: 0.394 ms
+(19 rows)
+
+======== live (logged 0.089 ms)
+                                                       QUERY PLAN                                                       
+------------------------------------------------------------------------------------------------------------------------
+ GroupAggregate (actual time=0.049..0.051 rows=8 loops=1)
+   Group Key: session_id
+   Buffers: shared hit=7
+   ->  Sort (actual time=0.046..0.046 rows=8 loops=1)
+         Sort Key: session_id
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=7
+         ->  Bitmap Heap Scan on student_alerts (actual time=0.014..0.017 rows=8 loops=1)
+               Recheck Cond: ((activity_id = '71d73c9e-a1d6-4a15-9a67-6e7c34c2553d'::uuid) AND (status = 'open'::text))
+               Heap Blocks: exact=2
+               Buffers: shared hit=4
+               ->  Bitmap Index Scan on student_alerts_open_idx (actual time=0.010..0.010 rows=8 loops=1)
+                     Index Cond: (activity_id = '71d73c9e-a1d6-4a15-9a67-6e7c34c2553d'::uuid)
+                     Buffers: shared hit=2
+ Planning Time: 0.061 ms
+ Execution Time: 0.089 ms
+(16 rows)
+
+======== live (logged 0.345 ms)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    QUERY PLAN                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Unique (actual time=0.307..0.328 rows=29 loops=1)
+   Buffers: shared hit=97
+   ->  Sort (actual time=0.307..0.315 rows=286 loops=1)
+         Sort Key: session_id, created_at DESC
+         Sort Method: quicksort  Memory: 62kB
+         Buffers: shared hit=97
+         ->  Bitmap Heap Scan on messages (actual time=0.150..0.224 rows=286 loops=1)
+               Recheck Cond: (session_id = ANY ('{e8b38dc8-d897-4d73-9ac2-a785bfa6f33d,36d84ab4-0d77-48c4-a0e6-4f07194f9e2d,08e33129-d0f6-4b64-aaad-6ff8ae1285b9,339ce402-bbe5-4f16-bb64-be57645714c4,35a7416f-d4e2-457b-a556-3cb41b2ebe46,fc46418a-4409-49fc-aae3-9012cb4b77ca,22c701d5-d4e8-4f12-8cf2-7d94e03180d0,0a09a889-60df-4452-9c47-45f114ef4a3e,fa7bf73d-90ea-4233-8eee-94d3cbf6e281,031458f6-3b72-4ecb-8616-42c10471560d,67d6637e-d1c3-4f5d-8e0c-6f7e18f03615,35e16f9a-cd56-4e08-9343-d9fbba8abbf7,d6d5cb3d-c06b-43e4-a3e6-507a8e0ca1d0,1d1c9315-0f43-4101-948b-6c24093331e5,cb928d3b-7ec7-4b03-b2be-070fcce676d9,e75592c3-fec5-414e-a9cb-44750f6b335b,2819e5c7-78a5-4526-85f3-802ded1a0ccd,f1b52a8d-0bcd-4747-9623-c8db03ee1b7f,4cc688d9-53b7-4fbf-8061-7ee810b545e7,8bed5273-5b15-4bcd-995b-7a42e0269af6,75a891b3-6834-43d6-ad6b-d3d4cb826b29,562885f7-2eb3-49c5-a094-f5435e1ce146,359314bb-5510-46a1-b354-7475986001eb,b820e411-94df-4c44-a448-70d73f31e273,0442ad88-e5ac-4a02-ab6e-2757bf239843,dc43fa96-955f-4887-bdb2-a00ca687be8c,86093d82-1cb2-44cd-aeed-0ec1328d4a85,aa128ee1-85b6-46a7-be0a-56ff1060395d,c418385a-a29a-4ce1-a64f-8d903f62c525}'::uuid[]))
+               Filter: ((NOT is_partial) AND (role = 'assistant'::text))
+               Rows Removed by Filter: 286
+               Heap Blocks: exact=15
+               Buffers: shared hit=97
+               ->  Bitmap Index Scan on messages_session_created_idx (actual time=0.137..0.137 rows=572 loops=1)
+                     Index Cond: (session_id = ANY ('{e8b38dc8-d897-4d73-9ac2-a785bfa6f33d,36d84ab4-0d77-48c4-a0e6-4f07194f9e2d,08e33129-d0f6-4b64-aaad-6ff8ae1285b9,339ce402-bbe5-4f16-bb64-be57645714c4,35a7416f-d4e2-457b-a556-3cb41b2ebe46,fc46418a-4409-49fc-aae3-9012cb4b77ca,22c701d5-d4e8-4f12-8cf2-7d94e03180d0,0a09a889-60df-4452-9c47-45f114ef4a3e,fa7bf73d-90ea-4233-8eee-94d3cbf6e281,031458f6-3b72-4ecb-8616-42c10471560d,67d6637e-d1c3-4f5d-8e0c-6f7e18f03615,35e16f9a-cd56-4e08-9343-d9fbba8abbf7,d6d5cb3d-c06b-43e4-a3e6-507a8e0ca1d0,1d1c9315-0f43-4101-948b-6c24093331e5,cb928d3b-7ec7-4b03-b2be-070fcce676d9,e75592c3-fec5-414e-a9cb-44750f6b335b,2819e5c7-78a5-4526-85f3-802ded1a0ccd,f1b52a8d-0bcd-4747-9623-c8db03ee1b7f,4cc688d9-53b7-4fbf-8061-7ee810b545e7,8bed5273-5b15-4bcd-995b-7a42e0269af6,75a891b3-6834-43d6-ad6b-d3d4cb826b29,562885f7-2eb3-49c5-a094-f5435e1ce146,359314bb-5510-46a1-b354-7475986001eb,b820e411-94df-4c44-a448-70d73f31e273,0442ad88-e5ac-4a02-ab6e-2757bf239843,dc43fa96-955f-4887-bdb2-a00ca687be8c,86093d82-1cb2-44cd-aeed-0ec1328d4a85,aa128ee1-85b6-46a7-be0a-56ff1060395d,c418385a-a29a-4ce1-a64f-8d903f62c525}'::uuid[]))
+                     Buffers: shared hit=82
+ Planning:
+   Buffers: shared hit=52
+ Planning Time: 0.309 ms
+ Execution Time: 0.364 ms
+(19 rows)
+
+======== live (logged 0.249 ms)
+                                                                                             QUERY PLAN                                                                                              
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=0.146..0.149 rows=19 loops=1)
+   Buffers: shared hit=118
+   ->  Sort (actual time=0.146..0.147 rows=19 loops=1)
+         Sort Key: (CASE WHEN (student_alerts.status = 'open'::text) THEN 0 ELSE 1 END), (CASE WHEN (student_alerts.severity = 'immediate'::text) THEN 0 ELSE 1 END), student_alerts.created_at DESC
+         Sort Method: quicksort  Memory: 34kB
+         Buffers: shared hit=118
+         ->  Nested Loop (actual time=0.033..0.122 rows=19 loops=1)
+               Buffers: shared hit=118
+               ->  Nested Loop (actual time=0.024..0.086 rows=19 loops=1)
+                     Buffers: shared hit=61
+                     ->  Bitmap Heap Scan on student_alerts (actual time=0.012..0.014 rows=19 loops=1)
+                           Recheck Cond: (activity_id = '71d73c9e-a1d6-4a15-9a67-6e7c34c2553d'::uuid)
+                           Heap Blocks: exact=2
+                           Buffers: shared hit=4
+                           ->  Bitmap Index Scan on student_alerts_activity_idx (actual time=0.008..0.009 rows=19 loops=1)
+                                 Index Cond: (activity_id = '71d73c9e-a1d6-4a15-9a67-6e7c34c2553d'::uuid)
+                                 Buffers: shared hit=2
+                     ->  Index Scan using learning_sessions_pkey on learning_sessions (actual time=0.003..0.003 rows=1 loops=19)
+                           Index Cond: (id = student_alerts.session_id)
+                           Buffers: shared hit=57
+               ->  Index Scan using students_pkey on students (actual time=0.002..0.002 rows=1 loops=19)
+                     Index Cond: (id = learning_sessions.student_id)
+                     Buffers: shared hit=57
+ Planning:
+   Buffers: shared hit=45
+ Planning Time: 0.448 ms
+ Execution Time: 0.212 ms
+(27 rows)
+
+======== live (logged 1.536 ms)
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Sort (actual time=1.127..1.165 rows=1140 loops=1)
+   Sort Key: e.created_at
+   Sort Method: quicksort  Memory: 124kB
+   Buffers: shared hit=112
+   ->  Nested Loop (actual time=0.067..0.884 rows=1140 loops=1)
+         Buffers: shared hit=112
+         ->  Bitmap Heap Scan on learning_sessions ls (actual time=0.012..0.018 rows=29 loops=1)
+               Recheck Cond: (activity_id = '71d73c9e-a1d6-4a15-9a67-6e7c34c2553d'::uuid)
+               Heap Blocks: exact=2
+               Buffers: shared hit=5
+               ->  Bitmap Index Scan on learning_sessions_activity_status_idx (actual time=0.009..0.009 rows=29 loops=1)
+                     Index Cond: (activity_id = '71d73c9e-a1d6-4a15-9a67-6e7c34c2553d'::uuid)
+                     Buffers: shared hit=3
+         ->  Index Only Scan using pedagogical_events_session_type_idx on pedagogical_events e (actual time=0.008..0.012 rows=39 loops=29)
+               Index Cond: (session_id = ls.id)
+               Heap Fetches: 0
+               Buffers: shared hit=107
+ Planning:
+   Buffers: shared hit=82
+ Planning Time: 0.476 ms
+ Execution Time: 1.277 ms
+(21 rows)
+
+======== radiografia (logged 5.280 ms)
+                                                                                                   QUERY PLAN                                                                                                   
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=6.639..6.645 rows=31 loops=1)
+   Buffers: shared hit=1021
+   ->  Sort (actual time=6.638..6.642 rows=31 loops=1)
+         Sort Key: (CASE WHEN (learning_sessions.status = 'completed'::text) THEN 0 ELSE 1 END), (COALESCE(learning_sessions.completed_at, learning_sessions.last_activity_at)) DESC, learning_sessions.id DESC
+         Sort Method: top-N heapsort  Memory: 38kB
+         Buffers: shared hit=1021
+         ->  Hash Join (actual time=0.910..5.612 rows=3000 loops=1)
+               Hash Cond: (learning_sessions.student_id = students.id)
+               Buffers: shared hit=1021
+               ->  Hash Join (actual time=0.187..4.022 rows=3000 loops=1)
+                     Hash Cond: (activities.classroom_id = classrooms.id)
+                     Buffers: shared hit=975
+                     ->  Hash Join (actual time=0.154..3.610 rows=3000 loops=1)
+                           Hash Cond: (learning_sessions.activity_id = activities.id)
+                           Buffers: shared hit=972
+                           ->  Seq Scan on learning_sessions (actual time=0.002..1.693 rows=12000 loops=1)
+                                 Buffers: shared hit=853
+                           ->  Hash (actual time=0.143..0.143 rows=120 loops=1)
+                                 Buckets: 1024  Batches: 1  Memory Usage: 21kB
+                                 Buffers: shared hit=119
+                                 ->  Seq Scan on activities (actual time=0.005..0.119 rows=120 loops=1)
+                                       Filter: (teacher_id = '6d3f0c1b-d6e3-4626-a438-8e4d5fbe1f51'::uuid)
+                                       Rows Removed by Filter: 360
+                                       Buffers: shared hit=119
+                     ->  Hash (actual time=0.026..0.026 rows=120 loops=1)
+                           Buckets: 1024  Batches: 1  Memory Usage: 17kB
+                           Buffers: shared hit=3
+                           ->  Seq Scan on classrooms (actual time=0.004..0.010 rows=120 loops=1)
+                                 Buffers: shared hit=3
+               ->  Hash (actual time=0.709..0.709 rows=3600 loops=1)
+                     Buckets: 4096  Batches: 1  Memory Usage: 256kB
+                     Buffers: shared hit=46
+                     ->  Seq Scan on students (actual time=0.006..0.210 rows=3600 loops=1)
+                           Buffers: shared hit=46
+ Planning:
+   Buffers: shared hit=45
+ Planning Time: 0.499 ms
+ Execution Time: 6.816 ms
+(38 rows)
+
+======== radiografia (logged 0.126 ms)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 QUERY PLAN                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on thinking_analyses (actual time=0.079..0.104 rows=13 loops=1)
+   Recheck Cond: (session_id = ANY ('{031458f6-3b72-4ecb-8616-42c10471560d,0442ad88-e5ac-4a02-ab6e-2757bf239843,cb928d3b-7ec7-4b03-b2be-070fcce676d9,8bed5273-5b15-4bcd-995b-7a42e0269af6,35a7416f-d4e2-457b-a556-3cb41b2ebe46,4ae861e5-e3c4-44bb-b7db-0babe5229f08,d684c544-8169-4ec7-bca6-d00afaacf573,1cb2f4d8-3ecc-4a89-adc7-4b6b09e16d00,8f8f7204-f177-479c-8b90-e45ccbefa0f5,cf086f4e-2195-4c20-ab4d-6a6c5e45fc60,1310bce1-d1e8-4a85-b6ed-cf8674bc35bf,362032cf-24ff-488a-8c75-aeeb92838a4b,2a946c4e-0bad-4eb8-adfe-1b6733220faf,9c45701b-ea02-46cc-9b93-6f3118ccac3f,6ce22b28-d9a6-4884-bf09-66feca62b985,8d20a9d4-ffbf-4edf-b9f5-d789f51aba58,7d765010-7c6d-4feb-9b77-cda1e87bd5bb,0300ee73-300f-495f-896f-b0281cdff9dd,fb7e5205-7be5-4d4f-9b26-65a2d4101fa9,823f2a8a-cffe-43b7-97e8-4afbdb9d04c3,6d5b2de9-7a18-4da0-9ec5-430d77eb6d1f,c791f464-2f62-4838-ba9f-e918eea123c4,ec732639-9873-4238-a4c4-88f818c38405,47366022-d2fa-44da-8be5-8bd67364adb1,d92e0bec-70f7-4b51-aa03-90280acf9a2b,39dc039a-809f-4235-80fb-89d5f97dc8ab,dfb9bda0-ba36-4d08-8436-c1246efa395f,abbac4b6-d0b2-47da-b1c6-74bd1267019e,153e0427-4792-4019-a013-7f695073886d,d7336b0a-ec33-4560-9fac-407cbb702c38}'::uuid[]))
+   Heap Blocks: exact=12
+   Buffers: shared hit=36
+   ->  Bitmap Index Scan on thinking_analyses_session_unique (actual time=0.073..0.073 rows=13 loops=1)
+         Index Cond: (session_id = ANY ('{031458f6-3b72-4ecb-8616-42c10471560d,0442ad88-e5ac-4a02-ab6e-2757bf239843,cb928d3b-7ec7-4b03-b2be-070fcce676d9,8bed5273-5b15-4bcd-995b-7a42e0269af6,35a7416f-d4e2-457b-a556-3cb41b2ebe46,4ae861e5-e3c4-44bb-b7db-0babe5229f08,d684c544-8169-4ec7-bca6-d00afaacf573,1cb2f4d8-3ecc-4a89-adc7-4b6b09e16d00,8f8f7204-f177-479c-8b90-e45ccbefa0f5,cf086f4e-2195-4c20-ab4d-6a6c5e45fc60,1310bce1-d1e8-4a85-b6ed-cf8674bc35bf,362032cf-24ff-488a-8c75-aeeb92838a4b,2a946c4e-0bad-4eb8-adfe-1b6733220faf,9c45701b-ea02-46cc-9b93-6f3118ccac3f,6ce22b28-d9a6-4884-bf09-66feca62b985,8d20a9d4-ffbf-4edf-b9f5-d789f51aba58,7d765010-7c6d-4feb-9b77-cda1e87bd5bb,0300ee73-300f-495f-896f-b0281cdff9dd,fb7e5205-7be5-4d4f-9b26-65a2d4101fa9,823f2a8a-cffe-43b7-97e8-4afbdb9d04c3,6d5b2de9-7a18-4da0-9ec5-430d77eb6d1f,c791f464-2f62-4838-ba9f-e918eea123c4,ec732639-9873-4238-a4c4-88f818c38405,47366022-d2fa-44da-8be5-8bd67364adb1,d92e0bec-70f7-4b51-aa03-90280acf9a2b,39dc039a-809f-4235-80fb-89d5f97dc8ab,dfb9bda0-ba36-4d08-8436-c1246efa395f,abbac4b6-d0b2-47da-b1c6-74bd1267019e,153e0427-4792-4019-a013-7f695073886d,d7336b0a-ec33-4560-9fac-407cbb702c38}'::uuid[]))
+         Buffers: shared hit=24
+ Planning:
+   Buffers: shared hit=35
+ Planning Time: 0.228 ms
+ Execution Time: 0.128 ms
+(11 rows)
+
+======== session (logged 0.068 ms)
+                                                QUERY PLAN                                                
+----------------------------------------------------------------------------------------------------------
+ Sort (actual time=0.020..0.021 rows=18 loops=1)
+   Sort Key: created_at, id
+   Sort Method: quicksort  Memory: 27kB
+   Buffers: shared hit=4
+   ->  Bitmap Heap Scan on messages (actual time=0.010..0.011 rows=18 loops=1)
+         Recheck Cond: (session_id = '001c8c72-97d1-4921-a80f-367a55b48015'::uuid)
+         Heap Blocks: exact=1
+         Buffers: shared hit=4
+         ->  Bitmap Index Scan on messages_session_created_idx (actual time=0.006..0.006 rows=18 loops=1)
+               Index Cond: (session_id = '001c8c72-97d1-4921-a80f-367a55b48015'::uuid)
+               Buffers: shared hit=3
+ Planning:
+   Buffers: shared hit=9
+ Planning Time: 0.109 ms
+ Execution Time: 0.044 ms
+(15 rows)
+
+======== session (logged 0.060 ms)
+                                                   QUERY PLAN                                                    
+-----------------------------------------------------------------------------------------------------------------
+ Sort (actual time=0.025..0.026 rows=37 loops=1)
+   Sort Key: created_at
+   Sort Method: quicksort  Memory: 28kB
+   Buffers: shared hit=5
+   ->  Bitmap Heap Scan on pedagogical_events (actual time=0.015..0.017 rows=37 loops=1)
+         Recheck Cond: (session_id = '001c8c72-97d1-4921-a80f-367a55b48015'::uuid)
+         Heap Blocks: exact=1
+         Buffers: shared hit=5
+         ->  Bitmap Index Scan on pedagogical_events_session_type_idx (actual time=0.012..0.012 rows=37 loops=1)
+               Index Cond: (session_id = '001c8c72-97d1-4921-a80f-367a55b48015'::uuid)
+               Buffers: shared hit=4
+ Planning:
+   Buffers: shared hit=12
+ Planning Time: 0.116 ms
+ Execution Time: 0.049 ms
+(15 rows)
+
+======== session (logged 0.019 ms)
+                                                       QUERY PLAN                                                       
+------------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=0.012..0.012 rows=0 loops=1)
+   Buffers: shared hit=2
+   ->  Index Scan using session_summaries_session_unique on session_summaries (actual time=0.011..0.011 rows=0 loops=1)
+         Index Cond: (session_id = '001c8c72-97d1-4921-a80f-367a55b48015'::uuid)
+         Buffers: shared hit=2
+ Planning:
+   Buffers: shared hit=47
+ Planning Time: 0.263 ms
+ Execution Time: 0.039 ms
+(9 rows)
+
+======== session (logged 0.038 ms)
+                               QUERY PLAN                               
+------------------------------------------------------------------------
+ Limit (actual time=0.007..0.007 rows=1 loops=1)
+   Buffers: shared hit=2
+   ->  Seq Scan on classrooms (actual time=0.006..0.007 rows=1 loops=1)
+         Filter: (id = '0e2f6581-3329-47e0-b6ca-decba55f0242'::uuid)
+         Rows Removed by Filter: 12
+         Buffers: shared hit=2
+ Planning Time: 0.028 ms
+ Execution Time: 0.014 ms
+(8 rows)
+
+======== session (logged 0.085 ms)
+                                                       QUERY PLAN                                                       
+------------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=0.008..0.009 rows=0 loops=1)
+   Buffers: shared hit=2
+   ->  Index Scan using thinking_analyses_session_unique on thinking_analyses (actual time=0.008..0.008 rows=0 loops=1)
+         Index Cond: (session_id = '001c8c72-97d1-4921-a80f-367a55b48015'::uuid)
+         Buffers: shared hit=2
+ Planning:
+   Buffers: shared hit=12
+ Planning Time: 0.107 ms
+ Execution Time: 0.019 ms
+(9 rows)
+
+======== session (logged 0.032 ms)
+                                                        QUERY PLAN                                                        
+--------------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=0.018..0.018 rows=1 loops=1)
+   Buffers: shared hit=3
+   ->  Index Scan using rubric_assessments_session_unique on rubric_assessments (actual time=0.017..0.018 rows=1 loops=1)
+         Index Cond: (session_id = '001c8c72-97d1-4921-a80f-367a55b48015'::uuid)
+         Buffers: shared hit=3
+ Planning:
+   Buffers: shared hit=62
+ Planning Time: 0.279 ms
+ Execution Time: 0.029 ms
+(9 rows)
+
+======== session (logged 0.028 ms)
+                                                  QUERY PLAN                                                   
+---------------------------------------------------------------------------------------------------------------
+ Sort (actual time=0.032..0.032 rows=0 loops=1)
+   Sort Key: created_at DESC
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=2
+   ->  Index Scan using student_alerts_session_idx on student_alerts (actual time=0.012..0.012 rows=0 loops=1)
+         Index Cond: (session_id = '001c8c72-97d1-4921-a80f-367a55b48015'::uuid)
+         Buffers: shared hit=2
+ Planning Time: 0.037 ms
+ Execution Time: 0.050 ms
+(9 rows)
+
+======== student-workspace (logged 0.056 ms)
+                                                QUERY PLAN                                                
+----------------------------------------------------------------------------------------------------------
+ Sort (actual time=0.025..0.026 rows=20 loops=1)
+   Sort Key: created_at, id
+   Sort Method: quicksort  Memory: 28kB
+   Buffers: shared hit=4
+   ->  Bitmap Heap Scan on messages (actual time=0.013..0.015 rows=20 loops=1)
+         Recheck Cond: (session_id = 'e8b38dc8-d897-4d73-9ac2-a785bfa6f33d'::uuid)
+         Filter: (NOT is_partial)
+         Heap Blocks: exact=1
+         Buffers: shared hit=4
+         ->  Bitmap Index Scan on messages_session_created_idx (actual time=0.007..0.007 rows=20 loops=1)
+               Index Cond: (session_id = 'e8b38dc8-d897-4d73-9ac2-a785bfa6f33d'::uuid)
+               Buffers: shared hit=3
+ Planning Time: 0.038 ms
+ Execution Time: 0.058 ms
+(14 rows)
+
+======== student-workspace (logged 0.013 ms)
+                                                       QUERY PLAN                                                       
+------------------------------------------------------------------------------------------------------------------------
+ Sort (actual time=0.012..0.012 rows=0 loops=1)
+   Sort Key: created_at
+   Sort Method: quicksort  Memory: 25kB
+   ->  Seq Scan on activity_files (actual time=0.002..0.002 rows=0 loops=1)
+         Filter: ((activity_id = '71d73c9e-a1d6-4a15-9a67-6e7c34c2553d'::uuid) AND (processing_status = 'ready'::text))
+ Planning:
+   Buffers: shared hit=3
+ Planning Time: 0.035 ms
+ Execution Time: 0.027 ms
+(9 rows)
+

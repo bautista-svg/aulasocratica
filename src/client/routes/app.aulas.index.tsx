@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Plus, School, Users, LayoutList } from "lucide-react";
-import { z } from "zod";
+import { optionalBoolean, searchParams } from "@client/lib/search";
 import { PageHeader, EmptyState, ErrorState, SkeletonList, Badge } from "@client/components/ui/misc";
 import { Button } from "@client/components/ui/button";
 import { cn } from "@client/lib/cn";
@@ -11,7 +11,7 @@ import { useClassrooms } from "@client/features/classrooms/api";
 import { ClassroomFormDialog } from "@client/features/classrooms/classroom-form";
 
 export const Route = createFileRoute("/app/aulas/")({
-  validateSearch: z.object({ archivadas: z.boolean().optional() }),
+  validateSearch: searchParams({ archivadas: optionalBoolean }),
   component: ClassroomsPage,
 });
 

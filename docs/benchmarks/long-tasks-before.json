@@ -1,0 +1,215 @@
+{
+  "label": "before",
+  "date": "2026-10-21T05:34:08.563Z",
+  "runs": 5,
+  "pages": {
+    "app-inicio": {
+      "median": {
+        "tbtMs": 56,
+        "fcpMs": 2443,
+        "ttiMs": 3739,
+        "longTasks": 4,
+        "longTaskMs": 278,
+        "allBlockingMs": 78
+      },
+      "samples": [
+        {
+          "tbtMs": 63.5,
+          "fcpMs": 2445.3499999999995,
+          "ttiMs": 3752.7599999999993,
+          "longTasks": 4,
+          "longTaskMs": 315,
+          "allBlockingMs": 115
+        },
+        {
+          "tbtMs": 56,
+          "fcpMs": 2442.65,
+          "ttiMs": 3738.84,
+          "longTasks": 4,
+          "longTaskMs": 278,
+          "allBlockingMs": 78
+        },
+        {
+          "tbtMs": 45,
+          "fcpMs": 2441.37,
+          "ttiMs": 3733.192,
+          "longTasks": 4,
+          "longTaskMs": 264,
+          "allBlockingMs": 64
+        },
+        {
+          "tbtMs": 93.5,
+          "fcpMs": 2454.52,
+          "ttiMs": 3771.4320000000002,
+          "longTasks": 5,
+          "longTaskMs": 404,
+          "allBlockingMs": 154
+        },
+        {
+          "tbtMs": 46,
+          "fcpMs": 2443.415,
+          "ttiMs": 3737.264,
+          "longTasks": 4,
+          "longTaskMs": 277,
+          "allBlockingMs": 77
+        }
+      ]
+    },
+    "app-aula": {
+      "median": {
+        "tbtMs": 69,
+        "fcpMs": 2527,
+        "ttiMs": 4080,
+        "longTasks": 4,
+        "longTaskMs": 310,
+        "allBlockingMs": 110
+      },
+      "samples": [
+        {
+          "tbtMs": 88.5,
+          "fcpMs": 2529.0157500000005,
+          "ttiMs": 4090.8087000000014,
+          "longTasks": 6,
+          "longTaskMs": 442,
+          "allBlockingMs": 142
+        },
+        {
+          "tbtMs": 69,
+          "fcpMs": 2527.6487500000003,
+          "ttiMs": 4079.7250000000017,
+          "longTasks": 4,
+          "longTaskMs": 310,
+          "allBlockingMs": 110
+        },
+        {
+          "tbtMs": 88,
+          "fcpMs": 2527.08975,
+          "ttiMs": 4088.1090999999997,
+          "longTasks": 6,
+          "longTaskMs": 437,
+          "allBlockingMs": 137
+        },
+        {
+          "tbtMs": 57,
+          "fcpMs": 2524.5575000000003,
+          "ttiMs": 4069.6500000000015,
+          "longTasks": 4,
+          "longTaskMs": 290,
+          "allBlockingMs": 90
+        },
+        {
+          "tbtMs": 67,
+          "fcpMs": 2524.1217500000002,
+          "ttiMs": 4075.585,
+          "longTasks": 4,
+          "longTaskMs": 303,
+          "allBlockingMs": 103
+        }
+      ]
+    },
+    "app-actividad-en-vivo": {
+      "median": {
+        "tbtMs": 241,
+        "fcpMs": 2683,
+        "ttiMs": 4419,
+        "longTasks": 6,
+        "longTaskMs": 736,
+        "allBlockingMs": 436
+      },
+      "samples": [
+        {
+          "tbtMs": 286.5,
+          "fcpMs": 2688.9115,
+          "ttiMs": 4432.451999999999,
+          "longTasks": 8,
+          "longTaskMs": 931,
+          "allBlockingMs": 531
+        },
+        {
+          "tbtMs": 250,
+          "fcpMs": 2685.3152499999997,
+          "ttiMs": 4424.582,
+          "longTasks": 7,
+          "longTaskMs": 803,
+          "allBlockingMs": 453
+        },
+        {
+          "tbtMs": 220.99999999999977,
+          "fcpMs": 2681.90275,
+          "ttiMs": 4399.282000000001,
+          "longTasks": 6,
+          "longTaskMs": 710.9999999999995,
+          "allBlockingMs": 410.99999999999955
+        },
+        {
+          "tbtMs": 216,
+          "fcpMs": 2681.3107499999996,
+          "ttiMs": 4407.266,
+          "longTasks": 6,
+          "longTaskMs": 693,
+          "allBlockingMs": 393
+        },
+        {
+          "tbtMs": 241.49999999999977,
+          "fcpMs": 2683.4965,
+          "ttiMs": 4418.532000000001,
+          "longTasks": 6,
+          "longTaskMs": 735.9999999999995,
+          "allBlockingMs": 435.99999999999955
+        }
+      ]
+    },
+    "clase-chat": {
+      "median": {
+        "tbtMs": 157,
+        "fcpMs": 2733,
+        "ttiMs": 3516,
+        "longTasks": 3,
+        "longTaskMs": 337,
+        "allBlockingMs": 187
+      },
+      "samples": [
+        {
+          "tbtMs": 156,
+          "fcpMs": 2732.124,
+          "ttiMs": 3506.518,
+          "longTasks": 2,
+          "longTaskMs": 279,
+          "allBlockingMs": 179
+        },
+        {
+          "tbtMs": 133.6792499999999,
+          "fcpMs": 2730.9339999999993,
+          "ttiMs": 3483.0868249999994,
+          "longTasks": 2,
+          "longTaskMs": 257,
+          "allBlockingMs": 157
+        },
+        {
+          "tbtMs": 157,
+          "fcpMs": 2733.6020000000008,
+          "ttiMs": 3516.201500000001,
+          "longTasks": 3,
+          "longTaskMs": 337,
+          "allBlockingMs": 187
+        },
+        {
+          "tbtMs": 177.36525000000006,
+          "fcpMs": 2784.4219999999996,
+          "ttiMs": 3547.2007250000006,
+          "longTasks": 5,
+          "longTaskMs": 470,
+          "allBlockingMs": 220
+        },
+        {
+          "tbtMs": 181.5,
+          "fcpMs": 2732.9359999999997,
+          "ttiMs": 3537.9770000000008,
+          "longTasks": 4,
+          "longTaskMs": 409,
+          "allBlockingMs": 209
+        }
+      ]
+    }
+  }
+}

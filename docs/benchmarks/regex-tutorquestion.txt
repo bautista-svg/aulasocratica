@@ -1,0 +1,13 @@
+tutorQuestion (shared/domain/thinking-xray.ts): regex anterior /[^.!?¿¡]*¿?[^.!?¿¡]*\?/g vs nueva /[^.!?¿¡]*(?:¿[^.!?¿¡]*)?\?/g
+Node 22.22, i9-12900F, sin throttling. Mismos resultados (test de equivalencia con 20.000 textos aleatorios en
+src/shared/domain/thinking-xray.test.ts). Tiempo por llamada a String.prototype.match:
+
+respuesta típica del tutor (~110 caracteres, termina en "?"):  anterior 94,5 µs   nueva 3,6 µs
+oración de 100 caracteres que no termina en "?":               anterior 268 µs    nueva 8,1 µs
+oración de 200 caracteres que no termina en "?":               anterior 2.211 µs  nueva 43,7 µs
+oración de 400 caracteres que no termina en "?":               anterior 17.028 µs nueva 127,3 µs
+
+La anterior crece de forma cúbica con el largo de cada oración sin "?" (dos cuantificadores iguales seguidos: por cada
+posición de inicio prueba todas las particiones); la nueva, cuadrática y con constante mucho menor. Se usa en la vista
+en vivo (última pregunta de cada alumno, en cada refresco) y en el recorrido / radiografía de cada trabajo (todas las
+respuestas del tutor).

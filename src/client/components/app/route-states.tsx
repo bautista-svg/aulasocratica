@@ -4,7 +4,7 @@ import { Logo } from "../brand/logo";
 import { Button, buttonClass } from "../ui/button";
 import { errorMessage } from "@client/lib/api";
 import { usePageTitle } from "@client/lib/page-title";
-import { useInAppShell } from "./shell";
+import { useInAppShell } from "./shell-context";
 
 /**
  * Inside the panel the page already has the logo, the navigation and the <main> landmark, so a

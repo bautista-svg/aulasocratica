@@ -58,7 +58,20 @@ export async function activitySummaries(teacherId: string, classroomId: string |
   const activeSince = new Date(Date.now() - ACTIVE_MS).toISOString();
   const rows = await db
     .select({
-      a: schema.activities,
+      // Only the columns of the summary: the long texts (material, instructions, rubric…) are not read.
+      a: {
+        id: schema.activities.id,
+        classroomId: schema.activities.classroomId,
+        title: schema.activities.title,
+        subject: schema.activities.subject,
+        status: schema.activities.status,
+        linkActive: schema.activities.linkActive,
+        startsAt: schema.activities.startsAt,
+        expiresAt: schema.activities.expiresAt,
+        publishedAt: schema.activities.publishedAt,
+        createdAt: schema.activities.createdAt,
+        updatedAt: schema.activities.updatedAt,
+      },
       participants: sql<number>`(select count(*)::int from learning_sessions ls where ls.activity_id = activities.id)`,
       completed: sql<number>`(select count(*)::int from learning_sessions ls where ls.activity_id = activities.id and ls.status = 'completed')`,
       classroomArchived: sql<boolean>`coalesce((select c.is_archived from classrooms c where c.id = activities.classroom_id), false)`,

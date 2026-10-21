@@ -1,5 +1,6 @@
 import { Link, useLinkProps, useRouterState } from "@tanstack/react-router";
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { InShell } from "./shell-context";
 import {
   Home,
   School,
@@ -21,8 +22,7 @@ import { AiStatusBanner } from "./ai-status";
 type NavItem = { to: string; label: string; icon: typeof Home; exact?: boolean };
 
 /** True inside the panel: its <main>, logo and navigation are already on screen. */
-const InShell = createContext(false);
-export const useInAppShell = () => useContext(InShell);
+export { useInAppShell } from "./shell-context";
 
 const NAV: NavItem[] = [
   { to: "/app", label: "Inicio", icon: Home, exact: true },

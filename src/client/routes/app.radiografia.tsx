@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { z } from "zod";
+import { optionalString, searchParams } from "@client/lib/search";
 import { ChevronRight, ScanSearch } from "lucide-react";
 import { Badge, EmptyState, ErrorState, PageHeader, SkeletonList } from "@client/components/ui/misc";
 import { Button } from "@client/components/ui/button";
@@ -16,7 +16,7 @@ import type { ActivitySummary } from "@shared/contracts/activities";
 import type { XrayListItem } from "@shared/contracts/sessions";
 
 export const Route = createFileRoute("/app/radiografia")({
-  validateSearch: z.object({ aula: z.string().optional(), actividad: z.string().optional(), q: z.string().optional() }),
+  validateSearch: searchParams({ aula: optionalString, actividad: optionalString, q: optionalString }),
   component: XrayListPage,
 });
 

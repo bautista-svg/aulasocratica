@@ -5,12 +5,8 @@ import { ArrowLeft, CheckCircle2, KeyRound, Lock } from "lucide-react";
 import { Button } from "@client/components/ui/button";
 import { Field, FormError, Textarea } from "@client/components/ui/field";
 import { ApiError, errorMessage } from "@client/lib/api";
-import {
-  MAX_ANSWER_CHARS,
-  MAX_REFLECTION_ANSWER_CHARS,
-  MIN_ANSWER_CHARS,
-  type StudentWorkspace,
-} from "@shared/contracts/student";
+import type { StudentWorkspace } from "@shared/contracts/student";
+import { MAX_ANSWER_CHARS, MAX_REFLECTION_ANSWER_CHARS, MIN_ANSWER_CHARS } from "@shared/contracts/student-limits";
 import { setWorkspace, studentApi, studentKey } from "./api";
 import { draftKey, useDraft, type DraftField } from "./hooks";
 import { UnsentNotice } from "./entry";

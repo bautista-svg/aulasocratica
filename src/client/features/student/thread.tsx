@@ -1,5 +1,5 @@
 // Conversation pieces shared by the live chat and the read-only views.
-import { Suspense, lazy, type ReactNode } from "react";
+import { Suspense, lazy, memo, type ReactNode } from "react";
 import { Mic } from "lucide-react";
 import { LogoMark } from "@client/components/brand/logo";
 import { cn } from "@client/lib/cn";
@@ -8,20 +8,29 @@ import { Markdown } from "./markdown";
 
 const ListenButton = lazy(() => import("./voice").then((m) => ({ default: m.ListenButton })));
 
-export function TutorMessage({
-  text,
-  current,
-  streaming,
-  thinking,
-  listen,
-}: {
+interface TutorMessageProps {
   text: string;
   /** Latest reply: its closing question gets the hanging "?" signature. */
   current?: boolean;
   streaming?: boolean;
   thinking?: boolean;
   listen?: { id: string; lang: string } | null;
-}) {
+}
+
+// Messages are memoized: the chat re-renders on every keystroke in the composer and on every
+// streamed chunk, and only the message that changed has to render (and parse its Markdown) again.
+export const TutorMessage = memo(
+  TutorMessageView,
+  (a, b) =>
+    a.text === b.text &&
+    a.current === b.current &&
+    a.streaming === b.streaming &&
+    a.thinking === b.thinking &&
+    a.listen?.id === b.listen?.id &&
+    a.listen?.lang === b.listen?.lang,
+);
+
+function TutorMessageView({ text, current, streaming, thinking, listen }: TutorMessageProps) {
   return (
     <div className="flex gap-3">
       <LogoMark className="mt-0.5 size-7 shrink-0" />
@@ -53,7 +62,17 @@ export function TutorMessage({
   );
 }
 
-export function StudentMessageBubble({ text, voice, label, className }: { text: string; voice?: boolean; label?: ReactNode; className?: string }) {
+export const StudentMessageBubble = memo(function StudentMessageBubble({
+  text,
+  voice,
+  label,
+  className,
+}: {
+  text: string;
+  voice?: boolean;
+  label?: ReactNode;
+  className?: string;
+}) {
   return (
     <div className={cn("flex justify-end", className)}>
       <div className="max-w-[88%] rounded-2xl rounded-br-md bg-ink-soft px-4 py-2.5 text-[16px] leading-7 text-ink sm:max-w-[80%]">
@@ -68,7 +87,7 @@ export function StudentMessageBubble({ text, voice, label, className }: { text: 
       </div>
     </div>
   );
-}
+});
 
 /** The whole conversation, without composer (completed or closed sessions). */
 export function ReadOnlyThread({

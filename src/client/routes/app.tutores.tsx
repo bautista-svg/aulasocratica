@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Bot, Copy, MoreHorizontal, Pencil, Plus, RotateCcw, Sparkles, Trash2 } from "lucide-react";
-import { z } from "zod";
+import { optionalEnum, searchParams } from "@client/lib/search";
 import { Badge, EmptyState, ErrorState, PageHeader, SkeletonList } from "@client/components/ui/misc";
 import { Button } from "@client/components/ui/button";
 import { Menu } from "@client/components/ui/controls";
@@ -29,7 +29,7 @@ const FILTERS = [
 type Filter = (typeof FILTERS)[number]["value"];
 
 export const Route = createFileRoute("/app/tutores")({
-  validateSearch: z.object({ filtro: z.enum(["todos", "enfoques", "formatos", "mios"]).optional() }),
+  validateSearch: searchParams({ filtro: optionalEnum(["todos", "enfoques", "formatos", "mios"]) }),
   component: TutorsPage,
 });
 

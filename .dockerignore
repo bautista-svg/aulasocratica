@@ -12,7 +12,11 @@ test-results
 playwright-report
 coverage
 docs/benchmarks/*.html
+<<<<<<< HEAD
 docs
 tests
 .claude
 data-*
+=======
+data-perf
+>>>>>>> worktree-agent-a81c7fbdb58ede1c7

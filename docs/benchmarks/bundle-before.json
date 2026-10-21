@@ -1,0 +1,125 @@
+{
+  "label": "before",
+  "date": "2026-10-21T04:49:23.737Z",
+  "note": "raw = minified bytes; br = Brotli q11 (what the server sends, precompressed). Per route: entry chunk + route chunk + static imports.",
+  "entryChunk": {
+    "file": "assets/index-ICOPko_6.js",
+    "raw": 167528,
+    "br": 42918,
+    "renderedBytesByPackage": {
+      "nm:zod": 163253,
+      "nm:tailwind-merge": 56672,
+      "nm:sonner": 53407,
+      "app code": 25425,
+      "nm:clsx": 531
+    }
+  },
+  "entryClosure": {
+    "raw": 499562,
+    "br": 134536,
+    "files": 4
+  },
+  "routes": {
+    "admin": {
+      "raw": 577104,
+      "br": 159194,
+      "files": 14
+    },
+    "app": {
+      "raw": 561586,
+      "br": 155106,
+      "files": 16
+    },
+    "app.actividades.$activityId": {
+      "raw": 770503,
+      "br": 215076,
+      "files": 40
+    },
+    "app.alumnos.$studentId": {
+      "raw": 522612,
+      "br": 143343,
+      "files": 15
+    },
+    "app.aulas.$classroomId": {
+      "raw": 664099,
+      "br": 186754,
+      "files": 29
+    },
+    "app.aulas.index": {
+      "raw": 566188,
+      "br": 156433,
+      "files": 16
+    },
+    "app.crear": {
+      "raw": 735259,
+      "br": 209115,
+      "files": 37
+    },
+    "app.cuenta": {
+      "raw": 643422,
+      "br": 181261,
+      "files": 25
+    },
+    "app.index": {
+      "raw": 598293,
+      "br": 167043,
+      "files": 27
+    },
+    "app.informes.$reportId": {
+      "raw": 639984,
+      "br": 179194,
+      "files": 22
+    },
+    "app.informes.index": {
+      "raw": 571588,
+      "br": 158135,
+      "files": 17
+    },
+    "app.materiales": {
+      "raw": 660692,
+      "br": 186683,
+      "files": 27
+    },
+    "app.radiografia": {
+      "raw": 531160,
+      "br": 146450,
+      "files": 16
+    },
+    "app.sesiones.$sessionId": {
+      "raw": 685556,
+      "br": 192529,
+      "files": 29
+    },
+    "app.tutores": {
+      "raw": 676404,
+      "br": 191270,
+      "files": 29
+    },
+    "clase.$token": {
+      "raw": 582499,
+      "br": 160850,
+      "files": 21
+    },
+    "index": {
+      "raw": 509121,
+      "br": 137632,
+      "files": 6
+    },
+    "ingresar": {
+      "raw": 637253,
+      "br": 178676,
+      "files": 22
+    },
+    "privacidad": {
+      "raw": 511470,
+      "br": 138674,
+      "files": 8
+    }
+  },
+  "allJs": {
+    "raw": 1152102,
+    "br": 334167,
+    "files": 87,
+    "chunks": 87
+  }
+}

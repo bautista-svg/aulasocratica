@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { z } from "zod";
+import { useCallback, useState, type ReactNode } from "react";
+import { optionalEnum, optionalString, searchParams } from "@client/lib/search";
 import { toast } from "sonner";
 import { Archive, ArchiveRestore, MoreHorizontal, Pencil, Plus, Trash2, LayoutList, ChevronRight, Bell } from "lucide-react";
 import { Badge, EmptyState, ErrorState, PageHeader, SkeletonList, Notice } from "@client/components/ui/misc";
@@ -23,13 +23,12 @@ const TABS = ["actividades", "alumnos", "alertas"] as const;
 const TAB_LABELS: Record<(typeof TABS)[number], string> = { actividades: "Actividades", alumnos: "Alumnos", alertas: "Alertas" };
 
 export const Route = createFileRoute("/app/aulas/$classroomId")({
-  validateSearch: z.object({ tab: z.enum(TABS).optional(), actividad: z.string().optional() }),
+  validateSearch: searchParams({ tab: optionalEnum(TABS), actividad: optionalString }),
   component: ClassroomPage,
 });
 
 function ClassroomPage() {
   const { classroomId } = Route.useParams();
-  const { tab = "actividades", actividad } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const qc = useQueryClient();
   const room = useClassroom(classroomId);
@@ -39,6 +38,7 @@ function ClassroomPage() {
   const [newActivity, setNewActivity] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
+  const tab = Route.useSearch({ select: (s) => s.tab ?? "actividades" });
   usePageTitle(room.data ? [room.data.name, TAB_LABELS[tab]] : room.isError ? "Aula no encontrada" : "Aula");
 
   if (room.isPending) return <PageSpinner />;
@@ -128,14 +128,10 @@ function ClassroomPage() {
         </Notice>
       ) : null}
 
-      <Tabs
-        value={tab}
-        onValueChange={(v) => void navigate({ search: (s) => ({ ...s, tab: v as (typeof TABS)[number] }), replace: true })}
-        items={[
-          { value: "actividades", label: "Actividades", content: <ActivitiesPanel classroomId={c.id} onNew={() => setNewActivity(true)} archived={c.isArchived} /> },
-          { value: "alumnos", label: "Alumnos", content: <StudentsPanel classroomId={c.id} activityFilter={actividad} onFilterChange={(a) => void navigate({ search: (s) => ({ ...s, actividad: a || undefined }), replace: true })} /> },
-          { value: "alertas", label: "Alertas", content: <AlertsPanel classroomId={c.id} /> },
-        ]}
+      <ClassroomTabs
+        classroomId={c.id}
+        activities={<ActivitiesPanel classroomId={c.id} onNew={() => setNewActivity(true)} archived={c.isArchived} />}
+        alerts={<AlertsPanel classroomId={c.id} />}
       />
 
       <ClassroomFormDialog open={editing} onOpenChange={setEditing} classroom={c} />
@@ -195,6 +191,30 @@ function ClassroomPage() {
         }
       />
     </>
+  );
+}
+
+/**
+ * The tabs read the URL (tab and the students' activity filter) themselves, so switching tabs
+ * re-renders only them: the other panels arrive as elements created by the page and React skips them.
+ */
+function ClassroomTabs({ classroomId, activities, alerts }: { classroomId: string; activities: ReactNode; alerts: ReactNode }) {
+  const { tab = "actividades", actividad } = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const onFilterChange = useCallback(
+    (a: string) => void navigate({ search: (s) => ({ ...s, actividad: a || undefined }), replace: true }),
+    [navigate],
+  );
+  return (
+    <Tabs
+      value={tab}
+      onValueChange={(v) => void navigate({ search: (s) => ({ ...s, tab: v as (typeof TABS)[number] }), replace: true })}
+      items={[
+        { value: "actividades", label: "Actividades", content: activities },
+        { value: "alumnos", label: "Alumnos", content: <StudentsPanel classroomId={classroomId} activityFilter={actividad} onFilterChange={onFilterChange} /> },
+        { value: "alertas", label: "Alertas", content: alerts },
+      ]}
+    />
   );
 }
 

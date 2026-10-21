@@ -1,7 +1,7 @@
 // "En vivo" tab of an activity. Shows ONLY the students who joined THIS activity (its
 // learning sessions), never the whole classroom roster. Updates through Server-Sent Events
 // with polling as a fallback.
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -13,6 +13,7 @@ import { Checkbox, Menu } from "@client/components/ui/controls";
 import { ConfirmDialog } from "@client/components/ui/dialog";
 import { errorMessage } from "@client/lib/api";
 import { fmtRelative, plural } from "@client/lib/format";
+import { XL_QUERY, useMediaQuery } from "@client/lib/media";
 import { LIVE_STATUS_HELP, LIVE_STATUS_LABELS, formatDuration } from "@shared/domain/live-monitor";
 import type { LiveParticipant, LiveSnapshot, LiveWindow } from "@shared/contracts/live";
 import { liveKeys, useActivityStream, useLiveMutations, useLiveSnapshot, useNow, useThrottled } from "./api";
@@ -32,7 +33,10 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: "done", label: "Terminaron" },
 ];
 
-export function LivePanel({ activityId }: { activityId: string }) {
+// Memoized: the activity page re-renders on every tab change; the live view only depends on the id.
+export const LivePanel = memo(LivePanelView);
+
+function LivePanelView({ activityId }: { activityId: string }) {
   const qc = useQueryClient();
   const [window, setWindow] = useState<LiveWindow>("30m");
   const q = useLiveSnapshot(activityId, window);
@@ -40,10 +44,12 @@ export function LivePanel({ activityId }: { activityId: string }) {
   const { connected } = useActivityStream(activityId, () => refetch());
   const now = useNow(5_000);
   useImmediateAlertToasts(q.data);
+  // Every refresh (polling, events) re-renders the whole view: rendering the new snapshot as a
+  // deferred, interruptible update keeps clicks responsive and avoids one long blocking task.
+  const snap = useDeferredValue(q.data);
 
-  if (q.isPending) return <LiveSkeleton />;
   if (q.isError && !q.data) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
-  const snap = q.data!;
+  if (!snap) return <LiveSkeleton />;
   const ago = Math.max(0, Math.round((now - q.dataUpdatedAt) / 1000));
 
   return (
@@ -328,6 +334,9 @@ function ParticipantsSection({ snap, activityId }: { snap: LiveSnapshot; activit
   const counts = useMemo(() => Object.fromEntries(FILTERS.map((f) => [f.value, snap.participants.filter((p) => matches(p, f.value)).length])), [snap]);
   const list = snap.participants.filter((p) => matches(p, filter));
   const actions = useRowActions(activityId, snap.activity.title);
+  // Only the layout that fits is rendered (less work per update). Cards up to 1279 px: at 1024 px
+  // the table did not fit next to the sidebar (D13).
+  const wide = useMediaQuery(XL_QUERY);
   return (
     <section aria-labelledby="participants-title">
       <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -354,10 +363,10 @@ function ParticipantsSection({ snap, activityId }: { snap: LiveSnapshot; activit
       </div>
       {list.length === 0 ? (
         <p className="rounded-md border border-dashed border-line-strong px-4 py-6 text-center text-sm text-text-2">Nadie en este grupo por ahora.</p>
-      ) : (
+      ) : !wide ? (
         <>
-          {/* Phones, tablets and small laptops (up to 1279 px): cards. At 1024 px the table did not fit next to the sidebar (D13). */}
-          <ul className="grid gap-3 md:grid-cols-2 xl:hidden">
+          {/* Phones, tablets and small laptops: cards. */}
+          <ul className="grid gap-3 md:grid-cols-2">
             {list.map((p) => (
               <li key={p.sessionId} className="flex flex-col rounded-lg border border-line bg-surface p-4 shadow-1">
                 <div className="flex items-start justify-between gap-3">
@@ -404,9 +413,11 @@ function ParticipantsSection({ snap, activityId }: { snap: LiveSnapshot; activit
               </li>
             ))}
           </ul>
-
+        </>
+      ) : (
+        <>
           {/* Wide screens: table. It scrolls inside its own box if a long name makes it wider than the page. */}
-          <div className="relative hidden overflow-x-auto rounded-lg border border-line bg-surface shadow-1 xl:block">
+          <div className="relative overflow-x-auto rounded-lg border border-line bg-surface shadow-1">
             <table className="w-full min-w-[860px] text-sm">
               <caption className="sr-only">Alumnos que entraron a esta actividad</caption>
               <thead className="bg-paper text-left text-xs font-semibold text-text-2">
@@ -613,7 +624,10 @@ function RowDialogs({ actions }: { actions: RowActions }) {
   );
 }
 
-function HeatmapSection({ snap, window, onWindowChange }: { snap: LiveSnapshot; window: LiveWindow; onWindowChange: (w: LiveWindow) => void }) {
+// Memoized: it only depends on the snapshot and the period, not on the 5 s clock of the panel.
+const HeatmapSection = memo(HeatmapSectionView);
+
+function HeatmapSectionView({ snap, window, onWindowChange }: { snap: LiveSnapshot; window: LiveWindow; onWindowChange: (w: LiveWindow) => void }) {
   const [open, setOpen] = useState(() => typeof globalThis.matchMedia === "function" && globalThis.matchMedia("(min-width: 768px)").matches);
   return (
     <section aria-labelledby="heat-title" className="rounded-lg border border-line bg-surface shadow-1">
