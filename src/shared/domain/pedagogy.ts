@@ -25,6 +25,8 @@ export const EVENT_LABELS: Record<string, string> = {
   final_answer_saved: "Escribió su respuesta final",
   reformulated: "Reformuló su respuesta",
   reflection_submitted: "Completó la reflexión",
+  deliverable_uploaded: "Subió su archivo de entrega",
+  deliverable_removed: "Quitó su archivo de entrega",
   activity_completed: "Finalizó la actividad",
   ended_by_teacher: "El docente cerró la actividad",
   pasted_text: "Pegó texto copiado fuera de la actividad",

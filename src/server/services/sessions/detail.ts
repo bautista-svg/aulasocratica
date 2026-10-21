@@ -17,10 +17,12 @@ import { buildThinkingFlow } from "@shared/domain/thinking-xray";
 import { sanitizeSummary, splitObjectives, type SummaryBasis } from "@shared/domain/session-summary";
 import { classroomLabel } from "@shared/contracts/classrooms";
 import type {
+  DeliverableAnalysis,
   ObservedSignals,
   RubricAssessmentView,
   RubricSuggestionItem,
   SessionAlert,
+  SessionDeliverableView,
   SessionDetail,
   SessionEvent,
   SessionMessage,
@@ -28,6 +30,8 @@ import type {
   XrayView,
 } from "@shared/contracts/sessions";
 import type { AlertStatus } from "@shared/contracts/live";
+import type { FileKind, ProcessingStatus } from "@shared/domain/files";
+import { isDeliverableMode } from "@shared/domain/deliverables";
 import { alertOrigin, progressFor, stepsFor } from "./live-rules";
 import { readXrayItems, visibleXray } from "./xray-store";
 
@@ -204,9 +208,38 @@ export async function loadEvents(sessionId: string): Promise<SessionEvent[]> {
   }));
 }
 
+/** The delivered file as the teacher sees it (the analysis is stored as written by ai.ts). */
+export function deliverableView(row: typeof schema.sessionDeliverables.$inferSelect | undefined | null): SessionDeliverableView | null {
+  if (!row) return null;
+  const a = row.analysis as Omit<DeliverableAnalysis, "generatedAt"> | null;
+  return {
+    fileName: row.fileName,
+    kind: row.kind as FileKind,
+    mimeType: row.mimeType,
+    sizeBytes: row.sizeBytes,
+    pageCount: row.pageCount,
+    uploadedAt: row.updatedAt.toISOString(),
+    processingStatus: row.processingStatus as ProcessingStatus,
+    processingError: row.processingError,
+    textChars: row.extractedText.length,
+    url: `/api/sessions/${row.sessionId}/deliverable/file`,
+    analysis:
+      a && Array.isArray(a.criteria) && row.analyzedAt
+        ? {
+            rubric: sanitizeRubric(a.rubric),
+            criteria: a.criteria,
+            overview: a.overview ?? "",
+            strengths: a.strengths ?? "",
+            improvements: a.improvements ?? "",
+            generatedAt: row.analyzedAt.toISOString(),
+          }
+        : null,
+  };
+}
+
 export async function loadSessionDetail(row: OwnedSessionRow): Promise<SessionDetail> {
   const { session: s, activity: a, student } = row;
-  const [classroomRows, messages, events, alertRows, rubricRows, summaryRows, xrayRows] = await Promise.all([
+  const [classroomRows, messages, events, alertRows, rubricRows, summaryRows, xrayRows, deliverableRows] = await Promise.all([
     db.select().from(schema.classrooms).where(eq(schema.classrooms.id, a.classroomId)).limit(1),
     loadMessages(s.id),
     loadEvents(s.id),
@@ -214,6 +247,7 @@ export async function loadSessionDetail(row: OwnedSessionRow): Promise<SessionDe
     db.select().from(schema.rubricAssessments).where(eq(schema.rubricAssessments.sessionId, s.id)).limit(1),
     db.select().from(schema.sessionSummaries).where(eq(schema.sessionSummaries.sessionId, s.id)).limit(1),
     db.select().from(schema.thinkingAnalyses).where(eq(schema.thinkingAnalyses.sessionId, s.id)).limit(1),
+    db.select().from(schema.sessionDeliverables).where(eq(schema.sessionDeliverables.sessionId, s.id)).limit(1),
   ]);
   const classroom = classroomRows[0]!;
   const rubric = sanitizeRubric(a.rubric);
@@ -267,8 +301,11 @@ export async function loadSessionDetail(row: OwnedSessionRow): Promise<SessionDe
       status: a.status,
       rubric,
       reflectionQuestions: sanitizeReflectionQuestions(a.reflectionQuestions),
+      deliverableMode: isDeliverableMode(a.deliverableMode) ? a.deliverableMode : "off",
+      deliverablePrompt: a.deliverablePrompt,
     },
     messages,
+    deliverable: deliverableView(deliverableRows[0]),
     events,
     alerts,
     rubric: rubricView(rubricRows[0], rubric),

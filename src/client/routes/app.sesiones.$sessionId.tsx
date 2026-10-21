@@ -67,20 +67,21 @@ function SessionPage() {
 
   return (
     <>
-      <nav aria-label="Ruta" className="mb-3 flex flex-wrap items-center text-sm text-text-3">
-        <Link to="/app/aulas" className="-my-3 py-3 hover:text-ink">
+      {/* One line, names truncated: wrapped rows made the 44 px touch areas of the links overlap. */}
+      <nav aria-label="Ruta" className="mb-3 flex min-w-0 items-center text-sm text-text-3">
+        <Link to="/app/aulas" className="-my-3 shrink-0 py-3 hover:text-ink">
           Aulas
         </Link>
         <ChevronRight className="mx-1 size-3.5 shrink-0" aria-hidden="true" />
-        <Link to="/app/aulas/$classroomId" params={{ classroomId: d.classroom.id }} className="-my-3 max-w-40 truncate py-3 hover:text-ink sm:max-w-none">
+        <Link to="/app/aulas/$classroomId" params={{ classroomId: d.classroom.id }} className="-my-3 min-w-0 truncate py-3 hover:text-ink">
           {d.classroom.name}
         </Link>
         <ChevronRight className="mx-1 size-3.5 shrink-0" aria-hidden="true" />
-        <Link to="/app/actividades/$activityId" params={{ activityId: d.activity.id }} className="-my-3 max-w-40 truncate py-3 hover:text-ink sm:max-w-none">
+        <Link to="/app/actividades/$activityId" params={{ activityId: d.activity.id }} className="-my-3 min-w-0 truncate py-3 hover:text-ink">
           {d.activity.title}
         </Link>
         <ChevronRight className="mx-1 size-3.5 shrink-0" aria-hidden="true" />
-        <span className="text-text-2" aria-current="page">
+        <span className="min-w-0 truncate text-text-2" aria-current="page">
           {d.student.fullName}
         </span>
       </nav>

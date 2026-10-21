@@ -5,6 +5,8 @@ import type { LiveStatus, Stage } from "../domain/live-monitor";
 import type { SessionSummaryContent, SummaryBasis } from "../domain/session-summary";
 import type { XrayItem } from "../domain/thinking-xray";
 import type { AlertStatus } from "./live";
+import type { FileKind, ProcessingStatus } from "../domain/files";
+import type { DeliverableMode } from "../domain/deliverables";
 
 export { confirmBody } from "./live";
 
@@ -76,6 +78,54 @@ export interface RubricSuggestionItem {
   evidenceDropped: boolean;
 }
 
+/** The AI's reading of the delivered file for one rubric criterion (a suggestion). */
+export interface DeliverableAnalysisItem {
+  criterionId: string;
+  /** null when the file does not show enough for this criterion. */
+  levelIndex: number | null;
+  /**
+   * "quote": verbatim text of the file (verified). "observation": for photos, what the AI says it
+   * sees in the image (it cannot be checked word by word).
+   */
+  evidence: string;
+  evidenceKind: "quote" | "observation";
+  rationale: string;
+  /** The AI quoted something that is not in the file: the quote was removed. */
+  evidenceDropped: boolean;
+}
+
+export interface DeliverableAnalysis {
+  /** The rubric as it was when the file was analyzed. */
+  rubric: RubricCriterion[];
+  criteria: DeliverableAnalysisItem[];
+  overview: string;
+  strengths: string;
+  improvements: string;
+  generatedAt: string;
+}
+
+/** The file the student handed in, for the teacher. */
+export interface SessionDeliverableView {
+  fileName: string;
+  kind: FileKind;
+  mimeType: string;
+  sizeBytes: number;
+  pageCount: number | null;
+  uploadedAt: string;
+  processingStatus: ProcessingStatus;
+  /** When failed: why. When ready: an optional note ("Imagen leída con IA."). */
+  processingError: string | null;
+  /** Characters of text read from the file. */
+  textChars: number;
+  /** Same-origin URL (teacher session). */
+  url: string;
+  analysis: DeliverableAnalysis | null;
+}
+
+export interface DeliverableAnalyzeResult {
+  deliverable: SessionDeliverableView;
+}
+
 export interface RubricAssessmentView {
   /** Rubric the levels refer to (snapshot of the assessment, or the activity's current rubric). */
   rubric: RubricCriterion[];
@@ -145,8 +195,11 @@ export interface SessionDetail {
     status: string;
     rubric: RubricCriterion[];
     reflectionQuestions: ReflectionQuestion[];
+    deliverableMode: DeliverableMode;
+    deliverablePrompt: string;
   };
   messages: SessionMessage[];
+  deliverable: SessionDeliverableView | null;
   events: SessionEvent[];
   alerts: SessionAlert[];
   rubric: RubricAssessmentView;

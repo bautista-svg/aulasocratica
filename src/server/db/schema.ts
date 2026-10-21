@@ -153,6 +153,10 @@ export const activities = pgTable(
     tutorId: uuid("tutor_id").references(() => tutors.id, { onDelete: "set null" }),
     requireInitialAnswer: boolean("require_initial_answer").notNull().default(true),
     voiceLanguage: text("voice_language").notNull().default("off"),
+    /** Whether students hand in a file when they finish: off, optional or required. */
+    deliverableMode: text("deliverable_mode").notNull().default("off"),
+    /** What the file should be ("Una foto del barco que armaste"). */
+    deliverablePrompt: text("deliverable_prompt").notNull().default(""),
     rubric: jsonb("rubric").notNull().default(sql`'[]'::jsonb`),
     reflectionQuestions: jsonb("reflection_questions").notNull().default(sql`'[]'::jsonb`),
     status: text("status").notNull().default("draft"),
@@ -172,6 +176,7 @@ export const activities = pgTable(
     check("activities_status", sql`${t.status} in ('draft','published','archived')`),
     check("activities_help_level", sql`${t.helpLevel} in ('autonomous','moderate','intensive')`),
     check("activities_voice_language", sql`${t.voiceLanguage} in ('off','es','en')`),
+    check("activities_deliverable_mode", sql`${t.deliverableMode} in ('off','optional','required')`),
   ],
 );
 
@@ -335,6 +340,40 @@ export const rubricAssessments = pgTable(
   (t) => [
     uniqueIndex("rubric_assessments_session_unique").on(t.sessionId),
     check("rubric_assessments_status", sql`${t.status} in ('suggested','confirmed')`),
+  ],
+);
+
+/**
+ * The file a student hands in with the final answer (one per work; uploading again replaces it).
+ * Its text is extracted like any uploaded file, and the teacher can analyze it with the rubric.
+ */
+export const sessionDeliverables = pgTable(
+  "session_deliverables",
+  {
+    id: id(),
+    sessionId: uuid("session_id").notNull().references(() => learningSessions.id, { onDelete: "cascade" }),
+    activityId: uuid("activity_id").notNull().references(() => activities.id, { onDelete: "cascade" }),
+    storageKey: text("storage_key").notNull(),
+    fileName: text("file_name").notNull(),
+    mimeType: text("mime_type").notNull(),
+    kind: text("kind").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    pageCount: integer("page_count"),
+    extractedText: text("extracted_text").notNull().default(""),
+    processingStatus: text("processing_status").notNull().default("pending"),
+    processingError: text("processing_error"),
+    /** The AI's rubric-based reading of the file (a suggestion the teacher reviews). */
+    analysis: jsonb("analysis"),
+    analyzedAt: timestamp("analyzed_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("session_deliverables_session_unique").on(t.sessionId),
+    uniqueIndex("session_deliverables_storage_unique").on(t.storageKey),
+    index("session_deliverables_activity_idx").on(t.activityId),
+    check("session_deliverables_kind", sql`${t.kind} in ('pdf','image','docx','text')`),
+    check("session_deliverables_status", sql`${t.processingStatus} in ('pending','processing','ready','failed')`),
   ],
 );
 

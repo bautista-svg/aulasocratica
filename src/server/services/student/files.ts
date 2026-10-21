@@ -38,8 +38,21 @@ export async function serveActivityFile(c: Context, activityId: string, fileId: 
     .limit(1);
   if (!file) throw fileGone();
 
+  return streamStoredFile(c, file, download, fileGone);
+}
+
+/**
+ * Streams a stored upload with safe headers: the type comes from the server-side record (never
+ * sniffed), inline only for types browsers display safely, and Range support.
+ */
+export async function streamStoredFile(
+  c: Context,
+  file: { storageKey: string; fileName: string; mimeType: string },
+  download: boolean,
+  gone: () => HttpError,
+): Promise<Response> {
   const size = await fileSize(file.storageKey).catch(() => null);
-  if (size === null) throw fileGone();
+  if (size === null) throw gone();
 
   const mime = file.mimeType.toLowerCase();
   const inlineOk = INLINE_TYPES.test(mime);

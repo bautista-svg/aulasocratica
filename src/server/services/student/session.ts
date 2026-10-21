@@ -20,6 +20,7 @@ import { LINK_AVAILABILITY_MESSAGE, linkAvailability, type LinkAvailability } fr
 import { validateStudentName } from "@shared/domain/names";
 import { readReflection, sanitizeReflectionQuestions, type ReflectionQuestion } from "@shared/domain/activity-design";
 import { isVoiceLanguage } from "@shared/domain/voice";
+import { isDeliverableMode } from "@shared/domain/deliverables";
 import {
   normalizeResumeCode,
   studentMetaLine,
@@ -483,7 +484,7 @@ export async function linkWorkspace(c: Context, link: LinkCtx, availability: Lin
 export async function buildWorkspace(ctx: StudentCtx, opts: { files?: boolean } = {}): Promise<StudentWorkspace> {
   const { activity, session, student } = ctx;
   const withFiles = opts.files ?? true;
-  const [messages, files] = await Promise.all([
+  const [messages, files, deliverables] = await Promise.all([
     db
       .select()
       .from(schema.messages)
@@ -502,7 +503,18 @@ export async function buildWorkspace(ctx: StudentCtx, opts: { files?: boolean } 
           .where(and(eq(schema.activityFiles.activityId, activity.id), eq(schema.activityFiles.processingStatus, "ready")))
           .orderBy(asc(schema.activityFiles.createdAt))
       : Promise.resolve([]),
+    db
+      .select({
+        fileName: schema.sessionDeliverables.fileName,
+        kind: schema.sessionDeliverables.kind,
+        sizeBytes: schema.sessionDeliverables.sizeBytes,
+        updatedAt: schema.sessionDeliverables.updatedAt,
+      })
+      .from(schema.sessionDeliverables)
+      .where(eq(schema.sessionDeliverables.sessionId, session.id))
+      .limit(1),
   ]);
+  const deliverable = deliverables[0];
   const questions = reflectionQuestionsOf(activity);
   return {
     studentName: student.fullName,
@@ -527,7 +539,18 @@ export async function buildWorkspace(ctx: StudentCtx, opts: { files?: boolean } 
       requireInitialAnswer: activity.requireInitialAnswer,
       voiceLanguage: isVoiceLanguage(activity.voiceLanguage) ? activity.voiceLanguage : "off",
       reflectionQuestions: questions,
+      deliverableMode: isDeliverableMode(activity.deliverableMode) ? activity.deliverableMode : "off",
+      deliverablePrompt: activity.deliverablePrompt,
     },
+    deliverable: deliverable
+      ? {
+          name: deliverable.fileName,
+          kind: deliverable.kind as FileKind,
+          sizeBytes: deliverable.sizeBytes,
+          uploadedAt: deliverable.updatedAt.toISOString(),
+          url: `/api/s/${encodeURIComponent(activity.linkToken)}/deliverable/file`,
+        }
+      : null,
     files: files.map(
       (f): StudentFile => ({
         id: f.id,

@@ -83,6 +83,14 @@ export async function finishActivity(
   if (ctx.activity.requireInitialAnswer && !ctx.session.initialAnswer) {
     throw new HttpError(409, "Primero escribí tu respuesta inicial.", "initial_required");
   }
+  if (ctx.activity.deliverableMode === "required") {
+    const [file] = await db
+      .select({ id: schema.sessionDeliverables.id })
+      .from(schema.sessionDeliverables)
+      .where(eq(schema.sessionDeliverables.sessionId, ctx.session.id))
+      .limit(1);
+    if (!file) throw new HttpError(409, "Subí tu archivo antes de enviar tu trabajo.", "deliverable_required");
+  }
   const questions = reflectionQuestionsOf(ctx.activity);
   const byKey = new Map(input.reflection.map((r) => [r.key, r.answer.trim()]));
   const reflection: ReflectionAnswer[] = questions.map((q) => ({ key: q.key, question: q.question, answer: byKey.get(q.key) ?? "" }));

@@ -114,6 +114,7 @@ function PrivacyPage() {
             <ul>
               <li>El nombre que escriben al entrar a una actividad (o que carga el docente en la lista del aula).</li>
               <li>Sus respuestas: la respuesta inicial, la final y la reflexión.</li>
+              <li>El archivo que suben al terminar, si la actividad lo pide (un PDF, un Word, un texto o una foto), y el texto que se lee de él.</li>
               <li>Los mensajes que intercambian con el tutor.</li>
               <li>Eventos de la actividad: cuándo entró, si pidió una pista, un ejemplo o dijo que no entendió, cuándo terminó.</li>
               <li>
@@ -151,7 +152,8 @@ function PrivacyPage() {
               <li>
                 <strong>Anthropic</strong>, la empresa que provee el modelo de IA (Claude). Para generar las respuestas del tutor y las sugerencias
                 recibe la consigna, el material y los objetivos de la actividad, las respuestas y los mensajes del alumno y, cuando hace falta
-                leerlos, los archivos que sube el docente. También recibe los datos de un informe (incluidos los nombres de los alumnos que figuran en
+                leerlos, los archivos que sube el docente y los que entregan los alumnos (por ejemplo, una foto). Cuando el docente pide analizar
+                una entrega con la rúbrica, también recibe ese archivo. También recibe los datos de un informe (incluidos los nombres de los alumnos que figuran en
                 él) cuando el docente pide una propuesta de texto. Anthropic trata ese contenido según sus condiciones para el uso de su servicio.
               </li>
               <li>

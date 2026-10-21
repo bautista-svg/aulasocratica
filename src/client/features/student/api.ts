@@ -1,7 +1,7 @@
 // Data access for the student page. The device session lives in an httpOnly cookie; the
 // client only ever sends the link token in the URL.
 import { useQuery, type QueryClient } from "@tanstack/react-query";
-import { api, ApiError } from "@client/lib/api";
+import { api, ApiError, uploadWithProgress } from "@client/lib/api";
 import { rememberLink } from "./hooks";
 import type {
   ChatInput,
@@ -53,6 +53,12 @@ export const studentApi = {
   initial: (token: string, answer: string) => api.post<WorkspaceResponse>(`${base(token)}/initial`, { answer }),
   closing: (token: string) => api.post<{ ok: true }>(`${base(token)}/closing`),
   finish: (token: string, body: FinishInput) => api.post<WorkspaceResponse>(`${base(token)}/finish`, body as Record<string, unknown>),
+  uploadDeliverable: (token: string, file: File, onProgress: (fraction: number) => void) => {
+    const form = new FormData();
+    form.append("file", file);
+    return uploadWithProgress<WorkspaceResponse>(`${base(token)}/deliverable/upload`, form, onProgress);
+  },
+  removeDeliverable: (token: string) => api.del<WorkspaceResponse>(`${base(token)}/deliverable`),
 };
 
 /** Integrity signals are best-effort: never shown, never retried, survive page hide. */

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { activityPatch, type ActivityEditorData, type ActivityPatch } from "@shared/contracts/activities";
 import type { ReflectionQuestion, RubricCriterion } from "@shared/domain/activity-design";
 import type { VoiceLanguage } from "@shared/domain/voice";
+import type { DeliverableMode } from "@shared/domain/deliverables";
 import type { HelpLevel } from "@shared/contracts/activities";
 
 export interface ActivityDraft {
@@ -18,6 +19,8 @@ export interface ActivityDraft {
   tutorRules: string;
   requireInitialAnswer: boolean;
   voiceLanguage: VoiceLanguage;
+  deliverableMode: DeliverableMode;
+  deliverablePrompt: string;
   rubric: RubricCriterion[];
   reflectionQuestions: ReflectionQuestion[];
 }
@@ -32,6 +35,8 @@ export const DRAFT_KEYS = [
   "tutorRules",
   "requireInitialAnswer",
   "voiceLanguage",
+  "deliverableMode",
+  "deliverablePrompt",
   "rubric",
   "reflectionQuestions",
 ] as const satisfies readonly (keyof ActivityDraft)[];
@@ -50,6 +55,8 @@ export function draftFrom(a: ActivityEditorData): ActivityDraft {
     tutorRules: a.tutorRules,
     requireInitialAnswer: a.requireInitialAnswer,
     voiceLanguage: a.voiceLanguage,
+    deliverableMode: a.deliverableMode,
+    deliverablePrompt: a.deliverablePrompt,
     rubric: a.rubric,
     reflectionQuestions: a.reflectionQuestions,
   };

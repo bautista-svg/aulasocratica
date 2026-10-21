@@ -89,3 +89,45 @@ test("docente publica, dos alumnos trabajan, el docente los ve por actividad, de
   // Cleanup.
   await api(page.request, base, "DELETE", "/api/auth/workspace", { confirm: "BORRAR" });
 });
+
+test("entrega obligatoria: el alumno sube su archivo, envía, y el docente lo ve en Evaluación y en Alertas", async ({ page, browser, baseURL }) => {
+  const base = new URL(baseURL!).origin;
+  await startWorkspace(page);
+  const { classroom } = await api(page.request, base, "POST", "/api/classrooms", { name: "E2E 4.º A" });
+  const { activity } = await api(page.request, base, "POST", "/api/activities", { classroomId: classroom.id, title: "Informe del experimento" });
+  await api(page.request, base, "PATCH", `/api/activities/${activity.id}`, {
+    instructions: "Contá qué pasó con el barco de aluminio.",
+    requireInitialAnswer: false,
+    deliverableMode: "required",
+    deliverablePrompt: "Subí tu informe en PDF, Word, texto o una foto.",
+  });
+  await api(page.request, base, "POST", `/api/activities/${activity.id}/publish`);
+  const token: string = (await api(page.request, base, "GET", `/api/activities/${activity.id}`)).activity.linkToken;
+
+  const ctx = await browser.newContext();
+  const s = await ctx.newPage();
+  await studentJoins(s, token, "Carla Díaz");
+  await s.getByRole("button", { name: "Terminar" }).click();
+  await expect(s.getByText("Subí tu informe en PDF, Word, texto o una foto.")).toBeVisible();
+  await s.getByLabel("Tu respuesta final").fill("El barco flota por su forma: desplaza mucha agua.");
+  // Required file: sending is blocked until it is uploaded.
+  await expect(s.getByRole("button", { name: "Enviar mi trabajo" })).toBeDisabled();
+  await s.locator('input[type="file"]').setInputFiles({ name: "informe.txt", mimeType: "text/plain", buffer: Buffer.from("El barco de aluminio flotó con 20 monedas; la bola se hundió.") });
+  await expect(s.getByRole("link", { name: "informe.txt" })).toBeVisible();
+  await s.getByRole("button", { name: "Enviar mi trabajo" }).click();
+  await expect(s.getByRole("heading", { name: "¡Terminaste la actividad!" })).toBeVisible();
+  await expect(s.getByText("informe.txt")).toBeVisible();
+  await ctx.close();
+
+  const live = await api(page.request, base, "GET", `/api/live/${activity.id}`);
+  await page.goto(`/app/sesiones/${live.participants[0].sessionId}?tab=evaluacion`);
+  await expect(page.getByRole("heading", { name: "Entrega del alumno" })).toBeVisible();
+  await expect(page.getByText("informe.txt")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Abrir" })).toHaveAttribute("href", /\/deliverable\/file$/);
+
+  await page.goto("/app/alertas");
+  await expect(page.getByRole("heading", { name: "Alertas", level: 1 })).toBeVisible();
+  await expect(page.getByRole("group", { name: "Estado de las alertas" })).toBeVisible();
+
+  await api(page.request, base, "DELETE", "/api/auth/workspace", { confirm: "BORRAR" });
+});

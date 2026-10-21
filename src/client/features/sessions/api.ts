@@ -3,9 +3,11 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { api, ApiError } from "@client/lib/api";
 import type {
+  DeliverableAnalyzeResult,
   RubricAssessmentView,
   RubricSaveInput,
   RubricSuggestResult,
+  SessionDeliverableView,
   SessionDetail,
   SummaryView,
   XrayAnalyzeResult,
@@ -25,8 +27,13 @@ export function useSession(id: string) {
   return useQuery({
     queryKey: sessionKeys.one(id),
     queryFn: ({ signal }) => api.get<SessionDetail>(`/api/sessions/${id}`, signal),
-    // While the student works, refresh as a fallback to the live stream.
-    refetchInterval: (q) => (q.state.data?.session.status === "in_progress" ? 10_000 : false),
+    // While the student works, refresh as a fallback to the live stream; while the handed-in file
+    // is being read, check more often so the teacher sees it as soon as it is ready.
+    refetchInterval: (q) => {
+      const d = q.state.data;
+      if (d?.deliverable && ["pending", "processing"].includes(d.deliverable.processingStatus)) return 3_000;
+      return d?.session.status === "in_progress" ? 10_000 : false;
+    },
     staleTime: 3_000,
   });
 }
@@ -65,6 +72,14 @@ export function useSessionMutations(id: string) {
     saveRubric: useMutation({
       mutationFn: (body: RubricSaveInput) => api.put<{ rubric: RubricAssessmentView }>(`/api/sessions/${id}/rubric`, body),
       onSuccess: (r) => patch((d) => ({ ...d, rubric: r.rubric })),
+    }),
+    analyzeDeliverable: useMutation({
+      mutationFn: () => api.post<DeliverableAnalyzeResult>(`/api/sessions/${id}/deliverable/analyze`),
+      onSuccess: (r) => patch((d) => ({ ...d, deliverable: r.deliverable })),
+    }),
+    retryDeliverable: useMutation({
+      mutationFn: () => api.post<{ deliverable: SessionDeliverableView | null }>(`/api/sessions/${id}/deliverable/retry`),
+      onSuccess: (r) => patch((d) => ({ ...d, deliverable: r.deliverable })),
     }),
     summarize: useMutation({
       mutationFn: (basis: SummaryBasis[]) => api.post<{ summary: SummaryView }>(`/api/sessions/${id}/summary`, { basis }),

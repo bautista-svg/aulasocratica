@@ -14,11 +14,25 @@ import { fmtDateTime, plural } from "@client/lib/format";
 import { SUMMARY_BASIS_LABELS, type SummaryBasis } from "@shared/domain/session-summary";
 import type { SessionDetail } from "@shared/contracts/sessions";
 import { useSessionMutations } from "./api";
+import { DeliverableCard } from "./deliverable-card";
 
 export function EvaluationTab({ detail }: { detail: SessionDetail }) {
+  // Levels from the analysis of the delivered file, brought into the rubric (the teacher reviews them).
+  const [incoming, setIncoming] = useState<{ levels: Record<string, number>; nonce: number } | null>(null);
+  const showDeliverable = Boolean(detail.deliverable) || detail.activity.deliverableMode !== "off";
   return (
     <div className="grid gap-6 xl:grid-cols-2 xl:items-start">
-      <RubricCard detail={detail} />
+      {showDeliverable ? (
+        <DeliverableCard
+          detail={detail}
+          onUseLevels={(levels) => {
+            setIncoming({ levels, nonce: Date.now() });
+            document.getElementById("rubric-title")?.scrollIntoView({ behavior: "smooth", block: "start" });
+            toast.success("Pusimos los niveles de la entrega en la rúbrica. Revisalos y confirmá la evaluación.");
+          }}
+        />
+      ) : null}
+      <RubricCard detail={detail} incoming={incoming} />
       <SummaryCard detail={detail} />
     </div>
   );
@@ -38,7 +52,7 @@ function Card({ title, badge, children, id }: { title: string; badge?: ReactNode
   );
 }
 
-function RubricCard({ detail }: { detail: SessionDetail }) {
+function RubricCard({ detail, incoming }: { detail: SessionDetail; incoming: { levels: Record<string, number>; nonce: number } | null }) {
   const a = detail.rubric;
   const m = useSessionMutations(detail.session.id);
   const [levels, setLevels] = useState<Record<string, number>>(a.teacherLevels);
@@ -56,6 +70,12 @@ function RubricCard({ detail }: { detail: SessionDetail }) {
       setEditing(a.status !== "confirmed");
     }
   }, [serverKey]);
+
+  useEffect(() => {
+    if (!incoming) return;
+    setLevels((x) => ({ ...x, ...incoming.levels }));
+    setEditing(true);
+  }, [incoming?.nonce]);
 
   const suggestion = useMemo(() => new Map((a.suggestion ?? []).map((s) => [s.criterionId, s])), [a.suggestion]);
   const confirmed = a.status === "confirmed";

@@ -7,6 +7,7 @@ import type { LinkAvailability } from "../domain/access-rules";
 import type { ReflectionAnswer, ReflectionQuestion } from "../domain/activity-design";
 import type { VoiceLanguage } from "../domain/voice";
 import type { FileKind } from "../domain/files";
+import type { DeliverableMode } from "../domain/deliverables";
 import { AWAY_MIN_MS, PASTE_MIN_CHARS } from "../domain/alerts";
 import { MAX_ANSWER_CHARS, MAX_CHAT_CHARS, MAX_REFLECTION_ANSWER_CHARS, MIN_ANSWER_CHARS } from "./student-limits";
 
@@ -133,6 +134,16 @@ export interface StudentFile {
   url: string;
 }
 
+/** The file the student handed in (or is about to) with the final answer. */
+export interface StudentDeliverable {
+  name: string;
+  kind: FileKind;
+  sizeBytes: number;
+  uploadedAt: string;
+  /** Same-origin URL; only works with this device's session cookie. */
+  url: string;
+}
+
 export type StudentStage = "initial" | "tutor" | "completed" | "ended";
 
 export interface StudentWorkspace {
@@ -159,8 +170,12 @@ export interface StudentWorkspace {
     requireInitialAnswer: boolean;
     voiceLanguage: VoiceLanguage;
     reflectionQuestions: ReflectionQuestion[];
+    /** Whether a file is asked for when finishing, and what it should be. */
+    deliverableMode: DeliverableMode;
+    deliverablePrompt: string;
   };
   files: StudentFile[];
+  deliverable: StudentDeliverable | null;
   messages: StudentMessage[];
   /** The tutor is still writing a reply on the server (e.g. after a reload mid-reply). */
   replyPending: boolean;
@@ -191,4 +206,5 @@ export type StudentErrorCode =
   | "busy"
   | "nothing_to_retry"
   | "rate_limited"
-  | "ai_quota";
+  | "ai_quota"
+  | "deliverable_required";

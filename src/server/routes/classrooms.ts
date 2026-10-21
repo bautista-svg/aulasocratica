@@ -9,6 +9,7 @@ import { ownedClassroom, isUuid } from "../services/access";
 import { audit } from "../services/audit";
 import { deleteFile, deletePrefix } from "../lib/storage";
 import { reconcileReports } from "../services/reports/reconcile";
+import { deliverableKeys, deleteStoredKeys } from "../services/deliverables";
 import { once } from "../services/activities/idempotency";
 import {
   classroomCreateBody,
@@ -246,11 +247,13 @@ export const classroomRoutes = new Hono<AppEnv>()
     const room = await ownedClassroom(t.id, c.req.param("id"));
     const studentId = c.req.param("studentId");
     if (!isUuid(studentId)) throw notFound("El alumno");
+    const keys = await deliverableKeys({ studentId });
     const [row] = await db
       .delete(schema.students)
       .where(and(eq(schema.students.id, studentId), eq(schema.students.classroomId, room.id)))
       .returning({ id: schema.students.id, fullName: schema.students.fullName });
     if (!row) throw notFound("El alumno");
+    await deleteStoredKeys(keys);
     await reconcileReports(t.id, [row.fullName]);
     await audit(c, t.id, "student_deleted", "student", studentId);
     return c.json({ ok: true });

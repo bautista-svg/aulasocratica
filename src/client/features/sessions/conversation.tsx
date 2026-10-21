@@ -15,6 +15,8 @@ const TIMELINE_EVENTS = new Set([
   "closing_started",
   "final_answer_saved",
   "reflection_submitted",
+  "deliverable_uploaded",
+  "deliverable_removed",
   "activity_completed",
   "ended_by_teacher",
   "pasted_text",
@@ -27,6 +29,7 @@ export function eventText(e: SessionEvent): string {
   if (e.eventType === "session_entered" && e.details.resumed === true) return "Siguió desde otro dispositivo con su código";
   if (e.eventType === "session_entered" && e.details.fromRoster === true) return "Entró con un nombre de la lista del aula";
   if (e.eventType === "pasted_text" && typeof e.details.chars === "number") return `${base} (${e.details.chars} caracteres)`;
+  if (e.eventType === "deliverable_uploaded" && e.details.replaced === true) return "Cambió su archivo de entrega";
   if (e.eventType === "left_app" && typeof e.details.away_ms === "number") return `${base} durante ${formatAway(e.details.away_ms)}`;
   return base;
 }

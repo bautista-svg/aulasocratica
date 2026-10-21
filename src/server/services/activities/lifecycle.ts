@@ -11,6 +11,7 @@ import { randomToken } from "../../lib/crypto";
 import { copyFile, deleteFile, deletePrefix, newKey } from "../../lib/storage";
 import { log, errorFields } from "../../lib/logger";
 import { enqueueFile } from "../file-jobs";
+import { deliverableKeys, deleteStoredKeys } from "../deliverables";
 import { configOf, ownsStorageKey } from "./data";
 import { composeTutorRules } from "@shared/domain/tutors";
 import { TUTOR_TYPES } from "@shared/domain/pedagogy";
@@ -155,7 +156,9 @@ export async function duplicateActivity(source: ActivityRow, targetClassroomId: 
  * link stay (unless a new link is requested).
  */
 export async function resetActivity(activity: ActivityRow, opts: { regenerateLink: boolean }) {
-  return db.transaction(async (tx) => {
+  // The files students handed in go with their works (deleted from disk once the rows are gone).
+  const keys = await deliverableKeys({ activityId: activity.id });
+  const result = await db.transaction(async (tx) => {
     const [counts] = (await tx.execute(sql`
       select
         (select count(*)::int from learning_sessions ls where ls.activity_id = ${activity.id}) as sessions,
@@ -194,6 +197,8 @@ export async function resetActivity(activity: ActivityRow, opts: { regenerateLin
       linkRegenerated,
     };
   });
+  await deleteStoredKeys(keys);
+  return result;
 }
 
 /** Deletes the activity (everything below it cascades) and its files on disk. */

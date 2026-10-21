@@ -15,6 +15,13 @@
       "when": 1792556236345,
       "tag": "0001_perf_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792590218468,
+      "tag": "0002_deliverables",
+      "breakpoints": true
     }
   ]
 }

@@ -13,7 +13,9 @@ import { log } from "../lib/logger";
 import { confirmBody, rubricSaveBody, summaryBody, xrayItemPatch } from "@shared/contracts/sessions";
 import { loadSessionDetail, summaryView } from "../services/sessions/detail";
 import { buildJourneyPdf, journeyDisposition } from "../services/sessions/journey-pdf";
-import { analyzeXray, patchXrayItem, saveRubric, suggestRubric, summarize } from "../services/sessions/ai";
+import { analyzeDeliverable, analyzeXray, patchXrayItem, saveRubric, suggestRubric, summarize } from "../services/sessions/ai";
+import { deliverableKeys, deliverableOf, deleteStoredKeys, retryDeliverable, serveTeacherDeliverable } from "../services/deliverables";
+import { deliverableView } from "../services/sessions/detail";
 import { deleteSession, endSession, reopenSession } from "../services/sessions/actions";
 import { xrayList } from "../services/sessions/lists";
 
@@ -70,7 +72,9 @@ export const sessionRoutes = new Hono<AppEnv>()
     const t = teacherOf(c);
     const row = await ownedSession(t.id, c.req.param("id"));
     await readJson(c, confirmBody);
+    const keys = await deliverableKeys({ sessionIds: [row.session.id] });
     await deleteSession(row.session.id, row.activity.id);
+    await deleteStoredKeys(keys);
     await reconcileReports(t.id);
     await audit(c, t.id, "session_deleted", "learning_session", row.session.id, { activityId: row.activity.id });
     return c.json({ ok: true, activityId: row.activity.id, classroomId: row.activity.classroomId });
@@ -87,6 +91,27 @@ export const sessionRoutes = new Hono<AppEnv>()
       "Content-Length": String(pdf.length),
       "Cache-Control": "no-store",
     });
+  })
+
+  // ── The file the student handed in ──
+  .get("/:id/deliverable/file", async (c) => {
+    const row = await ownedSession(teacherOf(c).id, c.req.param("id"));
+    return serveTeacherDeliverable(c, row.session.id, c.req.query("download") === "1");
+  })
+
+  .post("/:id/deliverable/analyze", async (c) => {
+    const t = teacherOf(c);
+    const row = await ownedSession(t.id, c.req.param("id"));
+    aiLimit(c);
+    return c.json(await analyzeDeliverable(row, t.id));
+  })
+
+  .post("/:id/deliverable/retry", async (c) => {
+    const row = await ownedSession(teacherOf(c).id, c.req.param("id"));
+    await retryDeliverable(row.session.id);
+    const d = await deliverableOf(row.session.id);
+    if (!d) throw notFound("La entrega");
+    return c.json({ deliverable: deliverableView(d) });
   })
 
   // ── Rubric assessment (AI suggests only when asked; the teacher decides) ──

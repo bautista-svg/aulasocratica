@@ -107,3 +107,12 @@ node scripts/dev/evidence-screens.mjs https://aulasocratica.becode.com.ar docs/i
 ```
 
 Las pruebas contra producción crean un espacio de prueba y lo **borran al final** (también si fallan).
+
+## 5. Cambios posteriores al informe (rama `alertas-y-entregas`, sin desplegar)
+
+| Cambio | Pruebas | Resultado |
+|---|---|---|
+| Panel de alertas de todos los alumnos | I: `alerts` (6 tests: orden, filtros, paginación, contador, cambios de estado individuales y masivos, aislamiento entre espacios); axe a 375 y 1440 px | Pasa |
+| Entrega de archivo al terminar y análisis con la rúbrica | I: `deliverables` (12 tests: configuración, subida, reemplazo, borrado, tipos y tamaños, obligatoriedad, vista del docente, análisis con citas verificadas, fotos como imagen, sugerencia de rúbrica que lee el archivo, limpieza del disco y cuota); E2E: entrega obligatoria de punta a punta; axe a 375 y 1440 px; análisis de una foto con la IA real en desarrollo | Pasa |
+
+Total en la rama: **32 archivos, 253 tests** (`npm test`) y **10/10 E2E** contra el build de producción local con la IA simulada.

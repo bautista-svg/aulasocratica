@@ -5,6 +5,7 @@ import { notFound } from "../../lib/errors";
 import { isUuid } from "../access";
 import { sanitizeReflectionQuestions, sanitizeRubric } from "@shared/domain/activity-design";
 import { isVoiceLanguage } from "@shared/domain/voice";
+import { isDeliverableMode } from "@shared/domain/deliverables";
 import type { ActivityEditorData, ActivityFile, ActivityStatus, HelpLevel } from "@shared/contracts/activities";
 import type { FileKind, ProcessingStatus } from "@shared/domain/files";
 
@@ -23,6 +24,8 @@ export function configOf(a: ActivityRow) {
     tutorId: a.tutorId,
     requireInitialAnswer: a.requireInitialAnswer,
     voiceLanguage: a.voiceLanguage,
+    deliverableMode: a.deliverableMode,
+    deliverablePrompt: a.deliverablePrompt,
     rubric: sanitizeRubric(a.rubric),
     reflectionQuestions: sanitizeReflectionQuestions(a.reflectionQuestions),
   };
@@ -64,6 +67,8 @@ export async function loadActivity(teacherId: string, activityId: string): Promi
     tutorName: row.tutorName ?? null,
     requireInitialAnswer: a.requireInitialAnswer,
     voiceLanguage: isVoiceLanguage(a.voiceLanguage) ? a.voiceLanguage : "off",
+    deliverableMode: isDeliverableMode(a.deliverableMode) ? a.deliverableMode : "off",
+    deliverablePrompt: a.deliverablePrompt,
     rubric: sanitizeRubric(a.rubric),
     reflectionQuestions: sanitizeReflectionQuestions(a.reflectionQuestions),
     status: a.status as ActivityStatus,

@@ -39,6 +39,7 @@ export type AiPurpose =
   | "rubric_proposal"
   | "rubric_import"
   | "rubric_assessment"
+  | "deliverable_analysis"
   | "reflection_questions"
   | "session_summary"
   | "thinking_xray"

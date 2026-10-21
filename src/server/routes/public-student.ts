@@ -32,6 +32,8 @@ import {
 import { finishActivity, reportSignal, saveInitialAnswer, startClosing } from "../services/student/work";
 import { tutorChat } from "../services/student/tutor";
 import { serveActivityFile } from "../services/student/files";
+import { removeDeliverable, saveDeliverable, serveStudentDeliverable } from "../services/deliverables";
+import { readFileParts } from "../services/activities/files";
 
 export const publicStudentRoutes = new Hono<AppEnv>()
   .get("/:token", async (c) => {
@@ -103,6 +105,26 @@ export const publicStudentRoutes = new Hono<AppEnv>()
     const body = await readJson(c, signalBody);
     const recorded = await reportSignal(ctx, body);
     return c.json({ ok: true, recorded });
+  })
+
+  // The file handed in with the final answer ("entrega"). The path ends in /upload so the
+  // upload body limit applies; the deliverable itself is capped lower (validateDeliverable).
+  .post("/:token/deliverable/upload", async (c) => {
+    const ctx = await loadStudentContext(c, c.req.param("token"));
+    const [file] = await readFileParts(c);
+    await saveDeliverable(ctx, file);
+    return c.json({ workspace: await buildWorkspace(ctx) } satisfies WorkspaceResponse, 201);
+  })
+
+  .delete("/:token/deliverable", async (c) => {
+    const ctx = await loadStudentContext(c, c.req.param("token"));
+    await removeDeliverable(ctx);
+    return c.json({ workspace: await buildWorkspace(ctx) } satisfies WorkspaceResponse);
+  })
+
+  .get("/:token/deliverable/file", async (c) => {
+    const ctx = await loadStudentContext(c, c.req.param("token"));
+    return serveStudentDeliverable(c, ctx.session.id, c.req.query("download") === "1");
   })
 
   .get("/:token/files/:fileId", async (c) => {

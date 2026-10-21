@@ -2,7 +2,7 @@
 // One explicit "Guardar cambios" for all sections (files and notes save on their own).
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Mic, Save } from "lucide-react";
+import { Mic, Paperclip, Save } from "lucide-react";
 import { Button } from "@client/components/ui/button";
 import { Switch } from "@client/components/ui/controls";
 import { ConfirmDialog } from "@client/components/ui/dialog";
@@ -10,6 +10,7 @@ import { Field, Input, Textarea } from "@client/components/ui/field";
 import { cn } from "@client/lib/cn";
 import { ApiError, errorMessage } from "@client/lib/api";
 import { VOICE_LANGUAGE_LABELS, type VoiceLanguage } from "@shared/domain/voice";
+import { DELIVERABLE_MODES, DELIVERABLE_PROMPT_MAX, MAX_DELIVERABLE_LABEL, type DeliverableMode } from "@shared/domain/deliverables";
 import { ACTIVITY_LIMITS, type ActivityEditorData } from "@shared/contracts/activities";
 import { useSaveActivity } from "./api";
 import { EditorSection, RadioCards } from "./parts";
@@ -29,6 +30,7 @@ export const SECTIONS: { id: string; title: string; keys: DraftKey[] }[] = [
   { id: "voz", title: "Voz", keys: ["voiceLanguage"] },
   { id: "rubrica", title: "Rúbrica", keys: ["rubric"] },
   { id: "reflexion", title: "Reflexión final", keys: ["reflectionQuestions"] },
+  { id: "entrega", title: "Entrega de archivo", keys: ["deliverableMode", "deliverablePrompt"] },
 ];
 
 function sectionOfError(errors: FieldErrors): string | null {
@@ -244,6 +246,54 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
           {...meta("reflexion")}
         >
           <ReflectionEditor activityId={activity.id} form={form} context={aiContext} />
+        </EditorSection>
+
+        <EditorSection
+          id="entrega"
+          title="Entrega de archivo"
+          description={
+            <span className="flex items-start gap-1.5">
+              <Paperclip className="mt-1 size-3.5 shrink-0" aria-hidden="true" />
+              Al terminar, cada alumno puede subir un PDF, un Word, un texto o una foto (hasta {MAX_DELIVERABLE_LABEL}). Lo ves en su
+              trabajo y lo podés analizar con la rúbrica.
+            </span>
+          }
+          {...meta("entrega")}
+        >
+          <RadioCards<DeliverableMode>
+            name="deliverable-mode"
+            legend="Pedir un archivo al terminar"
+            value={draft.deliverableMode}
+            onChange={(v) => set("deliverableMode", v)}
+            options={(Object.keys(DELIVERABLE_MODES) as DeliverableMode[]).map((k) => ({
+              value: k,
+              label: DELIVERABLE_MODES[k].label,
+              description: DELIVERABLE_MODES[k].description,
+            }))}
+          />
+          {errors.deliverableMode ? <p className="mt-1.5 text-[13px] font-medium text-rose">{errors.deliverableMode}</p> : null}
+          {draft.deliverableMode !== "off" ? (
+            <Field
+              className="mt-4"
+              label="Qué tienen que entregar"
+              optional
+              hint="Lo leen los alumnos junto al botón para subir el archivo."
+              error={errors.deliverablePrompt}
+              counter={{ value: draft.deliverablePrompt.length, max: DELIVERABLE_PROMPT_MAX }}
+            >
+              {(p) => (
+                <Textarea
+                  id={p.id}
+                  aria-describedby={p.describedBy}
+                  invalid={p.invalid}
+                  value={draft.deliverablePrompt}
+                  onChange={(e) => set("deliverablePrompt", e.target.value)}
+                  minRows={2}
+                  placeholder="Ej.: Una foto del barco que armaste, o el informe del experimento en PDF."
+                />
+              )}
+            </Field>
+          ) : null}
         </EditorSection>
 
         {/* Save bar: sticks above the phone tab bar while there are unsaved changes; it steps aside while the

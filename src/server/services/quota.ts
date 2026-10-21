@@ -9,7 +9,8 @@ export async function storageUsedBytes(teacherId: string): Promise<number> {
   const [row] = await db.execute<{ used: string | number }>(sql`
     select
       coalesce((select sum(f.size_bytes) from activity_files f join activities a on a.id = f.activity_id where a.teacher_id = ${teacherId}), 0)
-      + coalesce((select sum(m.size_bytes) from materials m where m.teacher_id = ${teacherId}), 0) as used`);
+      + coalesce((select sum(m.size_bytes) from materials m where m.teacher_id = ${teacherId}), 0)
+      + coalesce((select sum(d.size_bytes) from session_deliverables d join activities a on a.id = d.activity_id where a.teacher_id = ${teacherId}), 0) as used`);
   return Number(row?.used ?? 0);
 }
 

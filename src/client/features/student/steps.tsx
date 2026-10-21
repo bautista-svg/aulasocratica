@@ -12,6 +12,7 @@ import { draftKey, useDraft, type DraftField } from "./hooks";
 import { UnsentNotice } from "./entry";
 import { ReadOnlyThread } from "./thread";
 import { canSpeak, speechLang } from "./voice-support";
+import { DeliverableField, DeliverableFileLine } from "./deliverable";
 
 function useHeadingFocus(focus: boolean | undefined) {
   const ref = useRef<HTMLHeadingElement | null>(null);
@@ -115,9 +116,12 @@ export function ClosingStep({
   const [finalAnswer, setFinal, clearFinal] = useDraft(draftKey(token, code, "final"));
   const [reflectionRaw, setReflectionRaw, clearReflection] = useDraft(draftKey(token, code, "reflection"));
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const headingRef = useHeadingFocus(focusHeading);
+  const asksFile = workspace.activity.deliverableMode !== "off";
+  const missingFile = workspace.activity.deliverableMode === "required" && !workspace.deliverable;
 
   let reflection: Record<string, string> = {};
   try {
@@ -232,12 +236,25 @@ export function ClosingStep({
             </fieldset>
           ) : null}
 
+          {asksFile ? <DeliverableField token={token} workspace={workspace} onBusyChange={setUploading} onStale={onStale} disabled={busy} /> : null}
+
           <FormError message={error} />
+          {missingFile ? (
+            <p id="falta-entrega" className="text-sm font-medium text-text-2 sm:text-right">
+              Subí tu archivo para poder enviar tu trabajo.
+            </p>
+          ) : null}
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
             <Button variant="secondary" size="lg" onClick={onBack} disabled={busy}>
               Seguir conversando
             </Button>
-            <Button type="submit" size="lg" loading={busy} disabled={length < MIN_ANSWER_CHARS || length > MAX_ANSWER_CHARS}>
+            <Button
+              type="submit"
+              size="lg"
+              loading={busy}
+              aria-describedby={missingFile ? "falta-entrega" : undefined}
+              disabled={length < MIN_ANSWER_CHARS || length > MAX_ANSWER_CHARS || missingFile || uploading}
+            >
               Enviar mi trabajo
             </Button>
           </div>
@@ -302,6 +319,15 @@ export function DoneStep({
             </div>
           ) : null}
         </div>
+
+        {workspace.deliverable ? (
+          <div className="mt-6 border-t border-line pt-5">
+            <h3 className="font-display text-lg font-semibold text-ink">Tu entrega</h3>
+            <div className="mt-3 rounded-md border border-line bg-paper px-4 py-3">
+              <DeliverableFileLine file={workspace.deliverable} link={linkOpen} />
+            </div>
+          </div>
+        ) : null}
 
         {answered.length ? (
           <div className="mt-6 border-t border-line pt-5">

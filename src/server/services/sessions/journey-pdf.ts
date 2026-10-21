@@ -6,6 +6,7 @@ import { EVENT_LABELS, STUDENT_INTENTS } from "@shared/domain/pedagogy";
 import { XRAY_MOMENTS, tutorQuestion } from "@shared/domain/thinking-xray";
 import { formatDuration, studentMessageCounts } from "@shared/domain/live-monitor";
 import type { SessionDetail } from "@shared/contracts/sessions";
+import { KIND_LABEL, formatBytes } from "@shared/domain/files";
 import { ownWords } from "./corpus";
 
 const TZ = "America/Argentina/Buenos_Aires";
@@ -117,6 +118,16 @@ export async function buildJourneyPdf(d: SessionDetail): Promise<Buffer> {
   if (d.session.reflection.length) {
     w.section("Reflexión");
     for (const r of d.session.reflection) w.labelled(r.question || "Pregunta", r.answer);
+  }
+
+  if (d.deliverable) {
+    const f = d.deliverable;
+    w.section("Archivo entregado");
+    w.paragraph(`${f.fileName} · ${KIND_LABEL[f.kind]} · ${formatBytes(f.sizeBytes)}${f.pageCount ? ` · ${f.pageCount} páginas` : ""} · subido el ${fmt(f.uploadedAt)}`);
+    w.paragraph("El archivo no va dentro de este PDF: se abre o se descarga desde el trabajo del alumno.", { italic: true, color: "#646c88", size: 10 });
+  } else if (d.activity.deliverableMode !== "off") {
+    w.section("Archivo entregado");
+    w.paragraph("No subió ningún archivo.", { italic: true, color: "#646c88" });
   }
 
   const ev = d.rubric;

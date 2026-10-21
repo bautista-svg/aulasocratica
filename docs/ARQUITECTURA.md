@@ -91,7 +91,8 @@ docs/                Arquitectura, auditoría, informes
 
 - `teachers` (espacio; cuenta opcional) → `classrooms` → `activities` → `learning_sessions` (una por alumno y
   actividad) → `messages`, `pedagogical_events`, `rubric_assessments`, `thinking_analyses`, `session_summaries`,
-  `student_alerts`.
+  `student_alerts`, `session_deliverables` (el archivo que entrega el alumno al terminar; se guarda en la carpeta de la
+  actividad, así que se borra con ella, y se borra del disco al eliminar el trabajo, al alumno o al reiniciar la actividad).
 - `students` pertenecen a un aula (`name_key` único por aula). Se crean solos al entrar a una actividad o los carga
   el docente. **Los participantes de una actividad son sus `learning_sessions`**, nunca "todos los del aula".
 - `tutors` (presets copiados a cada espacio con `preset_key` + tutores propios), `materials` (biblioteca),

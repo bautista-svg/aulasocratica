@@ -8,6 +8,7 @@ import {
   type ReflectionQuestion,
 } from "../domain/activity-design";
 import type { VoiceLanguage } from "../domain/voice";
+import { DELIVERABLE_PROMPT_MAX, type DeliverableMode } from "../domain/deliverables";
 import type { FileKind, ProcessingStatus } from "../domain/files";
 import { TUTOR_TYPES } from "../domain/pedagogy";
 import { MAX_TUTOR_RULES } from "../domain/tutors";
@@ -66,6 +67,10 @@ export interface ActivityDetail {
   tutorName: string | null;
   requireInitialAnswer: boolean;
   voiceLanguage: VoiceLanguage;
+  /** Whether students hand in a file when they finish. */
+  deliverableMode: DeliverableMode;
+  /** What the file should be, shown to the student. */
+  deliverablePrompt: string;
   rubric: RubricCriterion[];
   reflectionQuestions: ReflectionQuestion[];
   status: ActivityStatus;
@@ -172,6 +177,8 @@ export const activityPatch = z
     tutorId: z.null(),
     requireInitialAnswer: z.boolean(),
     voiceLanguage: voiceSchema,
+    deliverableMode: z.enum(["off", "optional", "required"], { message: "Elegí si pedís un archivo en la entrega." }),
+    deliverablePrompt: text(DELIVERABLE_PROMPT_MAX),
     rubric: z.array(rubricCriterionInput).max(MAX_CRITERIA, `La rúbrica puede tener hasta ${MAX_CRITERIA} criterios.`),
     reflectionQuestions: z
       .array(reflectionQuestionInput)
