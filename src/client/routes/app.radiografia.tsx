@@ -110,6 +110,7 @@ function XrayListPage() {
         <ErrorState error={list.error} onRetry={() => void list.refetch()} />
       ) : items.length === 0 ? (
         <EmptyState
+          level={2}
           icon={<ScanSearch className="size-8" />}
           title={filtered ? "No hay trabajos con estos filtros" : "Todavía no hay trabajos para analizar"}
           description={filtered ? "Probá con otra aula, otra actividad u otro nombre." : "Cuando tus alumnos hagan una actividad, sus trabajos aparecen acá."}

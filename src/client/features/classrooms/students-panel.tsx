@@ -66,6 +66,7 @@ export const StudentsPanel = memo(function StudentsPanel({
 
       {students.data.length === 0 ? (
         <EmptyState
+          level={2}
           icon={<Users className="size-8" />}
           title="Todavía no hay alumnos en esta aula"
           description="Los alumnos aparecen solos cuando entran a una actividad con su nombre. También podés cargar la lista antes."
@@ -76,7 +77,7 @@ export const StudentsPanel = memo(function StudentsPanel({
           }
         />
       ) : filtered.length === 0 ? (
-        <EmptyState title="Nadie hizo esta actividad todavía" description={`Cuando un alumno entre a «${filterActivity?.title ?? "la actividad"}», va a aparecer acá.`} />
+        <EmptyState level={2} title="Nadie hizo esta actividad todavía" description={`Cuando un alumno entre a «${filterActivity?.title ?? "la actividad"}», va a aparecer acá.`} />
       ) : (
         <>
           <p className="mb-2 text-sm text-text-3">

@@ -63,9 +63,10 @@ function ClassroomsPage() {
         <ErrorState error={q.error} onRetry={() => void q.refetch()} />
       ) : q.data.length === 0 ? (
         archived ? (
-          <EmptyState icon={<School className="size-8" />} title="No hay aulas archivadas" description="Cuando archives un aula, va a aparecer acá y la vas a poder restaurar." />
+          <EmptyState level={2} icon={<School className="size-8" />} title="No hay aulas archivadas" description="Cuando archives un aula, va a aparecer acá y la vas a poder restaurar." />
         ) : (
           <EmptyState
+            level={2}
             icon={<School className="size-8" />}
             title="Todavía no creaste aulas"
             description="Creá un aula por curso. Después le agregás actividades y compartís el enlace con tus alumnos."

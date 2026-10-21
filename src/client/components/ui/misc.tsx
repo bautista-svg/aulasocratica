@@ -65,11 +65,27 @@ export function PageHeader({
   );
 }
 
-export function EmptyState({ icon, title, description, action, className }: { icon?: ReactNode; title: ReactNode; description?: ReactNode; action?: ReactNode; className?: string }) {
+/** `level`: 2 when the empty state sits right under the page's h1 (no section heading in between). */
+export function EmptyState({
+  icon,
+  title,
+  description,
+  action,
+  className,
+  level = 3,
+}: {
+  icon?: ReactNode;
+  title: ReactNode;
+  description?: ReactNode;
+  action?: ReactNode;
+  className?: string;
+  level?: 2 | 3;
+}) {
+  const Heading = level === 2 ? "h2" : "h3";
   return (
     <div className={cn("flex flex-col items-center rounded-lg border border-dashed border-line-strong bg-surface/60 px-6 py-10 text-center", className)}>
       {icon ? <div className="mb-3 text-lilac">{icon}</div> : null}
-      <h3 className="font-display text-lg font-semibold text-ink">{title}</h3>
+      <Heading className="font-display text-lg font-semibold text-ink">{title}</Heading>
       {description ? <p className="mt-1.5 max-w-md text-sm leading-6 text-text-2">{description}</p> : null}
       {action ? <div className="mt-5">{action}</div> : null}
     </div>

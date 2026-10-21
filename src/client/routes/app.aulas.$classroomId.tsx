@@ -225,6 +225,7 @@ function ActivitiesPanel({ classroomId, onNew, archived }: { classroomId: string
   if (q.data.length === 0) {
     return (
       <EmptyState
+        level={2}
         icon={<LayoutList className="size-8" />}
         title="Esta aula todavía no tiene actividades"
         description="Creá una actividad, publicala y compartí el enlace. Cada alumno aparece en la actividad que hizo."
