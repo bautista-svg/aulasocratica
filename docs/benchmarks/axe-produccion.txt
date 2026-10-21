@@ -1,0 +1,64 @@
+OK   portada @375
+OK   portada @1440
+OK   ingresar @375
+OK   ingresar @1440
+OK   privacidad @375
+OK   privacidad @1440
+OK   enlace inexistente @375
+OK   enlace inexistente @1440
+OK   inicio (vacío) @375
+OK   inicio (vacío) @1440
+OK   aulas (vacío) @375
+OK   aulas (vacío) @1440
+OK   mis materiales (vacío) @375
+OK   mis materiales (vacío) @1440
+OK   radiografía (vacío) @375
+OK   radiografía (vacío) @1440
+OK   informes (vacío) @375
+OK   informes (vacío) @1440
+OK   aula sin actividades @375
+OK   aula sin actividades @1440
+OK   aula sin alumnos @375
+OK   aula sin alumnos @1440
+OK   alumno: charla @375
+OK   alumno: entrada (otro dispositivo) @375
+OK   alumno: entrada (otro dispositivo) @1440
+OK   inicio @375
+OK   inicio @1440
+OK   aulas @375
+OK   aulas @1440
+OK   aula: actividades @375
+OK   aula: actividades @1440
+OK   aula: alumnos @375
+OK   aula: alumnos @1440
+OK   aula: alertas @375
+OK   aula: alertas @1440
+OK   actividad: configuración @375
+OK   actividad: configuración @1440
+OK   actividad: compartir @375
+OK   actividad: compartir @1440
+OK   actividad: en vivo @375
+OK   actividad: en vivo @1440
+OK   trabajo: recorrido @375
+OK   trabajo: recorrido @1440
+OK   trabajo: conversación @375
+OK   trabajo: conversación @1440
+OK   trabajo: evaluación @375
+OK   trabajo: evaluación @1440
+OK   trabajo: radiografía @375
+OK   trabajo: radiografía @1440
+OK   crear con IA @375
+OK   crear con IA @1440
+OK   mis tutores @375
+OK   mis tutores @1440
+OK   mis materiales @375
+OK   mis materiales @1440
+OK   radiografía @375
+OK   radiografía @1440
+OK   informes @375
+OK   informes @1440
+OK   mi espacio @375
+OK   mi espacio @1440
+espacio de prueba borrado
+
+61/61 pantallas sin violaciones de axe ni desborde horizontal

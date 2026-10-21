@@ -33,8 +33,9 @@ Node + Hono + PostgreSQL en el servidor, desplegada en Coolify en el VPS, sin de
   8. PDF del recorrido completo desde En vivo.
 - **Nada decorativo ni falso.** Cada botón hace lo que dice y cada número sale de datos reales. Las afirmaciones del
   original que no eran ciertas se corrigieron o se quitaron, y las sugerencias de la IA están rotuladas como tales.
-- **Mobile first y accesible.** Probado de 320 a 1440 px, con teclado y con axe-core. Lighthouse da 1,00 en
-  accesibilidad en todas las páginas públicas.
+- **Mobile first y accesible.** Probado de 320 a 1440 px, con teclado y con axe-core. En producción, las 61 pantallas
+  revisadas (con datos y vacías, a 375 y 1440 px) no tienen violaciones de axe ni desborde horizontal. Lighthouse da
+  1,00 en accesibilidad en todas las páginas públicas.
 - **Rápido.** En producción, la página del alumno pinta su contenido principal en ~2,1 s en un celular de gama media
   emulado (el original tardaba 17,9 s) y descarga 94 % menos JavaScript.
 - **Seguro y con costo acotado.** El original tenía 16 problemas de seguridad, entre ellos uno crítico. Todos están
@@ -91,7 +92,7 @@ alumnos de prueba conversaron con el tutor real.
 | Frontend | ✅ Completo | React 19 + TanStack Router/Query + Tailwind v4; chunk de entrada de 17 KB gz; build sin errores |
 | Backend | ✅ Completo | API Hono con validación zod en todos los endpoints; 161 tests de integración contra Postgres real |
 | Base de datos | ✅ Completa | PostgreSQL 17 propio, 2 migraciones versionadas, índices medidos con `EXPLAIN`, backups diarios, restauración documentada |
-| Diseño responsive | ✅ Completo | 320 / 375 / 390 / 430 / 768 / 1024 / 1440 px sin desbordes; Lighthouse accesibilidad 1,00; axe sin violaciones tras las correcciones |
+| Diseño responsive | ✅ Completo | Auditado en 320 / 375 / 390 / 430 / 768 / 1024 / 1440 px; en producción, 61/61 pantallas (375 y 1440 px, con datos y vacías) sin violaciones de axe ni desborde horizontal; Lighthouse accesibilidad 1,00 |
 | Funcionalidades | ✅ Completas | Inventario: todas en "Funciona", salvo la voz (depende del navegador, documentado); los 8 pedidos del WhatsApp probados de punta a punta |
 | Contenido verificado | ✅ Completo | Afirmaciones falsas eliminadas; el ejemplo de la portada está rotulado como ilustrativo; página de privacidad con lo que realmente se guarda y quién lo procesa (Anthropic, Cloudflare y el servicio de voz del navegador) |
 | Seguridad | ✅ Corregida | 11 corregidos, 1 mitigado (F-07), 4 aceptados con justificación; cabeceras y CSRF verificados en producción |
