@@ -3,7 +3,9 @@
 // device gets a random token (stored hashed) in an httpOnly cookie scoped to the activity.
 // A name that already has work in the activity can only be continued on a new device with
 // its resume code. Availability (link on, dates, published, classroom not archived) is
-// checked on EVERY request through loadStudentContext / ensureAvailable.
+// checked on EVERY request through loadStudentContext / ensureAvailable. The one exception is
+// reading: a device whose work is already finished keeps seeing it (read-only) after the
+// teacher closes the link.
 import type { Context } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { and, asc, eq, gt, isNull, sql } from "drizzle-orm";
@@ -18,8 +20,15 @@ import { LINK_AVAILABILITY_MESSAGE, linkAvailability, type LinkAvailability } fr
 import { validateStudentName } from "@shared/domain/names";
 import { readReflection, sanitizeReflectionQuestions, type ReflectionQuestion } from "@shared/domain/activity-design";
 import { isVoiceLanguage } from "@shared/domain/voice";
-import { classroomLabel } from "@shared/contracts/classrooms";
-import type { StudentFile, StudentLinkInfo, StudentMessage, StudentStage, StudentWorkspace } from "@shared/contracts/student";
+import {
+  normalizeResumeCode,
+  studentMetaLine,
+  type StudentFile,
+  type StudentLinkInfo,
+  type StudentMessage,
+  type StudentStage,
+  type StudentWorkspace,
+} from "@shared/contracts/student";
 import type { FileKind } from "@shared/domain/files";
 import { isStreaming } from "./streams";
 
@@ -31,8 +40,16 @@ export const MAX_SESSIONS_PER_ACTIVITY = 400;
 // Rate limits. A whole class usually shares one public IP (school NAT), so the per-IP
 // limits are sized for ~40 students joining at once rather than for one person.
 export const JOIN_LIMIT = { perIp: 60, windowMs: 10 * 60_000 };
-export const CODE_LIMIT = { perIp: 30, windowMs: 10 * 60_000 };
-export const WRONG_CODE_LIMIT = { perSession: 5, windowMs: 15 * 60_000 };
+/** Resume requests per connection (flood guard; a whole class switching devices fits). */
+export const CODE_LIMIT = { perIp: 120, windowMs: 10 * 60_000 };
+/**
+ * Wrong resume codes. The lockout is per name AND connection, so a classmate who knows a name
+ * cannot lock the real student out from another connection; a cap per name across all
+ * connections keeps guessing hopeless anyway (32^6 ≈ 1e9 codes, at most `perName` tries per
+ * window, and reaching it needs ≥ perName / perConnection different networks: ≈ 1000 years to
+ * try them all).
+ */
+export const WRONG_CODE_LIMIT = { perConnection: 5, perName: 30, perConnectionAllNames: 30, windowMs: 15 * 60_000 };
 
 type Activity = typeof schema.activities.$inferSelect;
 type Session = typeof schema.learningSessions.$inferSelect;
@@ -80,7 +97,12 @@ export async function loadLink(token: string): Promise<LinkCtx> {
 }
 
 function linkNotFound() {
-  return new HttpError(404, "No encontramos esta actividad. Revisá que el enlace esté completo o pedíselo a tu docente.", "not_found");
+  // Also what an old link answers after the teacher generated a new one (old tokens are not kept).
+  return new HttpError(
+    404,
+    "No encontramos esta actividad. Revisá que el enlace esté completo; si lo está, puede que tu docente lo haya cambiado por uno nuevo: pedíselo.",
+    "not_found",
+  );
 }
 
 export function availabilityOf(link: LinkCtx): LinkAvailability {
@@ -202,7 +224,8 @@ async function findSession(activityId: string, studentId: string) {
 function resumeRequired(name: string) {
   return new HttpError(
     409,
-    `Ya hay un trabajo empezado como «${name}» en esta actividad. Para seguirlo en este dispositivo, escribí tu código.`,
+    `Ya hay un trabajo empezado como «${name}» en esta actividad. Si sos vos, escribí tu código para seguirlo en este dispositivo. ` +
+      "Si no empezaste vos, avisale a tu docente: puede darte tu código o borrar ese ingreso para que entres.",
     "resume_required",
   );
 }
@@ -254,67 +277,123 @@ export async function joinWithName(c: Context, link: LinkCtx, rawName: string): 
   if (!created) throw resumeRequired(student.fullName);
 
   await issueDeviceToken(c, link.activity.id, created.id);
-  await recordEvent(created.id, "session_entered", { resumed: false });
+  // fromRoster: the name was on the teacher's list (helps spot someone entering as a classmate).
+  await recordEvent(created.id, "session_entered", { resumed: false, fromRoster: !student.selfRegistered });
   publish(link.activity.id, "session", created.id);
   const ctx = await sessionContext(link, created.id, student);
   return { ctx, created: true };
 }
 
-// Wrong resume codes per session (in memory, single instance like the rate limiter).
+// Wrong resume codes (in memory, single instance like the rate limiter). Keys: per name
+// ("target"), per name + connection, and per connection across all names.
 const wrongCodes = new Map<string, number[]>();
 
-function recentWrong(sessionId: string, now = Date.now()): number[] {
-  const list = (wrongCodes.get(sessionId) ?? []).filter((t) => t > now - WRONG_CODE_LIMIT.windowMs);
-  if (list.length) wrongCodes.set(sessionId, list);
-  else wrongCodes.delete(sessionId);
+function recentWrong(key: string, now = Date.now()): number[] {
+  const list = (wrongCodes.get(key) ?? []).filter((t) => t > now - WRONG_CODE_LIMIT.windowMs);
+  if (list.length) wrongCodes.set(key, list);
+  else wrongCodes.delete(key);
   return list;
+}
+
+function addWrong(key: string, now = Date.now()): number {
+  const list = recentWrong(key, now);
+  list.push(now);
+  wrongCodes.set(key, list);
+  return list.length;
 }
 
 setInterval(() => {
   for (const id of [...wrongCodes.keys()]) recentWrong(id);
 }, 10 * 60_000).unref();
 
-/** Continues an existing session on this device with the resume code. */
+/**
+ * The connection a request comes from, for the per-connection lockout. IPv6 clients usually
+ * own a whole /64, so those addresses count as one connection.
+ */
+export function connectionKey(ip: string): string {
+  const v4 = /^(?:::ffff:)?(\d{1,3}(?:\.\d{1,3}){3})$/i.exec(ip);
+  if (v4) return v4[1]!;
+  if (!ip.includes(":")) return ip;
+  const lower = ip.toLowerCase().split("%")[0]!;
+  const [head = "", tail = ""] = lower.split("::");
+  const left = head ? head.split(":") : [];
+  const right = tail ? tail.split(":") : [];
+  const groups = lower.includes("::") ? [...left, ...Array<string>(Math.max(0, 8 - left.length - right.length)).fill("0"), ...right] : left;
+  return `${groups
+    .slice(0, 4)
+    .map((g) => g.replace(/^0+(?=.)/, ""))
+    .join(":")}::/64`;
+}
+
+const LOCKED_MESSAGE =
+  "Probaste demasiados códigos para este nombre. Esperá 15 minutos y volvé a intentar con el código que te dé tu docente.";
+
+/**
+ * Continues an existing session on this device with the resume code. An unknown name and a
+ * wrong code get the same answer (and the same countdown), so the endpoint never tells who
+ * already started the activity. A malformed code never gets here (resumeBody rejects it
+ * without counting an attempt).
+ */
 export async function resumeWithCode(c: Context, link: LinkCtx, rawName: string, rawCode: string): Promise<StudentCtx> {
   ensureAvailable(link);
-  if (!hit(`s_code:${clientIp(c)}`, CODE_LIMIT.perIp, CODE_LIMIT.windowMs)) {
+  const ip = clientIp(c);
+  if (!hit(`s_code:${ip}`, CODE_LIMIT.perIp, CODE_LIMIT.windowMs)) {
+    throw new HttpError(429, "Hubo demasiados intentos desde esta conexión. Esperá unos minutos y probá de nuevo.", "rate_limited");
+  }
+  // Only WRONG codes count against the connection, so a class resuming at once is never stopped.
+  const connection = `ip:${connectionKey(ip)}`;
+  if (recentWrong(connection).length >= WRONG_CODE_LIMIT.perConnectionAllNames) {
     throw new HttpError(429, "Hubo demasiados intentos desde esta conexión. Esperá unos minutos y probá de nuevo.", "rate_limited");
   }
   const v = nameOrThrow(rawName);
-  const student = await findStudent(link.classroom.id, v.key);
-  const session = student ? await findSession(link.activity.id, student.id) : null;
-  if (!student || !session) {
-    throw new HttpError(
-      404,
-      "No encontramos un trabajo con ese nombre en esta actividad. Revisá cómo lo escribiste o entrá como nuevo.",
-      "not_found",
-      { name: "No hay un trabajo con este nombre." },
-    );
+  const found = await findWorkByName(link, v.key);
+  // Names without work get counters too, so both cases behave identically.
+  const target = found ? `s:${found.session.id}` : `n:${link.activity.id}:${v.key}`;
+  const perConnection = `${target}@${connectionKey(ip)}`;
+  if (
+    recentWrong(perConnection).length >= WRONG_CODE_LIMIT.perConnection ||
+    recentWrong(target).length >= WRONG_CODE_LIMIT.perName
+  ) {
+    throw new HttpError(429, LOCKED_MESSAGE, "locked");
   }
-  if (recentWrong(session.id).length >= WRONG_CODE_LIMIT.perSession) {
-    throw new HttpError(
-      429,
-      "Se probaron demasiados códigos para este nombre. Esperá 15 minutos o pedile tu código a tu docente.",
-      "locked",
-    );
-  }
-  const code = normalizeCode(rawCode);
-  if (!safeEqual(code, session.resumeCode)) {
-    const list = recentWrong(session.id);
-    list.push(Date.now());
-    wrongCodes.set(session.id, list);
-    const left = WRONG_CODE_LIMIT.perSession - list.length;
+  const code = normalizeResumeCode(rawCode);
+  if (!found || !safeEqual(code, found.session.resumeCode)) {
+    const used = addWrong(perConnection);
+    addWrong(target);
+    addWrong(connection);
+    const left = WRONG_CODE_LIMIT.perConnection - used;
     const msg =
       left > 0
-        ? `Ese código no coincide. Revisalo o pedíselo a tu docente (te ${left === 1 ? "queda 1 intento" : `quedan ${left} intentos`}).`
-        : "Ese código no coincide. Se probaron demasiados códigos: esperá 15 minutos o pedile tu código a tu docente.";
-    throw new HttpError(400, msg, "wrong_code", { code: "El código no coincide." });
+        ? "Ese nombre y ese código no coinciden con ningún trabajo de esta actividad. Revisá los dos o pedile tu código a tu docente " +
+          `(te ${left === 1 ? "queda 1 intento" : `quedan ${left} intentos`}).`
+        : `Ese nombre y ese código no coinciden. ${LOCKED_MESSAGE}`;
+    throw new HttpError(400, msg, "wrong_code");
   }
-  wrongCodes.delete(session.id);
+  const { session, student } = found;
+  // The right code proves it is the student: start again from zero everywhere.
+  wrongCodes.delete(perConnection);
+  wrongCodes.delete(target);
   await issueDeviceToken(c, link.activity.id, session.id);
   await recordEvent(session.id, "session_entered", { resumed: true });
   publish(link.activity.id, "session", session.id);
   return sessionContext(link, session.id, student);
+}
+
+/** The session of this name in the activity, in ONE query whether or not the name exists. */
+async function findWorkByName(link: LinkCtx, key: string): Promise<{ session: Session; student: Student } | null> {
+  const [row] = await db
+    .select({ session: schema.learningSessions, student: schema.students })
+    .from(schema.learningSessions)
+    .innerJoin(schema.students, eq(schema.students.id, schema.learningSessions.studentId))
+    .where(
+      and(
+        eq(schema.learningSessions.activityId, link.activity.id),
+        eq(schema.students.classroomId, link.classroom.id),
+        eq(schema.students.nameKey, key),
+      ),
+    )
+    .limit(1);
+  return row ?? null;
 }
 
 async function sessionContext(link: LinkCtx, sessionId: string, student: Student): Promise<StudentCtx> {
@@ -364,34 +443,53 @@ export function publicActivity(link: LinkCtx): StudentLinkInfo["activity"] {
   const av = availabilityOf(link);
   if (av === "unpublished" || av === "archived") return null;
   const a = link.activity;
-  const room = classroomLabel(link.classroom);
+  const room = link.classroom;
   return {
     title: a.title,
     subject: a.subject,
-    classroom: [room, link.classroom.school].filter(Boolean).join(" · "),
+    // Name, grade + division and school without repeating what the name already says.
+    classroom: studentMetaLine([room.name, [room.grade, room.division].filter(Boolean).join(" "), room.school]),
     teacherName: link.teacher.displayName,
   };
 }
 
-export async function buildWorkspace(ctx: StudentCtx): Promise<StudentWorkspace> {
+/** Closed links (not archived/unpublished) still show a finished work to its own device. */
+const READABLE_WHEN_CLOSED: LinkAvailability[] = ["inactive", "not_started", "expired"];
+
+/**
+ * This device's work for GET /:token: always while the link is available; once it is closed,
+ * only if the work is already finished (read-only, without files, which need an open link).
+ */
+export async function linkWorkspace(c: Context, link: LinkCtx, availability: LinkAvailability): Promise<StudentWorkspace | null> {
+  if (availability !== "available" && !READABLE_WHEN_CLOSED.includes(availability)) return null;
+  const ctx = await deviceSession(c, link);
+  if (!ctx) return null;
+  if (availability === "available") return buildWorkspace(ctx);
+  return isReadOnly(ctx.session) ? buildWorkspace(ctx, { files: false }) : null;
+}
+
+export async function buildWorkspace(ctx: StudentCtx, opts: { files?: boolean } = {}): Promise<StudentWorkspace> {
   const { activity, session, student } = ctx;
+  const withFiles = opts.files ?? true;
   const [messages, files] = await Promise.all([
     db
       .select()
       .from(schema.messages)
       .where(and(eq(schema.messages.sessionId, session.id), eq(schema.messages.isPartial, false)))
       .orderBy(asc(schema.messages.createdAt), asc(schema.messages.id)),
-    db
-      .select({
-        id: schema.activityFiles.id,
-        fileName: schema.activityFiles.fileName,
-        kind: schema.activityFiles.kind,
-        mimeType: schema.activityFiles.mimeType,
-        sizeBytes: schema.activityFiles.sizeBytes,
-      })
-      .from(schema.activityFiles)
-      .where(and(eq(schema.activityFiles.activityId, activity.id), eq(schema.activityFiles.processingStatus, "ready")))
-      .orderBy(asc(schema.activityFiles.createdAt)),
+    withFiles
+      ? db
+          .select({
+            id: schema.activityFiles.id,
+            fileName: schema.activityFiles.fileName,
+            kind: schema.activityFiles.kind,
+            mimeType: schema.activityFiles.mimeType,
+            sizeBytes: schema.activityFiles.sizeBytes,
+          })
+          .from(schema.activityFiles)
+          .where(and(eq(schema.activityFiles.activityId, activity.id), eq(schema.activityFiles.processingStatus, "ready")))
+          .orderBy(asc(schema.activityFiles.createdAt))
+      : Promise.resolve([]),
   ]);
   const questions = reflectionQuestionsOf(activity);
   return {

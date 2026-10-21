@@ -11,7 +11,8 @@ import { errorMessage } from "@client/lib/api";
 import { plural } from "@client/lib/format";
 import { useClassrooms } from "@client/features/classrooms/api";
 import type { ActivityEditorData } from "@shared/contracts/activities";
-import { activityKeys, useActivityAction, useDeleteActivity, useDuplicateActivity, useResetActivity } from "./api";
+import { activityKeys, forgetActivity, useActivityAction, useDeleteActivity, useDuplicateActivity, useResetActivity } from "./api";
+import { useRequestId, useSingleFlight } from "./single-flight";
 
 export type LifecycleDialog = "unpublish" | "duplicate" | "reset" | "archive" | "delete" | null;
 
@@ -153,7 +154,7 @@ export function LifecycleDialogs({
           </>
         }
         confirmLabel="Eliminar para siempre"
-        typeToConfirm="BORRAR"
+        typeToConfirm="ELIMINAR"
         loading={del.isPending}
         onConfirm={() =>
           del.mutate(undefined, {
@@ -161,7 +162,9 @@ export function LifecycleDialogs({
               toast.success("Actividad eliminada");
               onClose();
               onLeave?.();
-              void navigate({ to: "/app/aulas/$classroomId", params: { classroomId: r.classroomId } });
+              // Leave first, then forget the deleted activity: dropping its queries while the editor
+              // was still mounted made it fetch the files of a deleted activity (404 in the console).
+              void navigate({ to: "/app/aulas/$classroomId", params: { classroomId: r.classroomId } }).then(() => forgetActivity(qc, activity.id));
             },
             onError: (e) => toast.error(errorMessage(e)),
           })
@@ -177,16 +180,35 @@ function DuplicateDialog({ activity, open, onClose }: { activity: ActivityEditor
   const navigate = useNavigate();
   const rooms = useClassrooms(false);
   const dup = useDuplicateActivity(activity.id);
-  const [target, setTarget] = useState(activity.classroomId);
+  const start = useSingleFlight(dup.isPending);
+  const requestId = useRequestId(open);
+  const options = rooms.data ?? [];
+  // Only active classrooms receive copies; an archived current classroom is shown, marked and disabled (D21).
+  const currentActive = options.some((r) => r.id === activity.classroomId);
+  const fallback = currentActive || activity.classroomArchived === false ? activity.classroomId : (options[0]?.id ?? "");
+  const [target, setTarget] = useState(fallback);
   useEffect(() => {
     if (open) {
-      setTarget(activity.classroomId);
+      setTarget(fallback);
       dup.reset();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-  const options = rooms.data ?? [];
-  const hasCurrent = options.some((r) => r.id === activity.classroomId);
+  }, [open, fallback]);
+  const archivedCurrent = activity.classroomArchived && !currentActive;
+
+  const submit = () => {
+    if (!target || !start()) return;
+    dup.mutate(
+      { classroomId: target, requestId },
+      {
+        onSuccess: (r) => {
+          onClose();
+          toast.success(r.skippedFiles ? `Actividad duplicada. ${plural(r.skippedFiles, "archivo no se pudo", "archivos no se pudieron")} copiar.` : "Actividad duplicada");
+          void navigate({ to: "/app/actividades/$activityId", params: { activityId: r.activity.id }, search: { tab: "configuracion" } });
+        },
+      },
+    );
+  };
 
   return (
     <Dialog
@@ -199,27 +221,26 @@ function DuplicateDialog({ activity, open, onClose }: { activity: ActivityEditor
           <Button variant="secondary" onClick={onClose}>
             Cancelar
           </Button>
-          <Button
-            loading={dup.isPending}
-            onClick={() =>
-              dup.mutate(target, {
-                onSuccess: (r) => {
-                  onClose();
-                  toast.success(r.skippedFiles ? `Actividad duplicada. ${plural(r.skippedFiles, "archivo no se pudo", "archivos no se pudieron")} copiar.` : "Actividad duplicada");
-                  void navigate({ to: "/app/actividades/$activityId", params: { activityId: r.activity.id }, search: { tab: "configuracion" } });
-                },
-              })
-            }
-          >
+          <Button loading={dup.isPending} disabled={!target} onClick={submit}>
             Duplicar
           </Button>
         </>
       }
     >
-      <Field label="Aula de la copia" hint="Podés duplicarla en otra de tus aulas.">
+      <Field
+        label="Aula de la copia"
+        hint={archivedCurrent ? "Esta aula está archivada: elegí una de tus aulas activas para la copia." : "Podés duplicarla en otra de tus aulas."}
+      >
         {(p) => (
           <Select id={p.id} aria-describedby={p.describedBy} value={target} onChange={(e) => setTarget(e.target.value)} disabled={rooms.isPending}>
-            {!hasCurrent ? <option value={activity.classroomId}>{activity.classroomName}</option> : null}
+            {archivedCurrent ? (
+              <option value={activity.classroomId} disabled>
+                {activity.classroomName} (archivada)
+              </option>
+            ) : !currentActive ? (
+              <option value={activity.classroomId}>{activity.classroomName} (esta aula)</option>
+            ) : null}
+            {options.length === 0 && archivedCurrent ? <option value="">No tenés aulas activas</option> : null}
             {options.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}

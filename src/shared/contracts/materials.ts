@@ -18,6 +18,8 @@ export interface MaterialSummary {
   processingStatus: ProcessingStatus;
   /** Failure reason (failed) or a note about how it was read (ready), e.g. "Imagen leída con IA." */
   processingError: string | null;
+  /** Failed files only: false when reading it again cannot work (damaged or protected file…): remove it instead. */
+  retryable: boolean;
   /** Characters of readable text: extracted text (files) or body (texts, link notes). */
   textChars: number;
   createdAt: string;
@@ -77,6 +79,8 @@ export const createMaterialBody = z.discriminatedUnion("kind", [
     body: z.string().trim().min(1, "Escribí el texto.").max(MAX_TEXT_BODY, `Usá hasta ${MAX_TEXT_BODY} caracteres.`),
     folder: folder.default(""),
     tags: tags.default([]),
+    /** Same id again (double click, retry after a lost response) → the material created the first time. */
+    requestId: z.string().uuid().optional(),
   }),
   z.object({
     kind: z.literal("link"),
@@ -85,6 +89,7 @@ export const createMaterialBody = z.discriminatedUnion("kind", [
     body: z.string().trim().max(MAX_LINK_NOTE, `Usá hasta ${MAX_LINK_NOTE} caracteres.`).default(""),
     folder: folder.default(""),
     tags: tags.default([]),
+    requestId: z.string().uuid().optional(),
   }),
 ]);
 export type CreateMaterialInput = z.input<typeof createMaterialBody>;

@@ -11,7 +11,7 @@ import {
   type RubricCriterion,
 } from "@shared/domain/activity-design";
 import { REFLECTION_QUESTIONS } from "@shared/domain/pedagogy";
-import { currentStage, lastSignalAt, liveStatus, type LiveSession } from "@shared/domain/live-monitor";
+import { currentStage, lastSignalAt, liveStatus, stageReached, type LiveSession } from "@shared/domain/live-monitor";
 import { observedAlertReason } from "@shared/domain/alerts";
 import { buildThinkingFlow } from "@shared/domain/thinking-xray";
 import { sanitizeSummary, splitObjectives, type SummaryBasis } from "@shared/domain/session-summary";
@@ -252,7 +252,8 @@ export async function loadSessionDetail(row: OwnedSessionRow): Promise<SessionDe
       liveStatus: liveStatus(live, signal, Date.now()),
       lastSignalAt: new Date(signal).toISOString(),
       currentStage: currentStage(live, liveEvents),
-      progressSteps: progressFor(live, liveEvents, a.requireInitialAnswer),
+      reachedStage: stageReached(live, liveEvents, s.endedByTeacher),
+      progressSteps: progressFor(live, liveEvents, a.requireInitialAnswer, s.endedByTeacher),
       stepsTotal: stepsFor(a.requireInitialAnswer),
     },
     student: { id: student.id, fullName: student.fullName },

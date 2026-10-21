@@ -1,0 +1,32 @@
+{
+  "opcionesTutorNuevaActividad": [
+    "Pensamiento crítico (predeterminado)",
+    "Tutor de la auditoría · Pensamiento crítico",
+    "Argumentación",
+    "Comprensión lectora",
+    "Contenido teórico",
+    "Conversación con personaje",
+    "Conversación guiada",
+    "Debate de clase",
+    "Debate socrático",
+    "Escritura a mano",
+    "Expresión oral",
+    "Investigación",
+    "Matemático",
+    "Metacognición",
+    "Pensamiento crítico",
+    "Producción escrita",
+    "Programación",
+    "Repaso",
+    "Resolución de problemas",
+    "Selección múltiple"
+  ],
+  "predeterminado": {
+    "indicaciones": "",
+    "basada": "(sin «Basada en»)"
+  },
+  "argumentacion": {
+    "indicaciones": "Dificultad: Intermedia\nObjetivos del tutor: Que el estudiante sostenga una postura propia con tesis, razones y ejemplos, y responda al menos a una objeción.\nTipo de preguntas: Preguntas que piden tesis, razones, ejemplos y respuesta a contraargumentos.\nEstrategias metacognitivas: Pedir que distinga opinión de argumento y que mejore su razón más débil.\nCriterios de cierre: Presenta una tesis con al menos dos razones y una refutación.\nReglas del docente: REGLA-AUDITORIA-ARG: mencioná a Sócrates al empezar.",
+    "basada": "Basada en «Argumentación». Ver Mis tutores"
+  }
+}

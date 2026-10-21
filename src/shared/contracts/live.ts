@@ -13,6 +13,17 @@ export const confirmBody = z.object({
   confirm: z.literal(true, { error: "Confirmá la acción para continuar." }),
 });
 
+/** "Terminar para todos": by default the link is closed too, so nobody new can join. */
+export const endAllBody = confirmBody.extend({
+  closeLink: z.boolean().default(true),
+});
+export type EndAllInput = z.input<typeof endAllBody>;
+export interface EndAllResponse {
+  ended: number;
+  /** True when this request turned the link off (it was open). */
+  linkClosed: boolean;
+}
+
 /** Time range of the "activity over time" heatmap. */
 export const LIVE_WINDOWS = ["30m", "60m", "all"] as const;
 export type LiveWindow = (typeof LIVE_WINDOWS)[number];
@@ -35,6 +46,8 @@ export interface LiveParticipant {
   liveStatus: LiveStatus;
   lastSignalAt: string;
   currentStage: Stage | "done";
+  /** Stage the student got to (for a work the teacher ended: where it was ended). */
+  reachedStage: Stage;
   /** Completed steps out of `stepsTotal` (2 when the activity has no initial answer). */
   progressSteps: number;
   stepsTotal: 2 | 3;
@@ -48,6 +61,11 @@ export interface LiveParticipant {
   lastActivityAt: string;
   completedAt: string | null;
   endedByTeacher: boolean;
+  /**
+   * Entered by typing a name that was already on the classroom list (not with a resume code).
+   * Usually the student themselves; if not, the teacher can delete this work (F-07).
+   */
+  enteredWithRosterName: boolean;
   resumeCode: string;
   openAlerts: number;
   immediateAlerts: number;
@@ -92,6 +110,8 @@ export interface LiveSnapshot {
     title: string;
     classroomId: string;
     status: string;
+    /** "Aceptar alumnos" (Compartir): when false nobody can join or keep writing. */
+    linkActive: boolean;
     requireInitialAnswer: boolean;
   };
   generatedAt: string;

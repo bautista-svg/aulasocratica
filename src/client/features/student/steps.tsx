@@ -12,7 +12,8 @@ import {
   type StudentWorkspace,
 } from "@shared/contracts/student";
 import { setWorkspace, studentApi, studentKey } from "./api";
-import { draftKey, useDraft } from "./hooks";
+import { draftKey, useDraft, type DraftField } from "./hooks";
+import { UnsentNotice } from "./entry";
 import { ReadOnlyThread } from "./thread";
 import { canSpeak, speechLang } from "./voice-support";
 
@@ -68,14 +69,14 @@ export function InitialAnswerStep({ token, workspace, focusHeading }: { token: s
         ¿Qué pensás vos?
       </h2>
       <p className="mt-3 text-[15px] leading-6 text-text-2">
-        Leé la consigna y escribí tu primera idea, aunque no estés seguro: es tu punto de partida. Cuando la guardes ya no se puede cambiar;
-        al final vas a poder escribir tu respuesta mejorada.
+        Escribí tu primera idea sobre la consigna, aunque no estés seguro. Cuando la guardes ya no se puede cambiar: al final vas a
+        escribir tu respuesta mejorada.
       </p>
       <form onSubmit={submit} className="mt-5 space-y-4">
         <Field
           label="Tu primera idea"
           counter={length > MAX_ANSWER_CHARS - 400 ? { value: length, max: MAX_ANSWER_CHARS } : undefined}
-          hint="Se guarda en este dispositivo mientras escribís."
+          hint="Se guarda en este dispositivo mientras escribís, aunque cierres la página."
         >
           {({ id, describedBy, invalid }) => (
             <Textarea
@@ -187,6 +188,7 @@ export function ClosingStep({
 
           <Field
             label="Tu respuesta final"
+            hint="Se guarda en este dispositivo mientras escribís, aunque cierres la página."
             error={fieldErrors.finalAnswer}
             counter={length > MAX_ANSWER_CHARS - 400 ? { value: length, max: MAX_ANSWER_CHARS } : undefined}
           >
@@ -251,7 +253,19 @@ export function ClosingStep({
 
 // ── Completed / closed by the teacher ──
 
-export function DoneStep({ workspace, focusHeading }: { workspace: StudentWorkspace; focusHeading?: boolean }) {
+export function DoneStep({
+  workspace,
+  focusHeading,
+  linkOpen = true,
+  unsent = [],
+}: {
+  workspace: StudentWorkspace;
+  focusHeading?: boolean;
+  /** False when the teacher closed the link afterwards (the code cannot be used meanwhile). */
+  linkOpen?: boolean;
+  /** Text written on this device that never reached the server (session closed meanwhile). */
+  unsent?: DraftField[];
+}) {
   const ended = workspace.stage === "ended";
   const s = workspace.session;
   const headingRef = useHeadingFocus(focusHeading);
@@ -276,6 +290,7 @@ export function DoneStep({ workspace, focusHeading }: { workspace: StudentWorksp
               : "Ya no se pueden agregar respuestas. Lo que escribiste hasta acá quedó guardado y tu docente lo puede ver."
             : "Tu trabajo quedó guardado y tu docente lo puede ver."}
         </p>
+        {ended ? <UnsentNotice fields={unsent} reopenable /> : null}
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
           {s.initialAnswer ? (
@@ -310,7 +325,7 @@ export function DoneStep({ workspace, focusHeading }: { workspace: StudentWorksp
           <KeyRound className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <span>
             Tu código es <strong className="font-mono text-[15px] tracking-[0.15em]">{workspace.resumeCode}</strong>. Con él podés volver a ver
-            tu trabajo desde otro dispositivo.
+            tu trabajo desde otro dispositivo{linkOpen ? "" : " cuando tu docente vuelva a abrir la actividad"}.
           </span>
         </p>
       </div>

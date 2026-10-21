@@ -32,13 +32,22 @@ export interface ActivitySummary {
   completed: number;
   activeNow: number;
   openAlerts: number;
+  /** The classroom is archived: the activity does not accept students whatever its own state. */
+  classroomArchived: boolean;
 }
+
+/**
+ * Client-generated id of one create request. Sending the same id again (a double click, a retry
+ * after a lost response) returns the record created the first time instead of a duplicate.
+ */
+export const requestIdField = z.string().uuid().optional();
 
 export const createActivityBody = z.object({
   classroomId: z.string().uuid(),
   title: z.string().trim().min(1, "Poné un título.").max(160, "Usá hasta 160 caracteres."),
   /** Optional saved tutor to start from. */
   tutorId: z.string().uuid().nullable().optional(),
+  requestId: requestIdField,
 });
 
 export interface ActivityDetail {
@@ -92,6 +101,11 @@ export interface ActivityFile {
   /** Characters of extracted text available to the tutor. */
   textChars: number;
   teacherNote: string;
+  /**
+   * Only for failed files: false when reading it again cannot work (damaged or protected PDF,
+   * unreadable Word, image too big, file gone). Then the way out is to remove it or upload another version.
+   */
+  retryable: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -188,6 +202,7 @@ export type LinkPatch = z.input<typeof linkPatch>;
 export const duplicateBody = z.object({
   /** Another classroom of the same workspace (defaults to the activity's classroom). */
   classroomId: z.string().uuid().optional(),
+  requestId: requestIdField,
 });
 
 export const resetBody = z.object({

@@ -1,5 +1,7 @@
 // Student API (no account). Mounted at /api/s. Every route resolves the activity by its link
 // token, re-checks availability and, except join/resume/leave, the device's session cookie.
+// GET /:token is the only read allowed on a closed link: a finished work stays visible to the
+// device that did it.
 // The client never sends ids to choose a session.
 import { Hono } from "hono";
 import type { AppEnv } from "../types";
@@ -18,10 +20,10 @@ import {
 import {
   availabilityOf,
   buildWorkspace,
-  deviceSession,
   ensureAvailable,
   joinWithName,
   leaveDevice,
+  linkWorkspace,
   loadLink,
   loadStudentContext,
   publicActivity,
@@ -43,10 +45,8 @@ export const publicStudentRoutes = new Hono<AppEnv>()
       activity: publicActivity(link),
       workspace: null,
     };
-    if (availability === "available") {
-      const ctx = await deviceSession(c, link);
-      if (ctx) info.workspace = await buildWorkspace(ctx);
-    }
+    // Open link: this device's work. Closed link: only a finished work, read-only (D38).
+    info.workspace = await linkWorkspace(c, link, availability);
     return c.json(info);
   })
 

@@ -9,7 +9,7 @@ import { useMe } from "@client/lib/session";
 import { useDashboard } from "@client/features/dashboard/api";
 import { OnboardingChecklist } from "@client/features/dashboard/onboarding";
 import { WorkspaceNameForm } from "@client/features/account/workspace-name-form";
-import { usePageTitle } from "@client/features/account/page-title";
+import { usePageTitle } from "@client/lib/page-title";
 import { ClassroomFormDialog } from "@client/features/classrooms/classroom-form";
 import { activityState } from "@shared/domain/activity-state";
 import { ALERT_SEVERITY_LABELS } from "@shared/domain/alerts";
@@ -54,7 +54,7 @@ function HomePage() {
               }
             }}
             aria-label="Ahora no"
-            className="absolute top-2 right-2 flex size-10 items-center justify-center rounded-md text-text-3 hover:bg-sunken hover:text-ink"
+            className="absolute top-1.5 right-1.5 flex size-11 items-center justify-center rounded-md text-text-3 hover:bg-sunken hover:text-ink"
           >
             <X className="size-4" aria-hidden="true" />
           </button>
@@ -146,14 +146,15 @@ function DashboardBody({ d, prompts, onNewRoom }: { d: DashboardResponse; prompt
   // A brand-new workspace has nothing to count yet: the first steps come first.
   if (!d.onboarding.hasClassroom) {
     return (
-      <div className="grid gap-5">
+      <div className="grid grid-cols-1 gap-5">
         <OnboardingChecklist o={d.onboarding} />
         <div>{prompts}</div>
       </div>
     );
   }
+  // grid-cols-1 = minmax(0, 1fr): a long activity title truncates instead of widening the page.
   return (
-    <div className="grid gap-6">
+    <div className="grid grid-cols-1 gap-6">
       {!d.onboarding.done ? <OnboardingChecklist o={d.onboarding} /> : null}
       {prompts ? <div className="-mb-5 empty:hidden">{prompts}</div> : null}
 
@@ -166,7 +167,7 @@ function DashboardBody({ d, prompts, onNewRoom }: { d: DashboardResponse; prompt
 
       {d.counts.published > 0 || d.live.length > 0 ? <LiveNow d={d} /> : null}
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <AlertsToReview d={d} />
         <RecentActivities d={d} onNewRoom={onNewRoom} />
       </div>
@@ -194,7 +195,7 @@ function LiveNow({ d }: { d: DashboardResponse }) {
           Nadie está trabajando en este momento. Cuando un alumno esté en una actividad abierta, la vas a ver acá.
         </p>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {d.live.map((a) => (
             <li key={a.id}>
               <Link
@@ -207,10 +208,10 @@ function LiveNow({ d }: { d: DashboardResponse }) {
                   <span className="size-2 animate-pulse-dot rounded-full bg-leaf" aria-hidden="true" />
                   {plural(a.activeNow, "alumno trabajando", "alumnos trabajando")}
                 </span>
-                <span className="mt-2 font-display text-lg leading-snug font-semibold text-ink group-hover:underline group-hover:decoration-lilac group-hover:underline-offset-4">
+                <span className="mt-2 font-display text-lg leading-snug font-semibold break-words text-ink group-hover:underline group-hover:decoration-lilac group-hover:underline-offset-4">
                   {a.title}
                 </span>
-                <span className="mt-0.5 text-sm text-text-2">{a.classroomName}</span>
+                <span className="mt-0.5 text-sm break-words text-text-2">{a.classroomName}</span>
                 <span className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-4 text-sm text-text-3">
                   <span className="tabular">
                     {plural(a.participants, "participante", "participantes")} · {a.completed} terminaron
@@ -256,7 +257,7 @@ function AlertsToReview({ d }: { d: DashboardResponse }) {
                 >
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold text-text">{a.name}</span>
+                      <span className="min-w-0 font-semibold break-words text-text">{a.name}</span>
                       <Badge tone={a.severity === "immediate" ? "rose" : "amber"}>{ALERT_SEVERITY_LABELS[a.severity]}</Badge>
                     </span>
                     <span className="mt-0.5 block truncate text-sm text-text-2">
@@ -285,7 +286,7 @@ function RecentActivities({ d, onNewRoom }: { d: DashboardResponse; onNewRoom: (
     <section aria-labelledby="actividades-recientes">
       <SectionTitle
         extra={
-          <Link to="/app/aulas" className="text-sm font-semibold text-ink underline decoration-lilac underline-offset-4">
+          <Link to="/app/aulas" className="-my-3 inline-flex min-h-11 items-center text-sm font-semibold text-ink underline decoration-lilac underline-offset-4">
             Ver aulas
           </Link>
         }
@@ -323,7 +324,7 @@ function RecentActivities({ d, onNewRoom }: { d: DashboardResponse; onNewRoom: (
                   >
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-center gap-2">
-                        <span className="truncate font-semibold text-ink">{a.title}</span>
+                        <span className="max-w-full min-w-0 truncate font-semibold text-ink">{a.title}</span>
                         <Badge tone={st.tone} dot={st.open}>
                           {st.label}
                         </Badge>

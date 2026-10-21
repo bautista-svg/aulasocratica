@@ -10,6 +10,7 @@ import { Field, Select, Textarea } from "@client/components/ui/field";
 import { cn } from "@client/lib/cn";
 import { errorMessage } from "@client/lib/api";
 import { useTutors } from "@client/features/tutors/api";
+import { tutorOptionLabel } from "@client/features/tutors/tutor-visual";
 import { HELP_LEVELS, TUTOR_FOCUS_TYPES, TUTOR_FORMAT_TYPES, TUTOR_TYPE_INFO, TUTOR_TYPES } from "@shared/domain/pedagogy";
 import { ACTIVITY_LIMITS, type ActivityEditorData, type HelpLevel } from "@shared/contracts/activities";
 import { useApplyTutor } from "./api";
@@ -42,7 +43,7 @@ export function TutorSection({ activity, form }: { activity: ActivityEditorData;
               <option value="">{tutors.isPending ? "Cargando tutores…" : "Elegí un tutor"}</option>
               {(tutors.data ?? []).map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.name} · {TUTOR_TYPES[t.tutorType] ?? "Personalizado"}
+                  {tutorOptionLabel(t)}
                 </option>
               ))}
             </Select>
@@ -65,7 +66,7 @@ export function TutorSection({ activity, form }: { activity: ActivityEditorData;
               Basada en <span className="font-semibold text-text-2">«{activity.tutorName}»</span>.{" "}
             </>
           ) : null}
-          <Link to="/app/tutores" className="font-semibold text-lilac-ink underline decoration-lilac underline-offset-4">
+          <Link to="/app/tutores" className="-my-3 inline-block py-3 font-semibold text-lilac-ink underline decoration-lilac underline-offset-4">
             Ver Mis tutores
           </Link>
         </p>

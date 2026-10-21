@@ -12,6 +12,8 @@ import { fmtRelative, plural } from "@client/lib/format";
 import { parseNameList } from "@shared/domain/names";
 import type { ClassroomStudent } from "@shared/contracts/classrooms";
 import { useClassroomActivities, useClassroomStudents, useStudentMutations } from "./api";
+import { workStatusLabel } from "@client/features/live/bits";
+import { useSingleFlight } from "@client/features/activities/single-flight";
 
 export function StudentsPanel({
   classroomId,
@@ -94,10 +96,11 @@ export function StudentsPanel({
                       <ul className="mt-1.5 flex flex-wrap gap-1.5">
                         {sessions.map((x) => (
                           <li key={x.sessionId}>
-                            <Link to="/app/sesiones/$sessionId" params={{ sessionId: x.sessionId }} className="inline-flex">
+                            <Link to="/app/sesiones/$sessionId" params={{ sessionId: x.sessionId }} className="inline-flex py-1">
                               <Badge tone={x.status === "completed" ? "leaf" : "ink"} className="hover:underline">
-                                {activityFilter ? (x.status === "completed" ? "Terminó" : "En curso") : x.activityTitle}
-                                <span className="font-normal opacity-80">· {fmtRelative(x.lastActivityAt)}</span>
+                                {activityFilter ? workStatusLabel(x.status, x.lastActivityAt) : x.activityTitle}
+                                {/* Same colour as the rest of the badge: a lighter text fails contrast (D14). */}
+                                <span className="font-normal">· {fmtRelative(x.lastActivityAt)}</span>
                               </Badge>
                             </Link>
                           </li>
@@ -155,6 +158,7 @@ export function StudentsPanel({
 function AddStudentsDialog({ open, onOpenChange, classroomId }: { open: boolean; onOpenChange: (o: boolean) => void; classroomId: string }) {
   const [text, setText] = useState("");
   const { add } = useStudentMutations(classroomId);
+  const start = useSingleFlight(add.isPending);
   const names = parseNameList(text);
   return (
     <Dialog
@@ -173,15 +177,19 @@ function AddStudentsDialog({ open, onOpenChange, classroomId }: { open: boolean;
           <Button
             disabled={names.length === 0}
             loading={add.isPending}
-            onClick={() =>
+            onClick={() => {
+              if (!start()) return;
               add.mutate(names, {
                 onSuccess: (r) => {
-                  toast.success(r.skipped ? `Se agregaron ${r.added}. ${r.skipped} ya estaban en la lista.` : `Se agregaron ${plural(r.added, "alumno", "alumnos")}.`);
+                  const added =
+                    r.added === 0 ? "No se agregaron alumnos nuevos." : r.added === 1 ? "Se agregó 1 alumno." : `Se agregaron ${plural(r.added, "alumno", "alumnos")}.`;
+                  const skipped = r.skipped ? ` ${r.skipped === 1 ? "1 ya estaba en la lista" : `${r.skipped} ya estaban en la lista`}.` : "";
+                  toast.success(`${added}${skipped}`);
                   setText("");
                   onOpenChange(false);
                 },
-              })
-            }
+              });
+            }}
           >
             {names.length ? `Agregar ${plural(names.length, "alumno", "alumnos")}` : "Agregar"}
           </Button>

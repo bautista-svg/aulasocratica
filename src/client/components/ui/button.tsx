@@ -17,11 +17,13 @@ const variants: Record<ButtonVariant, string> = {
   lilac: "bg-lilac-soft text-lilac-ink hover:bg-[#e4ddfa]",
 };
 
+// On phones (< 640 px) every size is at least 44 × 44 px, the touch target the app promises
+// (docs/ARQUITECTURA.md). `max-sm:` keeps a caller's own height (e.g. "h-11") working everywhere.
 const sizes: Record<ButtonSize, string> = {
-  sm: "h-9 rounded-sm px-3 text-sm",
+  sm: "h-9 max-sm:h-11 rounded-sm px-3 text-sm",
   md: "h-11 rounded-md px-4 text-[15px]",
   lg: "h-12 rounded-md px-5 text-base",
-  icon: "h-10 w-10 rounded-md",
+  icon: "h-10 w-10 max-sm:h-11 max-sm:w-11 rounded-md",
 };
 
 export function buttonClass(variant: ButtonVariant = "primary", size: ButtonSize = "md", className?: string) {

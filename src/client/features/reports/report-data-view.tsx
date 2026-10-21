@@ -57,7 +57,7 @@ function DataTable({ table }: { table: ReportTable }) {
         <p className="px-4 pt-2 pb-4 text-sm text-text-3 sm:px-5">Sin datos todavía.</p>
       ) : (
         // Scrolls sideways inside its own box on small screens; the page itself never scrolls horizontally.
-        <div className="mt-3 overflow-x-auto pb-1" tabIndex={0} role="region" aria-label={`Tabla: ${table.title}`}>
+        <div className="relative mt-3 overflow-x-auto pb-1" tabIndex={0} role="region" aria-label={`Tabla: ${table.title}`}>
           <table className={wide ? "w-full min-w-[640px] text-sm" : "w-full min-w-[420px] text-sm"}>
             <thead>
               <tr className="border-y border-line bg-sunken/70 text-left">

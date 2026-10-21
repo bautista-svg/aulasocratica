@@ -6,6 +6,7 @@ import { Field, FormError, Input, Textarea } from "@client/components/ui/field";
 import { ApiError, errorMessage } from "@client/lib/api";
 import type { ClassroomSummary } from "@shared/contracts/classrooms";
 import { useSaveClassroom } from "./api";
+import { useRequestId, useSingleFlight } from "@client/features/activities/single-flight";
 
 type Values = { name: string; school: string; subject: string; grade: string; division: string; description: string };
 const EMPTY: Values = { name: "", school: "", subject: "", grade: "", division: "", description: "" };
@@ -23,6 +24,8 @@ export function ClassroomFormDialog({
 }) {
   const [values, setValues] = useState<Values>(EMPTY);
   const save = useSaveClassroom();
+  const start = useSingleFlight(save.isPending);
+  const requestId = useRequestId(open);
   const fields = save.error instanceof ApiError ? save.error.fields : {};
 
   useEffect(() => {
@@ -40,9 +43,10 @@ export function ClassroomFormDialog({
   const set = (k: keyof Values) => (e: { target: { value: string } }) => setValues((v) => ({ ...v, [k]: e.target.value }));
 
   const submit = () => {
-    if (!values.name.trim()) return;
+    // Enter + click, or a double click, must not create two classrooms.
+    if (!values.name.trim() || !start()) return;
     save.mutate(
-      { id: classroom?.id, data: values },
+      { id: classroom?.id, data: classroom ? values : { ...values, requestId } },
       {
         onSuccess: (r) => {
           toast.success(classroom ? "Cambios guardados" : "Aula creada");

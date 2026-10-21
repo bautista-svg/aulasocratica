@@ -318,11 +318,10 @@ describe("reports: narrative, validation and refresh", () => {
     expect(r.body.report.title).toBe("Mi informe");
     expect(r.body.report.status).toBe("draft");
 
-    // Scope deleted: refresh explains it and the saved report stays.
+    // Scope deleted: the report goes with it (students' data must not survive a deletion —
+    // see services/reports/reconcile.ts and /privacidad).
     await call("DELETE", `/api/classrooms/${room}`, { cookie: t.cookie });
-    const gone = await call("POST", `/api/reports/${rep.id}/refresh`, { cookie: t.cookie });
-    expect(gone.status).toBe(409);
-    expect((await call("GET", `/api/reports/${rep.id}`, { cookie: t.cookie })).body.report.data.headline.length).toBeGreaterThan(0);
+    expect((await call("GET", `/api/reports/${rep.id}`, { cookie: t.cookie })).status).toBe(404);
   });
 
   it("drafts the narrative with AI from the stored snapshot only, without saving it", async () => {

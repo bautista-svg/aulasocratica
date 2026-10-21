@@ -4,13 +4,14 @@
 import { PdfWriter, attachmentHeader } from "../../lib/pdf";
 import { EVENT_LABELS, STUDENT_INTENTS } from "@shared/domain/pedagogy";
 import { XRAY_MOMENTS, tutorQuestion } from "@shared/domain/thinking-xray";
-import { formatDuration } from "@shared/domain/live-monitor";
+import { formatDuration, studentMessageCounts } from "@shared/domain/live-monitor";
 import type { SessionDetail } from "@shared/contracts/sessions";
 import { ownWords } from "./corpus";
 
 const TZ = "America/Argentina/Buenos_Aires";
-const dateTime = new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: TZ });
-const timeOnly = new Intl.DateTimeFormat("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: TZ });
+// 24 h like the rest of the app (Node's es-AR would print "12:41 a. m.").
+const dateTime = new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: TZ });
+const timeOnly = new Intl.DateTimeFormat("es-AR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: TZ });
 const fmt = (iso: string | null) => (iso ? dateTime.format(new Date(iso)) : "—");
 const hm = (iso: string) => timeOnly.format(new Date(iso));
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -149,13 +150,23 @@ export async function buildJourneyPdf(d: SessionDetail): Promise<Buffer> {
     w.paragraph("No se registró texto pegado desde afuera ni salidas de la actividad.", { color: "#4b5470" });
   }
 
-  const helpTotal = d.events.filter((e) => ["hint_requested", "clarification_requested", "example_requested"].includes(e.eventType)).length;
+  // Same definitions as the work page ("En números") and the live heatmap.
+  const counts = studentMessageCounts(d.messages);
   const workSpan = d.session.completedAt
     ? new Date(d.session.completedAt).getTime() - new Date(d.session.startedAt).getTime()
     : new Date(d.session.lastSignalAt).getTime() - new Date(d.session.startedAt).getTime();
   w.paragraph(
-    `${plural(finished.filter((m) => m.role === "user").length, "mensaje", "mensajes")} del alumno · ${plural(helpTotal, "pedido", "pedidos")} de ayuda · ${formatDuration(Math.max(0, workSpan))} entre el inicio y su última acción.`,
+    [
+      plural(counts.written, "mensaje escrito", "mensajes escritos"),
+      plural(counts.help, "pedido de ayuda", "pedidos de ayuda"),
+      plural(counts.reformulations, "reformulación", "reformulaciones"),
+      `${formatDuration(Math.max(0, workSpan))} entre el inicio y su última acción.`,
+    ].join(" · "),
     { size: 9.5, color: "#646c88" },
+  );
+  w.paragraph(
+    "«Mensajes escritos» son los que el alumno escribió o dictó sin usar un botón; los pedidos de ayuda son «Necesito una pista», «No entendí» y «¿Podés darme un ejemplo?».",
+    { size: 9, color: "#646c88" },
   );
 
   return w.finish(`${d.student.fullName} · ${d.activity.title}`);

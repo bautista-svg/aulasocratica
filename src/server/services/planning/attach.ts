@@ -22,17 +22,25 @@ export interface AttachResult {
   processing: boolean;
 }
 
-async function fileCount(activityId: string): Promise<number> {
+/** Same rule as the activity editor: files that could not be read do not count toward the limit. */
+async function fileCount(activityId: string): Promise<{ usable: number; total: number }> {
   const [n] = await db
-    .select({ n: sql<number>`count(*)::int` })
+    .select({
+      usable: sql<number>`(count(*) filter (where ${schema.activityFiles.processingStatus} <> 'failed'))::int`,
+      total: sql<number>`count(*)::int`,
+    })
     .from(schema.activityFiles)
     .where(eq(schema.activityFiles.activityId, activityId));
-  return n?.n ?? 0;
+  return { usable: n?.usable ?? 0, total: n?.total ?? 0 };
 }
 
 async function assertFileRoom(activityId: string) {
-  if ((await fileCount(activityId)) >= MAX_FILES_PER_ACTIVITY) {
+  const n = await fileCount(activityId);
+  if (n.usable >= MAX_FILES_PER_ACTIVITY) {
     throw conflict(`La actividad ya tiene ${MAX_FILES_PER_ACTIVITY} archivos, el máximo. Quitá alguno para sumar otro.`);
+  }
+  if (n.total >= MAX_FILES_PER_ACTIVITY * 2) {
+    throw conflict("Quitá de la actividad los archivos que no se pudieron leer para sumar otros.");
   }
 }
 

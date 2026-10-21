@@ -5,26 +5,29 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Bell, ChevronDown, Download, FileText, KeyRound, MoreHorizontal, Play, Square, Users } from "lucide-react";
+import { Bell, ChevronDown, CircleStop, Download, FileText, KeyRound, ListChecks, MoreHorizontal, Play, Trash2, Users } from "lucide-react";
 import { cn } from "@client/lib/cn";
 import { Badge, EmptyState, ErrorState, Skeleton } from "@client/components/ui/misc";
 import { Button, buttonClass } from "@client/components/ui/button";
-import { Menu } from "@client/components/ui/controls";
+import { Checkbox, Menu } from "@client/components/ui/controls";
 import { ConfirmDialog } from "@client/components/ui/dialog";
 import { errorMessage } from "@client/lib/api";
 import { fmtRelative, plural } from "@client/lib/format";
-import { formatDuration } from "@shared/domain/live-monitor";
+import { LIVE_STATUS_HELP, LIVE_STATUS_LABELS, formatDuration } from "@shared/domain/live-monitor";
 import type { LiveParticipant, LiveSnapshot, LiveWindow } from "@shared/contracts/live";
 import { liveKeys, useActivityStream, useLiveMutations, useLiveSnapshot, useNow, useThrottled } from "./api";
 import { AlertItem, LiveStatusLabel, StageProgress } from "./bits";
 import { Heatmaps } from "./heatmaps";
 import { useJourneyDownload, useSessionActions } from "@client/features/sessions/api";
-import { EndWorkDialog, ResumeCodeDialog } from "@client/features/sessions/dialogs";
+import { DeleteWorkDialog, EndWorkDialog, ResumeCodeDialog } from "@client/features/sessions/dialogs";
 
-type Filter = "all" | "working" | "support" | "done";
+// One vocabulary (D19): "Activos" is the same rule as the "Activos ahora" card; "Sin terminar"
+// are all the works still open, whatever their live state.
+type Filter = "all" | "active" | "open" | "support" | "done";
 const FILTERS: { value: Filter; label: string }[] = [
   { value: "all", label: "Todos" },
-  { value: "working", label: "Trabajando" },
+  { value: "active", label: "Activos" },
+  { value: "open", label: "Sin terminar" },
   { value: "support", label: "Necesitan apoyo" },
   { value: "done", label: "Terminaron" },
 ];
@@ -67,9 +70,10 @@ export function LivePanel({ activityId }: { activityId: string }) {
           <ParticipantsSection snap={snap} activityId={activityId} />
           <HeatmapSection snap={snap} window={window} onWindowChange={setWindow} />
           <p className="text-xs leading-5 text-text-3">
-            Estado, etapa y tiempos salen de lo que registra la plataforma (respuestas, mensajes y botones), no de una evaluación. «Activo» = hizo algo en
-            los últimos 2 minutos; «Sin actividad» = entre 2 y 15 minutos; «Abandonada» = más de 15. El tiempo suma los momentos con actividad: cada pausa
-            cuenta hasta 5 minutos.
+            Estado, etapa y tiempos salen de lo que registra la plataforma (respuestas, mensajes y botones), no de una evaluación. «{LIVE_STATUS_LABELS.active}»:{" "}
+            {LIVE_STATUS_HELP.active.toLowerCase()} «{LIVE_STATUS_LABELS.idle}»: {LIVE_STATUS_HELP.idle.toLowerCase()} «{LIVE_STATUS_LABELS.abandoned}»:{" "}
+            {LIVE_STATUS_HELP.abandoned.toLowerCase()} «{LIVE_STATUS_LABELS.completed}»: {LIVE_STATUS_HELP.completed.toLowerCase()} La etapa se numera igual
+            que la ve el alumno («Paso 2 de 3»). El tiempo suma los momentos con actividad: cada pausa cuenta hasta 5 minutos.
           </p>
         </>
       )}
@@ -116,8 +120,10 @@ function LiveHeader({
   activityId: string;
 }) {
   const t = snap.totals;
-  const working = snap.participants.filter((p) => p.status === "in_progress").length;
+  const open = snap.participants.filter((p) => p.status === "in_progress").length;
+  const linkOpen = snap.activity.status === "published" && snap.activity.linkActive;
   const [confirmAll, setConfirmAll] = useState(false);
+  const [closeLink, setCloseLink] = useState(true);
   const { endAll } = useLiveMutations(activityId);
   return (
     <section aria-labelledby="live-title">
@@ -134,42 +140,68 @@ function LiveHeader({
             {!connected ? " · se actualiza cada 15 s" : null}
           </p>
         </div>
-        {working > 0 ? (
-          <Button variant="secondary" size="sm" icon={<Square className="size-4" />} onClick={() => setConfirmAll(true)}>
+        {open > 0 ? (
+          <Button
+            variant="secondary"
+            icon={<CircleStop className="size-4" />}
+            onClick={() => {
+              setCloseLink(true);
+              setConfirmAll(true);
+            }}
+          >
             Terminar para todos
           </Button>
         ) : null}
       </div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Entraron" value={t.joined} hint="a esta actividad" />
-        <StatCard label="Trabajando ahora" value={t.activeNow} hint="actividad en los últimos 2 min" tone={t.activeNow ? "leaf" : undefined} />
+        <StatCard label="Activos ahora" value={t.activeNow} hint="hicieron algo en los últimos 2 min" tone={t.activeNow ? "leaf" : undefined} />
         <StatCard label="Terminaron" value={t.completed} hint={`de ${t.joined}`} />
         <StatCard label="Necesitan apoyo" value={t.needSupport} hint="alertas abiertas, muchas pistas o sin arrancar" tone={t.needSupport ? "amber" : undefined} />
       </div>
       <ConfirmDialog
         open={confirmAll}
         onOpenChange={setConfirmAll}
-        title="¿Terminar la actividad para todos?"
+        title="¿Terminar el trabajo de todos?"
         description={
           <>
             <p>
-              Se termina el trabajo de {plural(working, "alumno que sigue", "alumnos que siguen")} trabajando. Se guarda lo que hicieron hasta ahora y ya no
-              pueden seguir escribiendo.
+              Se termina el trabajo de {plural(open, "alumno que todavía no terminó", "alumnos que todavía no terminaron")}. Se guarda lo que hicieron
+              hasta ahora y ya no pueden seguir escribiendo. Desde el trabajo de cada uno podés permitirle continuar.
             </p>
-            <p>Desde el trabajo de cada alumno podés permitirle continuar.</p>
+            {linkOpen ? (
+              <div className="pt-1">
+                <Checkbox
+                  checked={closeLink}
+                  onCheckedChange={setCloseLink}
+                  label="Cerrar también el enlace"
+                  description={
+                    closeLink
+                      ? "Nadie más puede entrar a la actividad. La volvés a abrir desde Compartir con «Aceptar alumnos»."
+                      : "El enlace sigue abierto: si alguien entra ahora (también un alumno nuevo), empieza a trabajar."
+                  }
+                />
+              </div>
+            ) : (
+              <p>El enlace ya está cerrado: nadie más puede entrar.</p>
+            )}
           </>
         }
-        confirmLabel="Terminar para todos"
+        confirmLabel={linkOpen && closeLink ? "Terminar y cerrar el enlace" : "Terminar para todos"}
         variant="primary"
         loading={endAll.isPending}
         onConfirm={() =>
-          endAll.mutate(undefined, {
-            onSuccess: (r) => {
-              setConfirmAll(false);
-              toast.success(r.ended ? `Terminaste el trabajo de ${plural(r.ended, "alumno", "alumnos")}` : "No había trabajos en curso");
+          endAll.mutate(
+            { closeLink: linkOpen && closeLink },
+            {
+              onSuccess: (r) => {
+                setConfirmAll(false);
+                const who = r.ended ? `Terminaste el trabajo de ${plural(r.ended, "alumno", "alumnos")}` : "No había trabajos sin terminar";
+                toast.success(r.linkClosed ? `${who}. El enlace quedó cerrado.` : `${who}.`);
+              },
+              onError: (e) => toast.error(errorMessage(e)),
             },
-            onError: (e) => toast.error(errorMessage(e)),
-          })
+          )
         }
       />
     </section>
@@ -258,7 +290,8 @@ function AlertsSection({ snap, activityId }: { snap: LiveSnapshot; activityId: s
 }
 
 function matches(p: LiveParticipant, f: Filter) {
-  if (f === "working") return p.status === "in_progress";
+  if (f === "active") return p.liveStatus === "active";
+  if (f === "open") return p.status === "in_progress";
   if (f === "support") return p.needsSupport;
   if (f === "done") return p.status === "completed";
   return true;
@@ -277,18 +310,31 @@ function helpSummary(p: LiveParticipant): string {
   return parts.length ? parts.join(" · ") : "Sin pedidos";
 }
 
+function Stage({ p, className }: { p: LiveParticipant; className?: string }) {
+  return (
+    <StageProgress
+      stage={p.currentStage}
+      reached={p.reachedStage}
+      done={p.progressSteps}
+      total={p.stepsTotal}
+      endedByTeacher={p.endedByTeacher}
+      className={className}
+    />
+  );
+}
+
 function ParticipantsSection({ snap, activityId }: { snap: LiveSnapshot; activityId: string }) {
   const [filter, setFilter] = useState<Filter>("all");
   const counts = useMemo(() => Object.fromEntries(FILTERS.map((f) => [f.value, snap.participants.filter((p) => matches(p, f.value)).length])), [snap]);
   const list = snap.participants.filter((p) => matches(p, filter));
-  const actions = useRowActions(activityId);
+  const actions = useRowActions(activityId, snap.activity.title);
   return (
     <section aria-labelledby="participants-title">
       <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h3 id="participants-title" className="font-display text-lg font-semibold text-ink">
           Quién hizo esta actividad
         </h3>
-        <div role="group" aria-label="Filtrar alumnos" className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
+        <div role="group" aria-label="Filtrar alumnos" className="relative -mx-1 flex gap-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
           {FILTERS.map((f) => (
             <button
               key={f.value}
@@ -296,12 +342,12 @@ function ParticipantsSection({ snap, activityId }: { snap: LiveSnapshot; activit
               aria-pressed={filter === f.value}
               onClick={() => setFilter(f.value)}
               className={cn(
-                "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-sm font-semibold transition-colors",
+                "inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-sm font-semibold transition-colors",
                 filter === f.value ? "border-ink bg-ink text-white" : "border-line-strong bg-surface text-text-2 hover:border-ink/40",
               )}
             >
               {f.label}
-              <span className="tabular text-xs opacity-80">{counts[f.value]}</span>
+              <span className="tabular text-xs">{counts[f.value]}</span>
             </button>
           ))}
         </div>
@@ -310,15 +356,16 @@ function ParticipantsSection({ snap, activityId }: { snap: LiveSnapshot; activit
         <p className="rounded-md border border-dashed border-line-strong px-4 py-6 text-center text-sm text-text-2">Nadie en este grupo por ahora.</p>
       ) : (
         <>
-          {/* Phones and tablets: cards */}
-          <ul className="space-y-3 lg:hidden">
+          {/* Phones, tablets and small laptops (up to 1279 px): cards. At 1024 px the table did not fit next to the sidebar (D13). */}
+          <ul className="grid gap-3 md:grid-cols-2 xl:hidden">
             {list.map((p) => (
-              <li key={p.sessionId} className="rounded-lg border border-line bg-surface p-4 shadow-1">
+              <li key={p.sessionId} className="flex flex-col rounded-lg border border-line bg-surface p-4 shadow-1">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <Link to="/app/sesiones/$sessionId" params={{ sessionId: p.sessionId }} className="block truncate text-[16px] font-semibold text-ink underline-offset-4 hover:underline">
                       {p.studentName}
                     </Link>
+                    <RosterMark p={p} />
                     <LiveStatusLabel status={p.liveStatus} endedByTeacher={p.endedByTeacher} className="mt-1" />
                     {p.liveStatus !== "active" && p.status !== "completed" ? (
                       <p className="mt-0.5 text-xs text-text-3">Última acción {fmtRelative(p.lastSignalAt)}</p>
@@ -326,7 +373,7 @@ function ParticipantsSection({ snap, activityId }: { snap: LiveSnapshot; activit
                   </div>
                   <RowMenu p={p} actions={actions} />
                 </div>
-                <StageProgress stage={p.currentStage} done={p.progressSteps} total={p.stepsTotal} className="mt-3" />
+                <Stage p={p} className="mt-3" />
                 {p.lastTutorQuestion && p.status !== "completed" ? (
                   <p className="q-hang mt-3 line-clamp-2 text-sm">{p.lastTutorQuestion}</p>
                 ) : null}
@@ -347,29 +394,20 @@ function ParticipantsSection({ snap, activityId }: { snap: LiveSnapshot; activit
                   </div>
                 </dl>
                 {p.supportReasons.length ? <p className="mt-2 text-sm font-medium text-amber">{p.supportReasons.join(" · ")}</p> : null}
-                <div className="mt-3 flex gap-2">
-                  <Link to="/app/sesiones/$sessionId" params={{ sessionId: p.sessionId }} className={buttonClass("secondary", "sm", "flex-1")}>
+                <div className="mt-auto flex gap-2 pt-3">
+                  <Link to="/app/sesiones/$sessionId" params={{ sessionId: p.sessionId }} className={buttonClass("secondary", "md", "flex-1")}>
                     <FileText className="size-4" aria-hidden="true" />
                     Ver trabajo
                   </Link>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    icon={<Download className="size-4" />}
-                    loading={actions.pdf.busyId === p.sessionId}
-                    aria-label={`Descargar PDF del recorrido de ${p.studentName}`}
-                    onClick={() => void actions.pdf.download(p.sessionId)}
-                  >
-                    PDF
-                  </Button>
+                  <PdfButton p={p} actions={actions} />
                 </div>
               </li>
             ))}
           </ul>
 
-          {/* Desktop: table */}
-          <div className="hidden overflow-hidden rounded-lg border border-line bg-surface shadow-1 lg:block">
-            <table className="w-full text-sm">
+          {/* Wide screens: table. It scrolls inside its own box if a long name makes it wider than the page. */}
+          <div className="relative hidden overflow-x-auto rounded-lg border border-line bg-surface shadow-1 xl:block">
+            <table className="w-full min-w-[860px] text-sm">
               <caption className="sr-only">Alumnos que entraron a esta actividad</caption>
               <thead className="bg-paper text-left text-xs font-semibold text-text-2">
                 <tr>
@@ -403,6 +441,7 @@ function ParticipantsSection({ snap, activityId }: { snap: LiveSnapshot; activit
                       <Link to="/app/sesiones/$sessionId" params={{ sessionId: p.sessionId }} className="font-semibold text-ink underline-offset-4 hover:underline">
                         {p.studentName}
                       </Link>
+                      <RosterMark p={p} />
                       {p.supportReasons.length ? <p className="mt-0.5 text-xs font-medium text-amber">{p.supportReasons.join(" · ")}</p> : null}
                     </td>
                     <td className="px-3 py-3">
@@ -410,7 +449,7 @@ function ParticipantsSection({ snap, activityId }: { snap: LiveSnapshot; activit
                       {p.liveStatus !== "active" && p.status !== "completed" ? <p className="mt-0.5 text-xs text-text-3">Última acción {fmtRelative(p.lastSignalAt)}</p> : null}
                     </td>
                     <td className="px-3 py-3">
-                      <StageProgress stage={p.currentStage} done={p.progressSteps} total={p.stepsTotal} />
+                      <Stage p={p} />
                       {p.lastTutorQuestion && p.status !== "completed" ? (
                         <p className="mt-1.5 line-clamp-1 text-xs text-text-3" title={p.lastTutorQuestion}>
                           Tutor: {p.lastTutorQuestion}
@@ -426,10 +465,11 @@ function ParticipantsSection({ snap, activityId }: { snap: LiveSnapshot; activit
                       <AlertCount p={p} />
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="flex items-center justify-end gap-1 whitespace-nowrap">
                         <Link to="/app/sesiones/$sessionId" params={{ sessionId: p.sessionId }} className={buttonClass("secondary", "sm")}>
                           Ver trabajo
                         </Link>
+                        <PdfButton p={p} actions={actions} compact />
                         <RowMenu p={p} actions={actions} />
                       </div>
                     </td>
@@ -442,6 +482,36 @@ function ParticipantsSection({ snap, activityId }: { snap: LiveSnapshot; activit
       )}
       <RowDialogs actions={actions} />
     </section>
+  );
+}
+
+/** The journey PDF is always one tap away (it used to hide in the "⋯" menu on desktop). */
+function PdfButton({ p, actions, compact }: { p: LiveParticipant; actions: RowActions; compact?: boolean }) {
+  return (
+    <Button
+      variant="ghost"
+      size={compact ? "sm" : "md"}
+      icon={<Download className="size-4" />}
+      loading={actions.pdf.busyId === p.sessionId}
+      aria-label={`PDF del recorrido de ${p.studentName}`}
+      onClick={() => void actions.pdf.download(p.sessionId)}
+    >
+      PDF
+    </Button>
+  );
+}
+
+/**
+ * F-07: the student typed a name that was already on the classroom list (instead of continuing with
+ * their code). Almost always it is that student; if not, "Eliminar trabajo" removes what was done.
+ */
+function RosterMark({ p }: { p: LiveParticipant }) {
+  if (!p.enteredWithRosterName) return null;
+  return (
+    <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-text-2" title="Si no fue ese alumno, podés eliminar este trabajo desde «⋯».">
+      <ListChecks className="size-3.5 shrink-0" aria-hidden="true" />
+      Entró con un nombre de la lista del aula
+    </p>
   );
 }
 
@@ -458,19 +528,20 @@ function AlertCount({ p }: { p: LiveParticipant }) {
 
 type RowActions = ReturnType<typeof useRowActions>;
 
-function useRowActions(activityId: string) {
+function useRowActions(activityId: string, activityTitle: string) {
   const pdf = useJourneyDownload();
-  const { end, reopen } = useSessionActions(activityId);
+  const { end, reopen, remove } = useSessionActions(activityId);
   const [ending, setEnding] = useState<LiveParticipant | null>(null);
   const [showingCode, setShowingCode] = useState<LiveParticipant | null>(null);
-  return { pdf, end, reopen, ending, setEnding, showingCode, setShowingCode };
+  const [deleting, setDeleting] = useState<LiveParticipant | null>(null);
+  return { activityTitle, pdf, end, reopen, remove, ending, setEnding, showingCode, setShowingCode, deleting, setDeleting };
 }
 
 function RowMenu({ p, actions }: { p: LiveParticipant; actions: RowActions }) {
   return (
     <Menu
       trigger={
-        <Button variant="ghost" size="icon" aria-label={`Más acciones para ${p.studentName}`} className="shrink-0">
+        <Button variant="ghost" size="icon" aria-label={`Más acciones para ${p.studentName}`} className="size-11 shrink-0">
           <MoreHorizontal className="size-5" />
         </Button>
       }
@@ -479,7 +550,7 @@ function RowMenu({ p, actions }: { p: LiveParticipant; actions: RowActions }) {
         { label: "Mostrar código para continuar", icon: <KeyRound className="size-4" />, onSelect: () => actions.setShowingCode(p) },
         "separator",
         p.status === "in_progress"
-          ? { label: "Terminar su trabajo", icon: <Square className="size-4" />, onSelect: () => actions.setEnding(p) }
+          ? { label: "Terminar su trabajo", icon: <CircleStop className="size-4" />, onSelect: () => actions.setEnding(p) }
           : {
               label: "Permitir continuar",
               icon: <Play className="size-4" />,
@@ -489,13 +560,14 @@ function RowMenu({ p, actions }: { p: LiveParticipant; actions: RowActions }) {
                   onError: (e) => toast.error(errorMessage(e)),
                 }),
             },
+        { label: "Eliminar trabajo", icon: <Trash2 className="size-4" />, danger: true, onSelect: () => actions.setDeleting(p) },
       ]}
     />
   );
 }
 
 function RowDialogs({ actions }: { actions: RowActions }) {
-  const { ending, setEnding, showingCode, setShowingCode, end } = actions;
+  const { ending, setEnding, showingCode, setShowingCode, end, deleting, setDeleting, remove } = actions;
   return (
     <>
       <EndWorkDialog
@@ -519,6 +591,23 @@ function RowDialogs({ actions }: { actions: RowActions }) {
         onOpenChange={(o) => !o && setShowingCode(null)}
         studentName={showingCode?.studentName ?? ""}
         code={showingCode?.resumeCode ?? ""}
+      />
+      <DeleteWorkDialog
+        open={!!deleting}
+        onOpenChange={(o) => !o && setDeleting(null)}
+        studentName={deleting?.studentName ?? ""}
+        activityTitle={actions.activityTitle}
+        loading={remove.isPending}
+        onConfirm={() =>
+          deleting &&
+          remove.mutate(deleting.sessionId, {
+            onSuccess: () => {
+              toast.success(`Eliminaste el trabajo de ${deleting.studentName}`);
+              setDeleting(null);
+            },
+            onError: (e) => toast.error(errorMessage(e)),
+          })
+        }
       />
     </>
   );
@@ -549,4 +638,3 @@ function HeatmapSection({ snap, window, onWindowChange }: { snap: LiveSnapshot; 
     </section>
   );
 }
-

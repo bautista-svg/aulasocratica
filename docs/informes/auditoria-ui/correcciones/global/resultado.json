@@ -1,0 +1,184 @@
+{
+  "publish": 200,
+  "D17_title_inicio": "Inicio · Aula Socrática",
+  "D18_current_en_inicio": [
+    "Inicio"
+  ],
+  "D18_current_en_aulas": [
+    "Aulas",
+    "Activas"
+  ],
+  "D18_current_en_informes": [
+    "Informes"
+  ],
+  "D05_foco_tras_escape_nueva_aula": "BUTTON:Nueva aula",
+  "D05_foco_tras_cancelar_con_mouse": "BUTTON:Nueva aula",
+  "D17_title_informe": "Informe grupal — Aula verificación global · 5.º B · Informes · Aula Socrática",
+  "D25_creado_el": "Creado el 21 oct, 02:15. Borrador",
+  "D25_hay_am_pm": false,
+  "D32_validar_campos_marcados": 3,
+  "D32_validar_foco": "TEXTAREA:true",
+  "D32_validar_requests": 0,
+  "D05_foco_tras_menu_y_confirmacion": "BUTTON:Más opciones del informe",
+  "D05_foco_tras_menu_teclado": "BUTTON:Más opciones del informe",
+  "D24_palabras_enteras": {
+    "Finalizaron": true,
+    "Ejemplos": true,
+    "Participantes": true,
+    "cortes": 0
+  },
+  "D02_texto_mi_espacio": [
+    "Aparece en el saludo de Inicio y en el menú. Tus alumnos también lo ven: figura en la pantalla de entrada de tus actividades («Con Profe Laura»).",
+    "Para el saludo y el menú. Tus alumnos también lo ven, en la pantalla de entrada de tus actividades."
+  ],
+  "D27_toast_close": [
+    "Cerrar aviso"
+  ],
+  "D27_region": "Avisos alt+T",
+  "D32_crear_cuenta_error": "Revisá el correo: parece que no está bien escrito (por ejemplo, nombre@escuela.edu.ar).",
+  "D32_crear_cuenta_foco": "email:true",
+  "D23_aula": {
+    "reintentar": false,
+    "salida": [
+      "Ir a mis aulas"
+    ]
+  },
+  "D23_sesion": {
+    "reintentar": false,
+    "salida": [
+      "Ir a mis aulas"
+    ]
+  },
+  "D23_informe": {
+    "reintentar": false,
+    "salida": [
+      "Volver a Informes"
+    ]
+  },
+  "D39_app_404": {
+    "title": "Página no encontrada · Aula Socrática",
+    "h1": [
+      "¿Seguro que era esta dirección?"
+    ],
+    "mains": 1,
+    "logosEnMain": 0
+  },
+  "D39_404_publica": {
+    "title": "Página no encontrada · Aula Socrática",
+    "h1": [
+      "¿Seguro que era esta dirección?"
+    ],
+    "axe": []
+  },
+  "D17_sin_espacio": "Abrir tu espacio · Aula Socrática",
+  "D18_current_recuperar": [],
+  "D32_recuperar_errores": 3,
+  "D14_axe_alertas": [],
+  "D37_switch_hit_area": {
+    "arriba": "switch",
+    "abajo": "switch"
+  },
+  "D14_axe_informe_validado": [],
+  "D25_validado_el": "Validado el 21 oct, 02:15",
+  "overflow_inicio_320": false,
+  "overflow_informes_320": false,
+  "overflow_informe_320": false,
+  "overflow_cuenta_320": false,
+  "overflow_inicio_375": false,
+  "small_inicio_375": [
+    "a \"Saltar al contenido\" 32x16"
+  ],
+  "D18_current_movil_inicio": [
+    "Inicio"
+  ],
+  "overflow_informes_375": false,
+  "small_informes_375": [
+    "a \"Saltar al contenido\" 32x16"
+  ],
+  "overflow_informe_375": false,
+  "small_informe_375": [
+    "a \"Saltar al contenido\" 32x16"
+  ],
+  "overflow_cuenta_375": false,
+  "small_cuenta_375": [
+    "a \"Saltar al contenido\" 32x16"
+  ],
+  "overflow_inicio_1440": false,
+  "overflow_informes_1440": false,
+  "overflow_informe_1440": false,
+  "overflow_cuenta_1440": false,
+  "small_landing_375": [
+    "a \"Saltar al contenido\" 32x16"
+  ],
+  "overflow_landing_375": false,
+  "small_ingresar_375": [
+    "a \"Saltar al contenido\" 32x16"
+  ],
+  "overflow_ingresar_375": false,
+  "small_recuperar_375": [
+    "a \"Saltar al contenido\" 32x16"
+  ],
+  "overflow_recuperar_375": false,
+  "small_privacidad_375": [
+    "a \"Saltar al contenido\" 32x16"
+  ],
+  "overflow_privacidad_375": false,
+  "D28_admin_320": {
+    "overflow": false,
+    "h1": [
+      "Administración"
+    ],
+    "soloLectura": false
+  },
+  "D28_admin_375": {
+    "overflow": false,
+    "h1": [
+      "Administración"
+    ],
+    "soloLectura": false,
+    "axe": [],
+    "small": [
+      "a \"Saltar al contenido\" 32x16"
+    ]
+  },
+  "D28_admin_430": {
+    "overflow": false,
+    "h1": [
+      "Administración"
+    ],
+    "soloLectura": false
+  },
+  "D28_admin_1440": {
+    "overflow": false,
+    "h1": [
+      "Administración"
+    ],
+    "soloLectura": false
+  },
+  "D08_registro": 200,
+  "D08_login_B": 200,
+  "D08_cambio_clave_B": 200,
+  "D08_pantalla": {
+    "titulo": true,
+    "explica": true,
+    "primeraAccion": "Entrar con mi cuenta",
+    "title": "Abrir tu espacio · Aula Socrática"
+  },
+  "D08_tras_recargar_primeraAccion": "Entrar con mi cuenta",
+  "D29_tras_cerrar_sesion": {
+    "miEspacio": false,
+    "empezar": true,
+    "toast": true
+  },
+  "D29_tras_borrar": {
+    "miEspacio": false,
+    "empezar": true,
+    "toast": true
+  },
+  "consoleErrors": [
+    "desk: Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "desk: Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "desk: Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "devA: Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  ]
+}

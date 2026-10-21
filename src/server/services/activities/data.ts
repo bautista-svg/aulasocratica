@@ -113,6 +113,24 @@ type FileRow = {
   updatedAt: Date;
 };
 
+/**
+ * Reading failures that another try cannot fix (the file itself is the problem): damaged or
+ * protected PDF, unreadable Word, image too big, file gone from the volume. Matched by the start of
+ * the stored message (services/extract.ts and file-jobs.ts write them).
+ */
+const PERMANENT_FAILURES = [
+  "No pudimos abrir este PDF",
+  "No pudimos leer este documento de Word",
+  "Este documento de Word es demasiado grande",
+  "La imagen pesa más de",
+  "El archivo ya no está en el servidor",
+];
+
+export function isRetryableFailure(error: string | null): boolean {
+  if (!error) return true;
+  return !PERMANENT_FAILURES.some((p) => error.startsWith(p));
+}
+
 export function toFile(f: FileRow): ActivityFile {
   return {
     id: f.id,
@@ -126,6 +144,7 @@ export function toFile(f: FileRow): ActivityFile {
     processingError: f.processingError,
     textChars: f.textChars,
     teacherNote: f.teacherNote,
+    retryable: f.processingStatus === "failed" ? isRetryableFailure(f.processingError) : false,
     createdAt: f.createdAt.toISOString(),
     updatedAt: f.updatedAt.toISOString(),
   };
@@ -152,12 +171,19 @@ export async function fileOf(activityId: string, fileId: string) {
   return row;
 }
 
-export async function fileCount(activityId: string): Promise<number> {
+/**
+ * Files that count toward MAX_FILES_PER_ACTIVITY: the ones that could not be read do not (the
+ * teacher removes them or uploads another version). `total` bounds how many rows pile up anyway.
+ */
+export async function fileCount(activityId: string): Promise<{ usable: number; total: number }> {
   const [r] = await db
-    .select({ n: sql<number>`count(*)::int` })
+    .select({
+      usable: sql<number>`(count(*) filter (where ${schema.activityFiles.processingStatus} <> 'failed'))::int`,
+      total: sql<number>`count(*)::int`,
+    })
     .from(schema.activityFiles)
     .where(eq(schema.activityFiles.activityId, activityId));
-  return r?.n ?? 0;
+  return { usable: r?.usable ?? 0, total: r?.total ?? 0 };
 }
 
 /** Files we may remove from disk: only copies that live under activities/ (never a library original). */

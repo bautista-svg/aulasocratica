@@ -254,3 +254,25 @@ describe("attach to an activity", () => {
     expect(refused.body.error.message).toMatch(/No pudimos leer «roto»/);
   });
 });
+
+describe("UI audit fixes in Mis materiales", () => {
+  it("D01: a text saved twice with the same requestId is one material", async () => {
+    const a = await newTeacher();
+    const requestId = crypto.randomUUID();
+    const body = { kind: "text", title: "Apunte doble click", body: "El agua se evapora.", requestId };
+    const [r1, r2] = await Promise.all([call("POST", "/api/materials", { cookie: a.cookie, body }), call("POST", "/api/materials", { cookie: a.cookie, body })]);
+    expect([r1.status, r2.status]).toEqual([201, 201]);
+    expect(r1.body.material.id).toBe(r2.body.material.id);
+    expect(await db.select().from(schema.materials).where(eq(schema.materials.teacherId, a.id))).toHaveLength(1);
+  });
+
+  it("D35: a damaged PDF in the library is not offered a retry", async () => {
+    const a = await newTeacher();
+    const r = await upload(a.cookie, [{ name: "roto.pdf", data: new TextEncoder().encode("%PDF-1.4 esto no es un pdf"), type: "application/pdf" }]);
+    expect(r.status).toBe(201);
+    const id = r.body.materials[0].id as string;
+    await waitForFile({ table: "materials", id }, 60_000);
+    const list = await call("GET", "/api/materials", { cookie: a.cookie });
+    expect(list.body.materials.find((m: { id: string }) => m.id === id)).toMatchObject({ processingStatus: "failed", retryable: false });
+  });
+});

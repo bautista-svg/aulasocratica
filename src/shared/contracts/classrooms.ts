@@ -12,6 +12,9 @@ export const classroomBody = z.object({
 });
 export type ClassroomInput = z.input<typeof classroomBody>;
 
+/** POST: the same fields plus an optional request id (a repeated id returns the classroom created the first time). */
+export const classroomCreateBody = classroomBody.extend({ requestId: z.string().uuid().optional() });
+
 export const classroomPatch = classroomBody.partial().extend({ isArchived: z.boolean().optional() });
 
 export interface ClassroomSummary {

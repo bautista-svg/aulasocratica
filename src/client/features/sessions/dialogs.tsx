@@ -96,7 +96,7 @@ export function DeleteWorkDialog({
         </>
       }
       confirmLabel="Eliminar trabajo"
-      typeToConfirm="BORRAR"
+      typeToConfirm="ELIMINAR"
       loading={loading}
       onConfirm={onConfirm}
     />

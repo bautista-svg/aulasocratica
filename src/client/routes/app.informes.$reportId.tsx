@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { toast } from "sonner";
 import { CheckCircle2, ChevronRight, Download, MoreHorizontal, Pencil, RefreshCw, Save, Sparkles, Trash2 } from "lucide-react";
 import { Badge, ErrorState, Notice, PageHeader } from "@client/components/ui/misc";
@@ -14,8 +14,9 @@ import { useReport, useReportMutations } from "@client/features/reports/api";
 import { ReportDataView, SourceTag } from "@client/features/reports/report-data-view";
 import { NarrativeEditor } from "@client/features/reports/narrative-editor";
 import { LeaveGuard } from "@client/features/account/leave-guard";
-import { usePageTitle } from "@client/features/account/page-title";
-import { REPORT_KIND_LABELS, REPORT_SECTIONS } from "@shared/domain/reports";
+import { usePageTitle } from "@client/lib/page-title";
+import { focusFirstInvalid } from "@client/lib/forms";
+import { REPORT_KIND_LABELS, REPORT_SECTIONS, missingSections } from "@shared/domain/reports";
 import type { ReportDetail } from "@shared/contracts/reports";
 
 export const Route = createFileRoute("/app/informes/$reportId")({
@@ -25,15 +26,19 @@ export const Route = createFileRoute("/app/informes/$reportId")({
 function ReportPage() {
   const { reportId } = Route.useParams();
   const q = useReport(reportId);
-  usePageTitle(q.data?.title ?? "Informe");
+  const notFound = q.error instanceof ApiError && q.error.status === 404;
+  usePageTitle(notFound ? ["Informe no encontrado", "Informes"] : q.isError ? "Informes" : [q.data?.title ?? "Informe", "Informes"]);
   if (q.isPending) return <PageSpinner />;
   if (q.isError) {
+    // A missing report gets its own way out inside ErrorState ("Volver a Informes", no "Reintentar").
     return (
       <div className="grid gap-4">
-        <ErrorState error={q.error} onRetry={q.error instanceof ApiError && q.error.status === 404 ? undefined : () => void q.refetch()} />
-        <Link to="/app/informes" className={buttonClass("secondary", "md", "justify-self-center")}>
-          Volver a Informes
-        </Link>
+        <ErrorState error={q.error} onRetry={() => void q.refetch()} />
+        {notFound ? null : (
+          <Link to="/app/informes" className={buttonClass("secondary", "md", "justify-self-center")}>
+            Volver a Informes
+          </Link>
+        )}
       </div>
     );
   }
@@ -52,6 +57,7 @@ function ReportScreen({ report }: { report: ReportDetail }) {
   const [confirmRefresh, setConfirmRefresh] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [renaming, setRenaming] = useState(false);
+  const editorRef = useRef<HTMLDivElement>(null);
   const dirty = !same(text, report.narrative);
   const busy = m.save.isPending || m.validate.isPending;
 
@@ -66,6 +72,14 @@ function ReportScreen({ report }: { report: ReportDetail }) {
   };
 
   const validate = async () => {
+    // Same rule as the server, checked here first: mark every empty section and go to the first.
+    const missing = missingSections(report.kind, text);
+    if (missing.length > 0) {
+      setErrors(Object.fromEntries(missing.map((s) => [s.key, "Completá esta sección antes de validar."])));
+      toast.error(missing.length === 1 ? `Completá «${missing[0]!.label}» antes de validar.` : "Completá las secciones marcadas antes de validar.");
+      focusFirstInvalid(editorRef.current);
+      return;
+    }
     if (dirty && !(await save())) return;
     m.validate.mutate(undefined, {
       onSuccess: () => {
@@ -75,6 +89,7 @@ function ReportScreen({ report }: { report: ReportDetail }) {
       onError: (e) => {
         if (e instanceof ApiError) setErrors(e.fields);
         toast.error(errorMessage(e));
+        focusFirstInvalid(editorRef.current);
       },
     });
   };
@@ -97,7 +112,7 @@ function ReportScreen({ report }: { report: ReportDetail }) {
   return (
     <>
       <nav aria-label="Ruta" className="mb-3 text-sm text-text-3">
-        <Link to="/app/informes" className="hover:text-ink">
+        <Link to="/app/informes" className="-my-3 inline-flex min-h-11 items-center hover:text-ink sm:my-0 sm:min-h-0">
           Informes
         </Link>
         <ChevronRight className="mx-1 inline size-3.5" aria-hidden="true" />
@@ -196,7 +211,7 @@ function ReportScreen({ report }: { report: ReportDetail }) {
           {m.draft.isPending ? <Spinner label="La IA está leyendo los datos y redactando una propuesta…" /> : null}
 
           {/* The save bar sticks only while the editor is on screen (it never covers the section heading). */}
-          <div className="grid gap-5">
+          <div ref={editorRef} className="grid gap-5">
             <NarrativeEditor
               sections={sections}
               text={text}

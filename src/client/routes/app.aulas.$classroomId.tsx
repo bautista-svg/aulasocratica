@@ -1,16 +1,18 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { Archive, ArchiveRestore, MoreHorizontal, Pencil, Plus, Trash2, LayoutList, ChevronRight, Bell } from "lucide-react";
 import { Badge, EmptyState, ErrorState, PageHeader, SkeletonList, Notice } from "@client/components/ui/misc";
-import { Button } from "@client/components/ui/button";
+import { Button, buttonClass } from "@client/components/ui/button";
 import { Menu, Tabs } from "@client/components/ui/controls";
 import { ConfirmDialog } from "@client/components/ui/dialog";
 import { PageSpinner } from "@client/components/ui/spinner";
-import { errorMessage } from "@client/lib/api";
+import { ApiError, errorMessage } from "@client/lib/api";
 import { fmtRelative, plural } from "@client/lib/format";
-import { useClassroom, useClassroomActivities, useDeleteClassroom, useSaveClassroom } from "@client/features/classrooms/api";
+import { usePageTitle } from "@client/lib/page-title";
+import { classroomKeys, useClassroom, useClassroomActivities, useDeleteClassroom, useSaveClassroom } from "@client/features/classrooms/api";
 import { ClassroomFormDialog } from "@client/features/classrooms/classroom-form";
 import { StudentsPanel } from "@client/features/classrooms/students-panel";
 import { AlertsPanel } from "@client/features/classrooms/alerts-panel";
@@ -18,6 +20,7 @@ import { NewActivityDialog } from "@client/features/activities/new-activity-dial
 import { activityState } from "@shared/domain/activity-state";
 
 const TABS = ["actividades", "alumnos", "alertas"] as const;
+const TAB_LABELS: Record<(typeof TABS)[number], string> = { actividades: "Actividades", alumnos: "Alumnos", alertas: "Alertas" };
 
 export const Route = createFileRoute("/app/aulas/$classroomId")({
   validateSearch: z.object({ tab: z.enum(TABS).optional(), actividad: z.string().optional() }),
@@ -28,26 +31,54 @@ function ClassroomPage() {
   const { classroomId } = Route.useParams();
   const { tab = "actividades", actividad } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
+  const qc = useQueryClient();
   const room = useClassroom(classroomId);
   const save = useSaveClassroom();
   const del = useDeleteClassroom();
   const [editing, setEditing] = useState(false);
   const [newActivity, setNewActivity] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
+  usePageTitle(room.data ? [room.data.name, TAB_LABELS[tab]] : room.isError ? "Aula no encontrada" : "Aula");
 
   if (room.isPending) return <PageSpinner />;
-  if (room.isError) return <ErrorState error={room.error} onRetry={() => void room.refetch()} />;
+  if (room.isError) {
+    const gone = room.error instanceof ApiError && room.error.status === 404;
+    return (
+      <div className="grid gap-4">
+        {/* "Reintentar" cannot bring back a classroom that does not exist: offer the way out instead. */}
+        <ErrorState error={room.error} onRetry={gone ? undefined : () => void room.refetch()} />
+        <Link to="/app/aulas" className={buttonClass("secondary", "md", "justify-self-center")}>
+          Ir a mis aulas
+        </Link>
+      </div>
+    );
+  }
   const c = room.data;
   const meta = [c.subject, [c.grade, c.division].filter(Boolean).join(" "), c.school].filter(Boolean).join(" · ");
+
+  const archive = () =>
+    save.mutate(
+      { id: c.id, data: { isArchived: true } },
+      {
+        onSuccess: () => {
+          setConfirmArchive(false);
+          toast.success("Aula archivada. Sus enlaces quedaron cerrados.");
+        },
+        onError: (e) => toast.error(errorMessage(e)),
+      },
+    );
 
   return (
     <>
       <nav aria-label="Ruta" className="mb-3 text-sm text-text-3">
-        <Link to="/app/aulas" className="hover:text-ink">
+        <Link to="/app/aulas" className="-my-3 inline-block py-3 hover:text-ink">
           Aulas
         </Link>
         <ChevronRight className="mx-1 inline size-3.5" aria-hidden="true" />
-        <span className="text-text-2">{c.name}</span>
+        <span className="text-text-2" aria-current="page">
+          {c.name}
+        </span>
       </nav>
       <PageHeader
         title={c.name}
@@ -61,7 +92,7 @@ function ClassroomPage() {
             ) : null}
             <Menu
               trigger={
-                <Button variant="secondary" size="icon" aria-label="Más opciones del aula">
+                <Button variant="secondary" size="icon" aria-label="Más opciones del aula" className="size-11">
                   <MoreHorizontal className="size-5" />
                 </Button>
               }
@@ -77,11 +108,11 @@ function ClassroomPage() {
                   : {
                       label: "Archivar aula",
                       icon: <Archive className="size-4" />,
-                      onSelect: () =>
-                        save.mutate(
-                          { id: c.id, data: { isArchived: true } },
-                          { onSuccess: () => toast.success("Aula archivada. Sus enlaces quedan cerrados."), onError: (e) => toast.error(errorMessage(e)) },
-                        ),
+                      onSelect: () => {
+                        // Fresh "working now" count for the confirmation.
+                        void qc.invalidateQueries({ queryKey: classroomKeys.one(c.id), exact: true });
+                        setConfirmArchive(true);
+                      },
                     },
                 "separator",
                 { label: "Eliminar aula", icon: <Trash2 className="size-4" />, danger: true, onSelect: () => setConfirmDelete(true) },
@@ -110,6 +141,34 @@ function ClassroomPage() {
       <ClassroomFormDialog open={editing} onOpenChange={setEditing} classroom={c} />
       <NewActivityDialog classroomId={c.id} open={newActivity} onOpenChange={setNewActivity} />
       <ConfirmDialog
+        open={confirmArchive}
+        onOpenChange={setConfirmArchive}
+        variant="primary"
+        title="¿Archivar esta aula?"
+        description={
+          <>
+            {c.activeNow > 0 ? (
+              <p className="font-semibold text-text">
+                Ahora {c.activeNow === 1 ? "hay 1 alumno trabajando" : `hay ${c.activeNow} alumnos trabajando`}: si la archivás, no{" "}
+                {c.activeNow === 1 ? "va a poder" : "van a poder"} seguir.
+              </p>
+            ) : null}
+            <p>
+              {c.publishedCount === 0
+                ? "No tiene actividades publicadas: ningún enlace está abierto."
+                : c.publishedCount === 1
+                  ? "Se cierra el enlace de su actividad publicada: nadie puede entrar ni seguir escribiendo."
+                  : `Se cierran los enlaces de sus ${c.publishedCount} actividades publicadas: nadie puede entrar ni seguir escribiendo.`}{" "}
+              Las actividades, los alumnos y sus trabajos se conservan.
+            </p>
+            <p>Podés restaurarla cuando quieras desde la pestaña Archivadas de Aulas.</p>
+          </>
+        }
+        confirmLabel="Archivar aula"
+        loading={save.isPending}
+        onConfirm={archive}
+      />
+      <ConfirmDialog
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
         title="¿Eliminar esta aula para siempre?"
@@ -123,7 +182,7 @@ function ClassroomPage() {
           </>
         }
         confirmLabel="Eliminar para siempre"
-        typeToConfirm="BORRAR"
+        typeToConfirm="ELIMINAR"
         loading={del.isPending}
         onConfirm={() =>
           del.mutate(c.id, {
@@ -162,7 +221,8 @@ function ActivitiesPanel({ classroomId, onNew, archived }: { classroomId: string
   return (
     <ul className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface shadow-1">
       {q.data.map((a) => {
-        const st = activityState(a);
+        // The list may still be the one from before archiving: the classroom flag decides too.
+        const st = activityState({ ...a, classroomArchived: a.classroomArchived || archived });
         return (
           <li key={a.id}>
             <Link
@@ -186,7 +246,7 @@ function ActivitiesPanel({ classroomId, onNew, archived }: { classroomId: string
                 <p className="mt-1 text-sm text-text-3">Editada {fmtRelative(a.updatedAt)}</p>
               </div>
               <div className="flex shrink-0 items-center gap-4 text-sm text-text-2">
-                {a.activeNow > 0 ? <span className="font-semibold text-leaf">{a.activeNow} trabajando ahora</span> : null}
+                {a.activeNow > 0 && !archived ? <span className="font-semibold text-leaf">{a.activeNow} trabajando ahora</span> : null}
                 <span className="tabular">
                   {a.participants === 0 ? "Sin participantes" : `${plural(a.participants, "alumno", "alumnos")} · ${a.completed} terminaron`}
                 </span>

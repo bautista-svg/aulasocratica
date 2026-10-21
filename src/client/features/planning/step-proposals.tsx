@@ -49,12 +49,12 @@ export function StepProposals({
   const choose = (index: number) => {
     const p = s.proposals[index];
     if (!p) return;
-    update({ chosen: index, draft: structuredClone(p), draftBase: JSON.stringify(p), tutorId: null });
+    update({ chosen: index, draft: structuredClone(p), draftBase: JSON.stringify(p), tutorId: null, tutorAuto: true });
   };
   const writeMyself = () => {
     gen.reset();
     const p = emptyProposal();
-    update({ chosen: -1, draft: p, draftBase: JSON.stringify(p), tutorId: null });
+    update({ chosen: -1, draft: p, draftBase: JSON.stringify(p), tutorId: null, tutorAuto: true });
   };
 
   const err = gen.error instanceof ApiError ? gen.error : null;

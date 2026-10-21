@@ -211,3 +211,61 @@ describe("live stream (SSE)", () => {
     await reader.cancel();
   });
 });
+
+describe("UI audit fixes in the live view", () => {
+  it("D10: 'Terminar para todos' closes the link by default (nobody new can join) and can keep it open", async () => {
+    const { t, classroomId, activity } = await setup();
+    const a = await insertStudent(classroomId, "Iara Paz");
+    await insertSession(activity.id, a.id);
+    const r = await call("POST", `/api/live/${activity.id}/end-all`, { cookie: t.cookie, body: { confirm: true } });
+    expect(r.body).toEqual({ ended: 1, linkClosed: true });
+    const [row] = await db.select().from(schema.activities).where(eq(schema.activities.id, activity.id));
+    expect(row!.linkActive).toBe(false);
+    // A new student cannot enter through the closed link.
+    const join = await call("POST", `/api/s/${activity.linkToken}/join`, { body: { name: "Hugo Tarde" } });
+    expect(join.status).toBeGreaterThanOrEqual(400);
+    expect(await db.select().from(schema.students).where(eq(schema.students.nameKey, "hugo tarde"))).toHaveLength(0);
+    expect((await call("GET", `/api/live/${activity.id}`, { cookie: t.cookie })).body.activity.linkActive).toBe(false);
+
+    // Explicitly keeping the link open.
+    const other = await insertActivity(t.id, classroomId, { title: "Otra" });
+    const b = await insertStudent(classroomId, "Juan Paz");
+    await insertSession(other.id, b.id);
+    const keep = await call("POST", `/api/live/${other.id}/end-all`, { cookie: t.cookie, body: { confirm: true, closeLink: false } });
+    expect(keep.body).toEqual({ ended: 1, linkClosed: false });
+    const [row2] = await db.select().from(schema.activities).where(eq(schema.activities.id, other.id));
+    expect(row2!.linkActive).toBe(true);
+  });
+
+  it("D19: a work the teacher ended shows the stage it was ended in, not 3 of 3", async () => {
+    const { t, classroomId, activity } = await setup();
+    const s = await insertStudent(classroomId, "Carla Paz");
+    const session = await insertSession(activity.id, s.id, { initialAnswer: "Mi idea" });
+    await insertEvents(session.id, [{ type: "initial_answer_saved" }, { type: "message_sent" }]);
+    await call("POST", `/api/sessions/${session.id}/end`, { cookie: t.cookie });
+    const p = (await call("GET", `/api/live/${activity.id}`, { cookie: t.cookie })).body.participants[0];
+    expect(p).toMatchObject({ status: "completed", endedByTeacher: true, currentStage: "done", reachedStage: "tutor", progressSteps: 1, stepsTotal: 3 });
+    const d = await call("GET", `/api/sessions/${session.id}`, { cookie: t.cookie });
+    expect(d.body.session).toMatchObject({ reachedStage: "tutor", progressSteps: 1 });
+
+    // A work the student sent is complete.
+    const full = await insertFullWork(activity.id, (await insertStudent(classroomId, "Dana Paz")).id);
+    const all = (await call("GET", `/api/live/${activity.id}`, { cookie: t.cookie })).body.participants;
+    expect(all.find((x: { sessionId: string }) => x.sessionId === full.id)).toMatchObject({ reachedStage: "closing", progressSteps: 3 });
+  });
+
+  it("F-07: flags works that entered by typing a name of the classroom list", async () => {
+    const { t, classroomId, activity } = await setup();
+    const listed = await insertStudent(classroomId, "Ema Lista");
+    const self = await insertStudent(classroomId, "Fran Solo");
+    const s1 = await insertSession(activity.id, listed.id);
+    const s2 = await insertSession(activity.id, self.id);
+    await insertEvents(s1.id, [{ type: "session_entered", details: { resumed: false, fromRoster: true } }]);
+    await insertEvents(s2.id, [{ type: "session_entered", details: { resumed: false, fromRoster: false } }, { type: "session_entered", details: { resumed: true } }]);
+    const ps = (await call("GET", `/api/live/${activity.id}`, { cookie: t.cookie })).body.participants;
+    expect(ps.find((p: { sessionId: string }) => p.sessionId === s1.id).enteredWithRosterName).toBe(true);
+    expect(ps.find((p: { sessionId: string }) => p.sessionId === s2.id).enteredWithRosterName).toBe(false);
+    const d = await call("GET", `/api/sessions/${s1.id}`, { cookie: t.cookie });
+    expect(d.body.events.find((e: { eventType: string }) => e.eventType === "session_entered").details).toMatchObject({ fromRoster: true });
+  });
+});

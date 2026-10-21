@@ -1,14 +1,23 @@
 // Student names are the only identity a student has inside a classroom.
 
-/** "  maría   josé PÉREZ " → "María José Pérez" (keeps what the student typed otherwise). */
+export const MAX_NAME_CHARS = 120;
+
+// Invisible characters that can disguise a name (bidi overrides, zero-width spaces, BOM).
+const INVISIBLE = /[​‎‏‪-‮⁠⁦-⁩﻿]/g;
+
+/**
+ * "  María   de los Ángeles  McDonald " → "María de los Ángeles McDonald".
+ * Keeps exactly what the student (or the teacher) typed: only trims, collapses spaces and drops
+ * invisible characters. Capitalization is never changed ("de", "McDonald", "DʼAngelo" stay as
+ * typed); recognising the same person ignores case and accents through nameKey().
+ */
 export function tidyName(input: string): string {
-  return input
-    .trim()
-    .replace(/\s+/g, " ")
-    .split(" ")
-    .map((w) => (w === w.toUpperCase() || w === w.toLowerCase() ? w.charAt(0).toLocaleUpperCase("es") + w.slice(1).toLocaleLowerCase("es") : w))
-    .join(" ")
-    .slice(0, 120);
+  // Cut by code points so an emoji or accented letter is never split in half.
+  return Array.from(clean(input)).slice(0, MAX_NAME_CHARS).join("").trim();
+}
+
+function clean(input: string): string {
+  return input.replace(INVISIBLE, "").replace(/\s+/g, " ").trim();
 }
 
 /** Key used to recognise the same student: lowercase, no accents, single spaces. */
@@ -26,7 +35,7 @@ export function validateStudentName(input: string): { ok: true; name: string; ke
   const name = tidyName(input);
   const key = nameKey(name);
   if (key.length < 2) return { ok: false, error: "Escribí tu nombre." };
-  if (name.length > 120) return { ok: false, error: "El nombre es demasiado largo." };
+  if (Array.from(clean(input)).length > MAX_NAME_CHARS) return { ok: false, error: "El nombre es demasiado largo." };
   if (!/\p{L}/u.test(name)) return { ok: false, error: "Escribí tu nombre con letras." };
   return { ok: true, name, key };
 }

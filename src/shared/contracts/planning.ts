@@ -59,6 +59,8 @@ export const createFromProposalBody = z.object({
   materialIds: z.array(z.string().uuid()).max(MAX_PICK, `Podés elegir hasta ${MAX_PICK} materiales.`).default([]),
   extraText: text(MAX_EXTRA_TEXT).default(""),
   publish: z.boolean().default(false),
+  /** Same id again (double click, retry after a lost response) → the activity created the first time. */
+  requestId: z.string().uuid().optional(),
 });
 export type CreateFromProposalInput = z.input<typeof createFromProposalBody>;
 

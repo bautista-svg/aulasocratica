@@ -156,3 +156,28 @@ describe("tutor presets", () => {
     expect(long.body.error.fields.rules).toMatch(/3000/);
   });
 });
+
+describe("UI audit fixes in Mis tutores", () => {
+  it("D01: the same requestId creates one tutor / one copy; duplicating without a body still works", async () => {
+    const a = await newTeacher();
+    await call("GET", "/api/tutors", { cookie: a.cookie });
+    const requestId = crypto.randomUUID();
+    const body = { name: "Tutor doble click", tutorType: "matematico", requestId };
+    const [c1, c2] = await Promise.all([call("POST", "/api/tutors", { cookie: a.cookie, body }), call("POST", "/api/tutors", { cookie: a.cookie, body })]);
+    expect([c1.status, c2.status]).toEqual([201, 201]);
+    expect(c1.body.tutor.id).toBe(c2.body.tutor.id);
+    const mine = () => db.select().from(schema.tutors).where(eq(schema.tutors.teacherId, a.id));
+    expect((await mine()).filter((t) => !t.presetKey)).toHaveLength(1);
+
+    const dupId = crypto.randomUUID();
+    const [d1, d2] = await Promise.all([
+      call("POST", `/api/tutors/${c1.body.tutor.id}/duplicate`, { cookie: a.cookie, body: { requestId: dupId } }),
+      call("POST", `/api/tutors/${c1.body.tutor.id}/duplicate`, { cookie: a.cookie, body: { requestId: dupId } }),
+    ]);
+    expect(d1.body.tutor.id).toBe(d2.body.tutor.id);
+    expect((await mine()).filter((t) => !t.presetKey)).toHaveLength(2);
+    const legacy = await call("POST", `/api/tutors/${c1.body.tutor.id}/duplicate`, { cookie: a.cookie });
+    expect(legacy.status).toBe(201);
+    expect((await mine()).filter((t) => !t.presetKey)).toHaveLength(3);
+  });
+});

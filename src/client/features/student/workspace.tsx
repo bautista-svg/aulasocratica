@@ -1,14 +1,15 @@
 // The student's workspace: compact header ("No soy <nombre>"), instructions and files,
-// progress, and the current step (initial answer → tutor → closing → done).
+// progress, and the current step (initial answer → tutor → closing → done). Also shown,
+// read-only, when the teacher closed the link after this device's work was finished.
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronDown, Download, ExternalLink, FileText, Image as ImageIcon, KeyRound, Music, X } from "lucide-react";
+import { Check, ChevronDown, Download, ExternalLink, FileText, Image as ImageIcon, KeyRound, Lock, Music, X } from "lucide-react";
 import { LogoMark } from "@client/components/brand/logo";
 import { Button } from "@client/components/ui/button";
 import { cn } from "@client/lib/cn";
 import type { StudentFile, StudentLinkInfo, StudentWorkspace } from "@shared/contracts/student";
 import { studentApi, studentKey } from "./api";
-import { clearDrafts, readFlag, useKeyboardInset, writeFlag } from "./hooks";
+import { clearDrafts, readFlag, unsentDrafts, useKeyboardInset, writeFlag } from "./hooks";
 import { useIntegritySignals } from "./integrity";
 import { ChatStep } from "./chat";
 import { ClosingStep, DoneStep, InitialAnswerStep } from "./steps";
@@ -31,6 +32,8 @@ export function Workspace({ token, info }: { token: string; info: StudentLinkInf
   };
   const view: View =
     w.stage === "initial" ? "initial" : w.stage === "tutor" ? (closing ? "closing" : "tutor") : "done";
+  /** The link is closed but this finished work stays readable on this device. */
+  const closedMessage = info.availability !== "available" ? info.message : null;
 
   // Focus the new step's heading after a transition (not on the first render).
   const prevView = useRef<View>(view);
@@ -38,6 +41,22 @@ export function Workspace({ token, info }: { token: string; info: StudentLinkInf
   useEffect(() => {
     prevView.current = view;
   }, [view]);
+
+  // On entering (after typing the name, or on a reload) keyboard and screen-reader users start
+  // at the current step, not at the top of the page; the page itself does not scroll.
+  useEffect(() => {
+    if (document.activeElement && document.activeElement !== document.body) return;
+    const id = { initial: "initial-title", tutor: "chat-title", closing: "closing-title", done: "done-title" }[view];
+    document.getElementById(id)?.focus({ preventScroll: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // A finished work needs no drafts on this device; a session closed by the teacher keeps
+  // them (it can be reopened) and says they were not sent.
+  useEffect(() => {
+    if (w.stage === "completed") clearDrafts(token, w.resumeCode);
+  }, [w.stage, token, w.resumeCode]);
+  const [unsent] = useState(() => (w.stage === "ended" ? unsentDrafts(token, w.resumeCode) : []));
 
   const working = view !== "done";
   const materialText = [w.activity.instructions, w.activity.objectives, w.activity.material].filter(Boolean).join("\n\n");
@@ -53,6 +72,7 @@ export function Workspace({ token, info }: { token: string; info: StudentLinkInf
   });
 
   const [isNew, setIsNew] = useState(() => readFlag(`as-new:${token}:${w.resumeCode}`));
+  const showNewCode = isNew && working;
   const dismissNew = () => {
     writeFlag(`as-new:${token}:${w.resumeCode}`, false);
     setIsNew(false);
@@ -72,21 +92,33 @@ export function Workspace({ token, info }: { token: string; info: StudentLinkInf
               working ? (
                 <>
                   <IntegrityNote voice={w.activity.voiceLanguage !== "off" && canDictate()} />
-                  <CodeCard code={w.resumeCode} className="mt-2 border-0 bg-transparent px-0 py-0 shadow-none lg:hidden" />
+                  {showNewCode ? null : (
+                    <CodeCard code={w.resumeCode} className="mt-2 border-0 bg-transparent px-0 py-0 shadow-none lg:hidden" />
+                  )}
                 </>
               ) : null
             }
           />
           {w.files.length ? <FilesCard files={w.files} /> : null}
-          {working ? <CodeCard code={w.resumeCode} className="hidden lg:flex" /> : null}
+          {working && !showNewCode ? <CodeCard code={w.resumeCode} className="hidden lg:flex" /> : null}
         </aside>
 
         <main id="contenido" className="mt-6 min-w-0 lg:mt-0">
-          {isNew && working ? <NewCodeNotice code={w.resumeCode} onDismiss={dismissNew} /> : null}
+          {closedMessage ? (
+            <p role="status" className="mb-5 flex items-start gap-2.5 rounded-lg border border-line bg-surface px-4 py-3 text-[15px] leading-6 text-text shadow-1">
+              <Lock className="mt-1 size-4 shrink-0 text-lilac-ink" aria-hidden="true" />
+              <span>
+                <strong className="font-semibold">{closedMessage}</strong> Igual podés ver tu trabajo en este dispositivo.
+              </span>
+            </p>
+          ) : null}
+          {/* Answer first: on the first step the code notice goes below the form (phones). */}
+          {showNewCode && view !== "initial" ? <NewCodeNotice code={w.resumeCode} onDismiss={dismissNew} /> : null}
           {view === "initial" ? <InitialAnswerStep token={token} workspace={w} focusHeading={transitioned} /> : null}
+          {showNewCode && view === "initial" ? <NewCodeNotice code={w.resumeCode} onDismiss={dismissNew} className="mt-5 mb-0" /> : null}
           {view === "tutor" ? <ChatStep token={token} workspace={w} onFinish={() => setClosing(true)} focusHeading={transitioned} /> : null}
           {view === "closing" ? <ClosingStep token={token} workspace={w} onBack={() => setClosing(false)} focusHeading /> : null}
-          {view === "done" ? <DoneStep workspace={w} focusHeading={transitioned} /> : null}
+          {view === "done" ? <DoneStep workspace={w} focusHeading={transitioned} linkOpen={!closedMessage} unsent={unsent} /> : null}
         </main>
       </div>
     </div>
@@ -290,13 +322,28 @@ function InstructionsCard({ workspace, defaultOpen, footer }: { workspace: Stude
 
 const sizeLabel = (b: number) => (b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} KB` : `${(b / 1024 / 1024).toFixed(1).replace(".", ",")} MB`);
 
+/** Files of the activity. On phones they start folded (one row) so the answer comes first. */
 function FilesCard({ files }: { files: StudentFile[] }) {
+  const [open, setOpen] = useState(false);
+  const title = `Archivos de la actividad (${files.length})`;
   return (
-    <section aria-labelledby="files-title" className="rounded-lg border border-line bg-surface px-4 py-4 shadow-1" data-activity-material>
-      <h2 id="files-title" className="text-xs font-bold tracking-wide text-lilac-ink uppercase">
+    <section aria-labelledby="files-title" className="rounded-lg border border-line bg-surface shadow-1" data-activity-material>
+      <h2 id="files-title" className="hidden px-4 pt-4 text-xs font-bold tracking-wide text-lilac-ink uppercase lg:block">
         Archivos de la actividad
       </h2>
-      <ul className="mt-2 divide-y divide-line">
+      <h2 className="lg:hidden">
+        <button
+          type="button"
+          className="flex min-h-12 w-full items-center justify-between gap-2 px-4 text-left text-xs font-bold tracking-wide text-lilac-ink uppercase"
+          aria-expanded={open}
+          aria-controls="files-list"
+          onClick={() => setOpen((o) => !o)}
+        >
+          {title}
+          <ChevronDown className={cn("size-4 shrink-0 text-text-3 transition-transform", open && "rotate-180")} aria-hidden="true" />
+        </button>
+      </h2>
+      <ul id="files-list" className={cn("divide-y divide-line px-4 pb-2 lg:mt-2", !open && "max-lg:hidden", open && "max-lg:border-t max-lg:border-line")}>
         {files.map((f) => {
           const Icon = f.kind === "image" ? ImageIcon : f.kind === "audio" ? Music : FileText;
           return (
@@ -355,9 +402,9 @@ function CodeCard({ code, className }: { code: string; className?: string }) {
   );
 }
 
-function NewCodeNotice({ code, onDismiss }: { code: string; onDismiss: () => void }) {
+function NewCodeNotice({ code, onDismiss, className }: { code: string; onDismiss: () => void; className?: string }) {
   return (
-    <div role="status" className="mb-5 flex items-start gap-3 rounded-lg border border-lilac/40 bg-lilac-soft px-4 py-3.5">
+    <div role="status" className={cn("mb-5 flex items-start gap-3 rounded-lg border border-lilac/40 bg-lilac-soft px-4 py-3.5", className)}>
       <KeyRound className="mt-0.5 size-5 shrink-0 text-lilac-ink" aria-hidden="true" />
       <div className="min-w-0 flex-1 text-[15px] leading-6 text-lilac-ink">
         <p>

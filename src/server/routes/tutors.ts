@@ -3,13 +3,14 @@ import { Hono } from "hono";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import type { AppEnv } from "../types";
 import { db, schema } from "../db/client";
-import { readJson, badRequest, notFound } from "../lib/errors";
+import { readJson, badRequest, notFound, parseWith } from "../lib/errors";
 import { requireTeacher, teacherOf } from "../auth/teacher";
 import { ownedTutor } from "../services/access";
 import { audit } from "../services/audit";
+import { once } from "../services/activities/idempotency";
 import { ensurePresetTutors } from "../services/tutors/presets";
 import { listTutors, tutorDetail } from "../services/tutors/queries";
-import { tutorBody, tutorPatch, MAX_CUSTOM_TUTORS } from "@shared/contracts/tutors";
+import { tutorCreateBody, tutorDuplicateBody, tutorPatch, MAX_CUSTOM_TUTORS } from "@shared/contracts/tutors";
 import { matchesPreset, presetValues } from "@shared/domain/tutor-presets";
 
 async function detailOrThrow(teacherId: string, id: string) {
@@ -39,13 +40,17 @@ export const tutorRoutes = new Hono<AppEnv>()
 
   .post("/", async (c) => {
     const t = teacherOf(c);
-    const body = await readJson(c, tutorBody);
-    await assertCustomRoom(t.id);
-    const [row] = await db
-      .insert(schema.tutors)
-      .values({ ...body, teacherId: t.id, presetKey: null })
-      .returning({ id: schema.tutors.id });
-    return c.json({ tutor: await detailOrThrow(t.id, row!.id) }, 201);
+    const { requestId, ...body } = await readJson(c, tutorCreateBody);
+    // A double click or a retry with the same request id returns the tutor created the first time.
+    const tutor = await once("tutor", t.id, requestId, body, async () => {
+      await assertCustomRoom(t.id);
+      const [row] = await db
+        .insert(schema.tutors)
+        .values({ ...body, teacherId: t.id, presetKey: null })
+        .returning({ id: schema.tutors.id });
+      return detailOrThrow(t.id, row!.id);
+    });
+    return c.json({ tutor }, 201);
   })
 
   .get("/:id", async (c) => {
@@ -90,27 +95,32 @@ export const tutorRoutes = new Hono<AppEnv>()
   .post("/:id/duplicate", async (c) => {
     const t = teacherOf(c);
     const row = await ownedTutor(t.id, c.req.param("id"));
-    await assertCustomRoom(t.id);
-    const name = `${row.name} (copia)`.slice(0, 120);
-    const [copy] = await db
-      .insert(schema.tutors)
-      .values({
-        teacherId: t.id,
-        presetKey: null,
-        name,
-        tutorType: row.tutorType,
-        subject: row.subject,
-        studentAge: row.studentAge,
-        objectives: row.objectives,
-        questionStyle: row.questionStyle,
-        difficulty: row.difficulty,
-        helpLevel: row.helpLevel,
-        strategies: row.strategies,
-        closingCriteria: row.closingCriteria,
-        rules: row.rules,
-      })
-      .returning({ id: schema.tutors.id });
-    return c.json({ tutor: await detailOrThrow(t.id, copy!.id) }, 201);
+    // The body is optional (older clients send none); with a request id a double click makes one copy.
+    const { requestId } = parseWith(tutorDuplicateBody, await c.req.json().catch(() => ({})));
+    const tutor = await once(`tutor-duplicate:${row.id}`, t.id, requestId, null, async () => {
+      await assertCustomRoom(t.id);
+      const name = `${row.name} (copia)`.slice(0, 120);
+      const [copy] = await db
+        .insert(schema.tutors)
+        .values({
+          teacherId: t.id,
+          presetKey: null,
+          name,
+          tutorType: row.tutorType,
+          subject: row.subject,
+          studentAge: row.studentAge,
+          objectives: row.objectives,
+          questionStyle: row.questionStyle,
+          difficulty: row.difficulty,
+          helpLevel: row.helpLevel,
+          strategies: row.strategies,
+          closingCriteria: row.closingCriteria,
+          rules: row.rules,
+        })
+        .returning({ id: schema.tutors.id });
+      return detailOrThrow(t.id, copy!.id);
+    });
+    return c.json({ tutor }, 201);
   })
 
   .delete("/:id", async (c) => {

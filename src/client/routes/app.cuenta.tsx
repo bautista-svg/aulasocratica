@@ -4,7 +4,7 @@ import { Badge, Card, CardHeader, ErrorState, PageHeader } from "@client/compone
 import { PageSpinner } from "@client/components/ui/spinner";
 import { fmtDate } from "@client/lib/format";
 import { useMe } from "@client/lib/session";
-import { usePageTitle } from "@client/features/account/page-title";
+import { usePageTitle } from "@client/lib/page-title";
 import { WorkspaceNameForm } from "@client/features/account/workspace-name-form";
 import { AccountSection } from "@client/features/account/account-section";
 import { DeleteWorkspace } from "@client/features/account/delete-workspace";

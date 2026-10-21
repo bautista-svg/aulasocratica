@@ -7,7 +7,7 @@ import { useTutors } from "@client/features/tutors/api";
 import { helpLabel, typeLabel } from "@client/features/tutors/tutor-visual";
 import { classroomLabel } from "@shared/contracts/classrooms";
 import { PLANNING_DIFFICULTIES, durationLabel } from "@shared/domain/planning";
-import { durationMinutes, type WizardState } from "./wizard-state";
+import { durationMinutes, effectiveTutorId, type WizardState } from "./wizard-state";
 
 function Row({ label, children, onEdit }: { label: string; children: ReactNode; onEdit?: () => void }) {
   return (
@@ -34,7 +34,8 @@ export function StepReview({ state: s, onGo }: { state: WizardState; onGo: (step
   const d = s.draft!;
   const room = rooms.data?.find((r) => r.id === s.classroomId);
   const mats = s.materialIds.map((id) => lib.data?.materials.find((m) => m.id === id)?.title ?? "Material");
-  const tutor = s.tutorId ? tutors.data?.find((t) => t.id === s.tutorId) : null;
+  const tutorId = effectiveTutorId(s, tutors.data);
+  const tutor = tutorId ? tutors.data?.find((t) => t.id === tutorId) : null;
   const questions = d.reflectionQuestions.map((q) => q.trim()).filter(Boolean);
   const minutes = durationMinutes(s);
 
@@ -82,7 +83,9 @@ export function StepReview({ state: s, onGo }: { state: WizardState; onGo: (step
         )}
       </Row>
       <Row label="Tutor" onEdit={() => onGo(4)}>
-        {tutor ? `${tutor.name} (de Mis tutores) · ${helpLabel(tutor.helpLevel)}` : `${typeLabel(d.tutorType)} · ${helpLabel(d.helpLevel)}`}
+        {tutor
+          ? `${tutor.name} (de Mis tutores${tutor.customized ? ', con tus cambios' : ''}) · ${helpLabel(tutor.helpLevel)}`
+          : `${typeLabel(d.tutorType)} · ${helpLabel(d.helpLevel)} (sin un tutor guardado)`}
       </Row>
     </dl>
   );

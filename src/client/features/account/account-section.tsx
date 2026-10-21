@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { KeyRound, LogOut, Lock, Mail, Smartphone } from "lucide-react";
@@ -6,6 +6,7 @@ import { Button } from "@client/components/ui/button";
 import { Dialog, ConfirmDialog } from "@client/components/ui/dialog";
 import { Field, FormError, Input } from "@client/components/ui/field";
 import { ApiError, errorMessage } from "@client/lib/api";
+import { compactErrors, emailError, focusFirstInvalid } from "@client/lib/forms";
 import type { Me } from "@shared/contracts/auth";
 import { useChangePassword, useForgetWorkspace, useLogout, useNewRecoveryCode, useRegister } from "./api";
 import { PasswordInput, PASSWORD_MIN, StrengthMeter } from "./password-input";
@@ -34,12 +35,19 @@ function CreateAccount({ me, onCreated }: { me: Me; onCreated: (code: string) =>
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState(me.displayName);
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const formRef = useRef<HTMLFormElement>(null);
   const register = useRegister((r) => {
     toast.success("Cuenta creada");
     onCreated(r.recoveryCode);
   });
   const fields = register.error instanceof ApiError ? register.error.fields : {};
   useEffect(() => setName((n) => n || me.displayName), [me.displayName]);
+  // Editing a field hides the messages about the previous attempt (they would be stale).
+  const edited = (key: "email" | "password" | "displayName") => {
+    if (key !== "displayName" && errors[key]) setErrors(({ [key]: _gone, ...rest }) => rest);
+    if (register.isError) register.reset();
+  };
 
   return (
     <div>
@@ -60,13 +68,27 @@ function CreateAccount({ me, onCreated }: { me: Me; onCreated: (code: string) =>
         Con un correo y una contraseña podés abrir este mismo espacio desde cualquier dispositivo. No se pierde nada de lo que ya hiciste.
       </p>
       <form
+        ref={formRef}
+        noValidate
         className="mt-4 grid gap-4"
         onSubmit={(e) => {
           e.preventDefault();
-          register.mutate({ email: email.trim(), password, ...(name.trim() ? { displayName: name.trim() } : {}) });
+          const found = compactErrors({
+            email: emailError(email),
+            password: password.length < PASSWORD_MIN ? `La contraseña tiene que tener al menos ${PASSWORD_MIN} caracteres.` : undefined,
+          });
+          setErrors(found);
+          if (Object.keys(found).length > 0) {
+            focusFirstInvalid(formRef.current);
+            return;
+          }
+          register.mutate(
+            { email: email.trim(), password, ...(name.trim() ? { displayName: name.trim() } : {}) },
+            { onError: () => focusFirstInvalid(formRef.current) },
+          );
         }}
       >
-        <Field label="Correo" error={fields.email} hint="Solo lo usás para entrar. No te vamos a mandar correos.">
+        <Field label="Correo" error={errors.email ?? fields.email} hint="Solo lo usás para entrar. No te vamos a mandar correos.">
           {(p) => (
             <Input
               id={p.id}
@@ -78,13 +100,16 @@ function CreateAccount({ me, onCreated }: { me: Me; onCreated: (code: string) =>
               required
               maxLength={160}
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                edited("email");
+              }}
             />
           )}
         </Field>
         <Field
           label="Contraseña"
-          error={fields.password}
+          error={errors.password ?? fields.password}
           hint={`Al menos ${PASSWORD_MIN} caracteres. Una frase de varias palabras es fácil de recordar y difícil de adivinar.`}
         >
           {(p) => (
@@ -98,13 +123,21 @@ function CreateAccount({ me, onCreated }: { me: Me; onCreated: (code: string) =>
                 minLength={PASSWORD_MIN}
                 maxLength={200}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  edited("password");
+                }}
               />
               <StrengthMeter password={password} />
             </>
           )}
         </Field>
-        <Field label="Tu nombre" optional error={fields.displayName} hint="Para el saludo y el menú. Tus alumnos no lo ven.">
+        <Field
+          label="Tu nombre"
+          optional
+          error={fields.displayName}
+          hint="Para el saludo y el menú. Tus alumnos también lo ven, en la pantalla de entrada de tus actividades."
+        >
           {(p) => (
             <Input
               id={p.id}
@@ -113,13 +146,16 @@ function CreateAccount({ me, onCreated }: { me: Me; onCreated: (code: string) =>
               autoComplete="name"
               maxLength={80}
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                edited("displayName");
+              }}
             />
           )}
         </Field>
-        <FormError message={register.isError && !fields.email && !fields.password ? errorMessage(register.error) : null} />
+        <FormError message={register.isError && !fields.email && !fields.password && !fields.displayName ? errorMessage(register.error) : null} />
         <div>
-          <Button type="submit" loading={register.isPending} disabled={!email.trim() || password.length < PASSWORD_MIN}>
+          <Button type="submit" loading={register.isPending}>
             Crear cuenta
           </Button>
         </div>
@@ -211,17 +247,33 @@ function ChangePasswordDialog({
 }) {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
+  const [errors, setErrors] = useState<{ currentPassword?: string; newPassword?: string }>({});
+  const formRef = useRef<HTMLFormElement>(null);
   const change = useChangePassword();
   const fields = change.error instanceof ApiError ? change.error.fields : {};
   useEffect(() => {
     if (open) {
       setCurrent("");
       setNext("");
+      setErrors({});
       change.reset();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-  const submit = () =>
+  const edited = (key: "currentPassword" | "newPassword") => {
+    if (errors[key]) setErrors(({ [key]: _gone, ...rest }) => rest);
+    if (change.isError) change.reset();
+  };
+  const submit = () => {
+    const found = compactErrors({
+      currentPassword: current ? undefined : "Escribí tu contraseña actual.",
+      newPassword: next.length < PASSWORD_MIN ? `La contraseña nueva tiene que tener al menos ${PASSWORD_MIN} caracteres.` : undefined,
+    });
+    setErrors(found);
+    if (Object.keys(found).length > 0) {
+      focusFirstInvalid(formRef.current);
+      return;
+    }
     change.mutate(
       { currentPassword: current, newPassword: next },
       {
@@ -230,8 +282,10 @@ function ChangePasswordDialog({
           onOpenChange(false);
           onNewCode(r.recoveryCode);
         },
+        onError: () => focusFirstInvalid(formRef.current),
       },
     );
+  };
   return (
     <Dialog
       open={open}
@@ -243,20 +297,22 @@ function ChangePasswordDialog({
           <Button variant="secondary" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button loading={change.isPending} disabled={!current || next.length < PASSWORD_MIN} onClick={submit}>
+          <Button loading={change.isPending} onClick={submit}>
             Cambiar contraseña
           </Button>
         </>
       }
     >
       <form
+        ref={formRef}
+        noValidate
         className="grid gap-4"
         onSubmit={(e) => {
           e.preventDefault();
-          if (current && next.length >= PASSWORD_MIN) submit();
+          submit();
         }}
       >
-        <Field label="Contraseña actual" error={fields.currentPassword}>
+        <Field label="Contraseña actual" error={errors.currentPassword ?? fields.currentPassword}>
           {(p) => (
             <PasswordInput
               id={p.id}
@@ -264,11 +320,14 @@ function ChangePasswordDialog({
               invalid={p.invalid}
               autoComplete="current-password"
               value={current}
-              onChange={(e) => setCurrent(e.target.value)}
+              onChange={(e) => {
+                setCurrent(e.target.value);
+                edited("currentPassword");
+              }}
             />
           )}
         </Field>
-        <Field label="Contraseña nueva" error={fields.newPassword} hint={`Al menos ${PASSWORD_MIN} caracteres.`}>
+        <Field label="Contraseña nueva" error={errors.newPassword ?? fields.newPassword} hint={`Al menos ${PASSWORD_MIN} caracteres.`}>
           {(p) => (
             <>
               <PasswordInput
@@ -278,7 +337,10 @@ function ChangePasswordDialog({
                 autoComplete="new-password"
                 maxLength={200}
                 value={next}
-                onChange={(e) => setNext(e.target.value)}
+                onChange={(e) => {
+                  setNext(e.target.value);
+                  edited("newPassword");
+                }}
               />
               <StrengthMeter password={next} />
             </>

@@ -2,15 +2,23 @@ import { linkAvailability } from "./access-rules";
 
 export type ActivityStateTone = "neutral" | "leaf" | "amber" | "ink";
 
-/** One label for an activity's state, used everywhere (lists, header, dashboard). */
-export function activityState(a: {
-  status: string;
-  linkActive: boolean;
-  startsAt: string | null;
-  expiresAt: string | null;
-}, now = new Date()): { label: string; tone: ActivityStateTone; open: boolean } {
+/**
+ * One label for an activity's state, used everywhere (lists, header, dashboard).
+ * An activity of an archived classroom never reads as "Abierta": its link does not accept students.
+ */
+export function activityState(
+  a: {
+    status: string;
+    linkActive: boolean;
+    startsAt: string | null;
+    expiresAt: string | null;
+    classroomArchived?: boolean;
+  },
+  now = new Date(),
+): { label: string; tone: ActivityStateTone; open: boolean } {
   if (a.status === "draft") return { label: "Borrador", tone: "neutral", open: false };
   if (a.status === "archived") return { label: "Archivada", tone: "neutral", open: false };
+  if (a.classroomArchived) return { label: "Cerrada (aula archivada)", tone: "neutral", open: false };
   const av = linkAvailability(a, { now });
   switch (av) {
     case "available":

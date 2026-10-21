@@ -1,7 +1,7 @@
 import * as RD from "@radix-ui/react-dialog";
 import * as RA from "@radix-ui/react-alert-dialog";
 import { X } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { cn } from "@client/lib/cn";
 import { Button, type ButtonVariant } from "./button";
 import { Input } from "./field";
@@ -10,6 +10,79 @@ const overlay = "fixed inset-0 z-50 bg-ink/35 backdrop-blur-[2px] data-[state=op
 // Bottom sheet on phones, centered card from sm up.
 const panel =
   "fixed z-50 flex max-h-[92dvh] w-full flex-col bg-surface shadow-pop outline-none inset-x-0 bottom-0 rounded-t-xl sm:inset-auto sm:top-1/2 sm:left-1/2 sm:w-[min(560px,calc(100vw-32px))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl data-[state=open]:animate-rise";
+
+// ───────────── Focus return (WCAG 2.4.3) ─────────────
+// These dialogs are controlled (`open` state) and opened from many places — buttons, menu items,
+// list rows — so there is no Radix <Trigger> to give focus back to, and Radix then leaves it on
+// <body>. Instead: remember what had focus when the dialog opened and return there on close.
+// When a dialog is opened from a dropdown menu, the focused menu item is already gone, so the
+// last element the person focused or pressed outside a menu (the "⋯" trigger) is used.
+
+const MENU = '[role="menu"], [role="menubar"], [role="listbox"]';
+const INTERACTIVE =
+  'button, a[href], input, select, textarea, summary, [role="button"], [role="tab"], [role="switch"], [role="checkbox"], [role="radio"], [tabindex]:not([tabindex="-1"])';
+let lastTarget: HTMLElement | null = null;
+let tracking = false;
+
+function noteTarget(t: EventTarget | null) {
+  if (!(t instanceof Element)) return;
+  const el = t.closest<HTMLElement>(INTERACTIVE);
+  if (el && !el.closest(MENU)) lastTarget = el;
+}
+
+function trackInteractions() {
+  if (tracking || typeof document === "undefined") return;
+  tracking = true;
+  document.addEventListener("focusin", (e) => noteTarget(e.target), true);
+  document.addEventListener("pointerdown", (e) => noteTarget(e.target), true);
+}
+
+function returnTarget(): HTMLElement | null {
+  const active = document.activeElement;
+  if (active instanceof HTMLElement && active !== document.body && !active.closest(MENU)) return active;
+  return lastTarget;
+}
+
+function canFocus(el: HTMLElement | null): el is HTMLElement {
+  return !!el && el.isConnected && !el.closest("[inert]") && !(el as HTMLButtonElement).disabled && el.getClientRects().length > 0;
+}
+
+function restoreFocus(el: HTMLElement | null) {
+  if (canFocus(el)) {
+    el.focus({ preventScroll: true });
+    if (document.activeElement === el) return;
+  }
+  // The opener is gone (the row was deleted, the screen changed…): start from the page heading.
+  const main = document.getElementById("contenido");
+  const target = main?.querySelector<HTMLElement>("h1") ?? main;
+  if (!target) return;
+  if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
+  target.focus({ preventScroll: true });
+}
+
+/** Remembers the opener while the dialog opens and gives focus back to it when it closes. */
+function useReturnFocus(open: boolean) {
+  trackInteractions();
+  const opener = useRef<HTMLElement | null>(null);
+  const committedOpen = useRef(false);
+  const isOpen = useRef(open);
+  isOpen.current = open;
+  // Captured while rendering the opening: nothing has moved focus yet. (Radix's onOpenAutoFocus
+  // is too late or never runs when a field inside the dialog has autoFocus.) Reading the DOM
+  // here has no side effects, so a repeated or discarded render is harmless.
+  if (open && !committedOpen.current && typeof document !== "undefined") opener.current = returnTarget();
+  useLayoutEffect(() => {
+    committedOpen.current = open;
+  }, [open]);
+  return {
+    onCloseAutoFocus: (e: Event) => {
+      // React StrictMode remounts effects while the dialog stays open: nothing to restore then.
+      if (isOpen.current) return;
+      e.preventDefault();
+      restoreFocus(opener.current);
+    },
+  };
+}
 
 export interface DialogProps {
   open: boolean;
@@ -24,11 +97,16 @@ export interface DialogProps {
 }
 
 export function Dialog({ open, onOpenChange, title, description, children, footer, className, wide }: DialogProps) {
+  const focus = useReturnFocus(open);
   return (
     <RD.Root open={open} onOpenChange={onOpenChange}>
       <RD.Portal>
         <RD.Overlay className={overlay} />
-        <RD.Content className={cn(panel, wide && "sm:w-[min(760px,calc(100vw-32px))]", className)}>
+        <RD.Content
+          className={cn(panel, wide && "sm:w-[min(760px,calc(100vw-32px))]", className)}
+          onCloseAutoFocus={focus.onCloseAutoFocus}
+          {...(description ? {} : { "aria-describedby": undefined })}
+        >
           <div className="flex items-start justify-between gap-4 border-b border-line px-5 pt-5 pb-4">
             <div className="min-w-0">
               <RD.Title className="font-display text-xl font-semibold text-ink">{title}</RD.Title>
@@ -59,7 +137,10 @@ export interface ConfirmProps {
   cancelLabel?: string;
   variant?: ButtonVariant;
   onConfirm: () => void | Promise<void>;
-  /** When set, the user must type this word to enable the confirm button. */
+  /**
+   * When set, the user must type this word to enable the confirm button. Use the verb of the
+   * button ("Eliminar para siempre" → "ELIMINAR", "Borrar mi espacio" → "BORRAR").
+   */
   typeToConfirm?: string;
   loading?: boolean;
 }
@@ -78,6 +159,7 @@ export function ConfirmDialog({
 }: ConfirmProps) {
   const [typed, setTyped] = useState("");
   const ready = !typeToConfirm || typed.trim().toUpperCase() === typeToConfirm.toUpperCase();
+  const focus = useReturnFocus(open);
   return (
     <RA.Root
       open={open}
@@ -88,7 +170,10 @@ export function ConfirmDialog({
     >
       <RA.Portal>
         <RA.Overlay className={overlay} />
-        <RA.Content className={cn(panel, "sm:w-[min(460px,calc(100vw-32px))]")}>
+        <RA.Content
+          className={cn(panel, "sm:w-[min(460px,calc(100vw-32px))]")}
+          onCloseAutoFocus={focus.onCloseAutoFocus}
+        >
           <div className="px-5 pt-5 pb-2">
             <RA.Title className="font-display text-xl font-semibold text-ink">{title}</RA.Title>
             <RA.Description asChild>

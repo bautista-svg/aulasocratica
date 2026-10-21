@@ -12,3 +12,7 @@ test-results
 playwright-report
 coverage
 docs/benchmarks/*.html
+docs
+tests
+.claude
+data-*

@@ -30,7 +30,8 @@ export function WorkspacesPanel({ dailyLimit }: { dailyLimit: number | null }) {
         <p className="px-5 pt-3 pb-5 text-sm text-text-3">Todavía no hay espacios.</p>
       ) : (
         <>
-          <div className="mt-3 overflow-x-auto" tabIndex={0} role="region" aria-label="Tabla de espacios">
+          {/* relative: the sr-only header (position: absolute) must stay inside the scroll box, or it widens the page. */}
+          <div className="relative mt-3 overflow-x-auto" tabIndex={0} role="region" aria-label="Tabla de espacios">
             <table className="w-full min-w-[880px] text-sm">
               <thead>
                 <tr className="border-y border-line bg-sunken/70 text-left text-xs text-text-2">

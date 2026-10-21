@@ -2,7 +2,7 @@
 // whose data every screen shows, so the ["me"] query is updated and everything else refetched.
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@client/lib/api";
-import { meKey } from "@client/lib/session";
+import { forgetDeviceSession, meKey, rememberSession } from "@client/lib/session";
 import type { Me, RecoveryCodeResponse } from "@shared/contracts/auth";
 
 export function useUpdateName() {
@@ -23,6 +23,7 @@ export function useRegister(onRegistered?: (r: RecoveryCodeResponse) => void) {
     mutationFn: (body: { email: string; password: string; displayName?: string }) => api.post<RecoveryCodeResponse>("/api/auth/register", body),
     onSuccess: (r) => {
       onRegistered?.(r);
+      rememberSession(r.teacher);
       qc.setQueryData(meKey, { teacher: r.teacher });
       void qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== meKey[0] });
     },
@@ -34,6 +35,7 @@ export function useLogin() {
   return useMutation({
     mutationFn: (body: { email: string; password: string }) => api.post<{ teacher: Me; merged: boolean }>("/api/auth/login", body),
     onSuccess: (r) => {
+      rememberSession(r.teacher);
       qc.setQueryData(meKey, { teacher: r.teacher });
       void qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== meKey[0] });
     },
@@ -47,6 +49,7 @@ export function useRecover(onRecovered?: (r: RecoveryCodeResponse) => void) {
     mutationFn: (body: { email: string; recoveryCode: string; newPassword: string }) => api.post<RecoveryCodeResponse>("/api/auth/recover", body),
     onSuccess: (r) => {
       onRecovered?.(r);
+      rememberSession(r.teacher);
       qc.setQueryData(meKey, { teacher: r.teacher });
       void qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== meKey[0] });
     },
@@ -63,11 +66,18 @@ export function useNewRecoveryCode() {
   return useMutation({ mutationFn: () => api.post<{ recoveryCode: string }>("/api/auth/recovery-code") });
 }
 
-/** Clears every cached screen after the workspace is no longer open on this device. */
+/**
+ * Clears every cached screen after the workspace is no longer open on this device (signed out or
+ * deleted). Everything but "me" is dropped; "me" is set to "no workspace" IN PLACE: `clear()`
+ * would also drop the "me" query that the landing is already observing, and the landing would
+ * keep showing "Mi espacio" / "Abrir mi espacio" until a reload.
+ */
 export function useForgetWorkspace() {
   const qc = useQueryClient();
   return () => {
-    qc.clear();
+    forgetDeviceSession();
+    void qc.cancelQueries();
+    qc.removeQueries({ predicate: (q) => q.queryKey[0] !== meKey[0] });
     qc.setQueryData(meKey, { teacher: null });
   };
 }

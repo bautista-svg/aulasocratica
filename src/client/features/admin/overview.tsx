@@ -48,7 +48,7 @@ export function AdminOverviewPanel() {
   const o = q.data;
   const t = o.totals;
   return (
-    <div className="grid gap-6">
+    <div className="grid grid-cols-1 gap-6">
       <section aria-labelledby="totales">
         <h2 id="totales" className="mb-3 font-display text-xl font-semibold text-ink">
           Uso de la plataforma
@@ -85,7 +85,7 @@ function UsageChart({ ai }: { ai: AdminOverview["ai"] }) {
           </span>
         </div>
         {/* Visual bars; the same numbers are in the table below for screen readers. */}
-        <div className="overflow-x-auto pb-1" aria-hidden="true">
+        <div className="relative overflow-x-auto pb-1" aria-hidden="true">
           <div className="flex h-44 min-w-[560px] items-end gap-1.5 border-b border-line">
             {ai.days.map((d) => {
               const total = d.inputTokens + d.outputTokens;
@@ -112,29 +112,32 @@ function UsageChart({ ai }: { ai: AdminOverview["ai"] }) {
             ))}
           </div>
         </div>
-        <table className="sr-only">
-          <caption>Uso de IA por día</caption>
-          <thead>
-            <tr>
-              <th scope="col">Día</th>
-              <th scope="col">Llamadas</th>
-              <th scope="col">Tokens de entrada</th>
-              <th scope="col">Tokens de salida</th>
-              <th scope="col">Costo estimado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ai.days.map((d) => (
-              <tr key={d.day}>
-                <th scope="row">{dayLabel(d.day)}</th>
-                <td>{fmtNum(d.calls)}</td>
-                <td>{fmtNum(d.inputTokens)}</td>
-                <td>{fmtNum(d.outputTokens)}</td>
-                <td>{fmtUsd(d.costUsd)}</td>
+        {/* sr-only on the wrapper: a <table> ignores width: 1px / overflow and widened the page on phones. */}
+        <div className="sr-only">
+          <table>
+            <caption>Uso de IA por día</caption>
+            <thead>
+              <tr>
+                <th scope="col">Día</th>
+                <th scope="col">Llamadas</th>
+                <th scope="col">Tokens de entrada</th>
+                <th scope="col">Tokens de salida</th>
+                <th scope="col">Costo estimado</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {ai.days.map((d) => (
+                <tr key={d.day}>
+                  <th scope="row">{dayLabel(d.day)}</th>
+                  <td>{fmtNum(d.calls)}</td>
+                  <td>{fmtNum(d.inputTokens)}</td>
+                  <td>{fmtNum(d.outputTokens)}</td>
+                  <td>{fmtUsd(d.costUsd)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         <p className="mt-4 text-[13px] leading-5 text-text-3">
           Costo estimado con precios de referencia de US$ {ai.pricePerMTok.input.toLocaleString("es-AR", { minimumFractionDigits: 2 })} por millón de tokens de entrada y US${" "}
           {ai.pricePerMTok.output.toLocaleString("es-AR", { minimumFractionDigits: 2 })} por millón de salida. No es la factura: el costo real depende de los precios vigentes del
@@ -152,7 +155,7 @@ function PurposeTable({ ai }: { ai: AdminOverview["ai"] }) {
       {ai.byPurpose.length === 0 ? (
         <p className="px-5 pt-3 pb-5 text-sm text-text-3">Todavía no hubo llamadas a la IA en este período.</p>
       ) : (
-        <div className="mt-3 overflow-x-auto" tabIndex={0} role="region" aria-label="Uso de IA por función">
+        <div className="relative mt-3 overflow-x-auto" tabIndex={0} role="region" aria-label="Uso de IA por función">
           <table className="w-full min-w-[560px] text-sm">
             <thead>
               <tr className="border-y border-line bg-sunken/70 text-left text-xs text-text-2">

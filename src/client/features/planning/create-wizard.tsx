@@ -9,6 +9,8 @@ import { PageHeader } from "@client/components/ui/misc";
 import { errorMessage } from "@client/lib/api";
 import { useClassrooms } from "@client/features/classrooms/api";
 import { NO_FILTERS, useMaterials } from "@client/features/materials/api";
+import { useTutors } from "@client/features/tutors/api";
+import { newRequestId, useSingleFlight } from "@client/features/activities/single-flight";
 import { WIZARD_STEPS } from "@shared/domain/planning";
 import { useCreateFromProposal } from "./api";
 import { StepHeading, Stepper } from "./wizard-parts";
@@ -18,7 +20,7 @@ import { StepFocus } from "./step-focus";
 import { StepProposals, proposalErrors } from "./step-proposals";
 import { StepTutor } from "./step-tutor";
 import { StepReview } from "./step-review";
-import { hasProgress, useWizard, type WizardState } from "./wizard-state";
+import { effectiveTutorId, hasProgress, useWizard, type WizardState } from "./wizard-state";
 
 const HEADINGS: { title: string; description: string }[] = [
   { title: "Datos de la clase", description: "Contanos de qué se trata. La IA usa todo esto para armar las propuestas." },
@@ -37,6 +39,10 @@ export function CreateWizard({ teacherId, aula }: { teacherId: string; aula?: st
   const rooms = useClassrooms(false);
   const lib = useMaterials(NO_FILTERS);
   const create = useCreateFromProposal();
+  const tutors = useTutors();
+  const start = useSingleFlight(create.isPending);
+  // One id per wizard run: Crear y publicar clicked twice (or retried) creates one activity with one link (D01).
+  const requestId = useRef(newRequestId());
   const navigate = useNavigate();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [visibleErrors, setVisibleErrors] = useState<number | null>(null);
@@ -102,14 +108,15 @@ export function CreateWizard({ teacherId, aula }: { teacherId: string; aula?: st
   const errors = visibleErrors === step ? errorsFor(step) : {};
 
   const submit = (publish: boolean) => {
-    if (!s.draft) return;
+    if (!s.draft || tutors.isPending || !start()) return;
     const d = s.draft;
     create.mutate(
       {
         classroomId: s.classroomId,
         subject: s.subject,
         proposal: { ...d, reflectionQuestions: d.reflectionQuestions.map((q) => q.trim()).filter(Boolean) },
-        tutorId: s.tutorId,
+        tutorId: effectiveTutorId(s, tutors.data),
+        requestId: requestId.current,
         materialIds: s.materialIds,
         extraText: s.extraText,
         publish,
@@ -121,6 +128,7 @@ export function CreateWizard({ teacherId, aula }: { teacherId: string; aula?: st
             toast.warning(`No se pudo agregar: ${r.skipped.map((x) => `«${x.title}» (${x.reason})`).join("; ")}`, { duration: 12_000 });
           }
           reset();
+          requestId.current = newRequestId();
           void navigate({ to: "/app/actividades/$activityId", params: { activityId: r.activityId } });
         },
       },
@@ -172,10 +180,10 @@ export function CreateWizard({ teacherId, aula }: { teacherId: string; aula?: st
           </Button>
           {last ? (
             <div className="flex flex-col-reverse gap-2 sm:flex-row">
-              <Button variant="secondary" loading={create.isPending && create.variables?.publish === false} disabled={create.isPending} onClick={() => submit(false)}>
+              <Button variant="secondary" loading={create.isPending && create.variables?.publish === false} disabled={create.isPending || tutors.isPending} onClick={() => submit(false)}>
                 Crear como borrador
               </Button>
-              <Button icon={<Send className="size-4" />} loading={create.isPending && create.variables?.publish === true} disabled={create.isPending} onClick={() => submit(true)}>
+              <Button icon={<Send className="size-4" />} loading={create.isPending && create.variables?.publish === true} disabled={create.isPending || tutors.isPending} onClick={() => submit(true)}>
                 Crear y publicar
               </Button>
             </div>

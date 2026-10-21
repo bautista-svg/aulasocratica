@@ -13,6 +13,8 @@ import { ownedActivity, ownedMaterial } from "../services/access";
 import { audit } from "../services/audit";
 import { enqueueFile } from "../services/file-jobs";
 import { attachMaterialToActivity } from "../services/planning/attach";
+import { once } from "../services/activities/idempotency";
+import { isRetryableFailure } from "../services/activities/data";
 import { deleteFile, fileSize, fileStream, newKey, saveFile } from "../lib/storage";
 import { attachmentHeader } from "../lib/pdf";
 import { log } from "../lib/logger";
@@ -70,6 +72,7 @@ function toSummary(r: SummaryRow): MaterialSummary {
     tags: r.tags ?? [],
     processingStatus: r.processingStatus as ProcessingStatus,
     processingError: r.processingError ?? null,
+    retryable: r.processingStatus === "failed" ? isRetryableFailure(r.processingError ?? null) : false,
     textChars: Number(r.textChars ?? 0),
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
@@ -218,21 +221,25 @@ export const materialRoutes = new Hono<AppEnv>()
   .post("/", async (c) => {
     const t = teacherOf(c);
     const body = await readJson(c, createMaterialBody);
-    await assertRoom(t.id, 1);
-    const [row] = await db
-      .insert(m)
-      .values({
-        teacherId: t.id,
-        title: body.title,
-        kind: body.kind,
-        url: body.kind === "link" ? body.url : null,
-        body: body.body,
-        processingStatus: "ready",
-        folder: sanitizeFolder(body.folder),
-        tags: sanitizeTags(body.tags),
-      })
-      .returning({ id: m.id });
-    return c.json({ material: await detailOf(t.id, row!.id) }, 201);
+    // A double click or a retry with the same request id returns the material created the first time.
+    const material = await once("material", t.id, body.requestId, body, async () => {
+      await assertRoom(t.id, 1);
+      const [row] = await db
+        .insert(m)
+        .values({
+          teacherId: t.id,
+          title: body.title,
+          kind: body.kind,
+          url: body.kind === "link" ? body.url : null,
+          body: body.body,
+          processingStatus: "ready",
+          folder: sanitizeFolder(body.folder),
+          tags: sanitizeTags(body.tags),
+        })
+        .returning({ id: m.id });
+      return detailOf(t.id, row!.id);
+    });
+    return c.json({ material }, 201);
   })
 
   .get("/:id", async (c) => {

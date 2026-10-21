@@ -21,8 +21,11 @@ const TIMELINE_EVENTS = new Set([
   "left_app",
 ]);
 
-function eventText(e: SessionEvent): string {
+export function eventText(e: SessionEvent): string {
   const base = EVENT_LABELS[e.eventType] ?? e.eventType;
+  // How the student got in (F-07): helps spot someone who entered with a classmate's name.
+  if (e.eventType === "session_entered" && e.details.resumed === true) return "Siguió desde otro dispositivo con su código";
+  if (e.eventType === "session_entered" && e.details.fromRoster === true) return "Entró con un nombre de la lista del aula";
   if (e.eventType === "pasted_text" && typeof e.details.chars === "number") return `${base} (${e.details.chars} caracteres)`;
   if (e.eventType === "left_app" && typeof e.details.away_ms === "number") return `${base} durante ${formatAway(e.details.away_ms)}`;
   return base;
@@ -116,7 +119,8 @@ function MessageBubble({ m, studentName }: { m: SessionMessage; studentName: str
           m.isPartial && "border-dashed",
         )}
       >
-        <p className="mb-1 flex flex-wrap items-center gap-x-2 text-xs font-semibold text-text-3">
+        {/* text-2: the lighter text-3 is below 4.5:1 on the student's ink-soft bubble (D14). */}
+        <p className="mb-1 flex flex-wrap items-center gap-x-2 text-xs font-semibold text-text-2">
           <span>{tutor ? "Tutor" : studentName}</span>
           <span className="font-normal">{fmtTime(m.createdAt)}</span>
           {m.inputMode === "voice" ? (

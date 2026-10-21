@@ -17,6 +17,7 @@ import { hit } from "../lib/rate-limit";
 import { fileSize, fileStream } from "../lib/storage";
 import { attachmentHeader } from "../lib/pdf";
 import { fileOf, listFiles, loadActivity, toFile } from "../services/activities/data";
+import { once } from "../services/activities/idempotency";
 import {
   createActivity,
   deleteActivity,
@@ -82,11 +83,15 @@ export const activityRoutes = new Hono<AppEnv>()
   // ── Create & read ──
   .post("/", async (c) => {
     const t = teacherOf(c);
-    const body = await readJson(c, createActivityBody);
-    const room = await ownedClassroom(t.id, body.classroomId);
-    const tutor = body.tutorId ? await ownedTutor(t.id, body.tutorId) : null;
-    const id = await createActivity({ teacherId: t.id, classroom: room, title: body.title, tutor });
-    return respond(c, t.id, id, 201);
+    const { requestId, ...body } = await readJson(c, createActivityBody);
+    // A double click or a retry with the same request id returns the activity created the first time.
+    const activity = await once("activity", t.id, requestId, body, async () => {
+      const room = await ownedClassroom(t.id, body.classroomId);
+      const tutor = body.tutorId ? await ownedTutor(t.id, body.tutorId) : null;
+      const id = await createActivity({ teacherId: t.id, classroom: room, title: body.title, tutor });
+      return loadActivity(t.id, id);
+    });
+    return c.json({ activity }, 201);
   })
 
   .get("/:id", async (c) => {
@@ -174,15 +179,19 @@ export const activityRoutes = new Hono<AppEnv>()
 
   .post("/:id/duplicate", async (c) => {
     const { t, activity } = await owned(c);
-    const body = await readJson(c, duplicateBody);
+    const { requestId, ...body } = await readJson(c, duplicateBody);
     const targetId = body.classroomId ?? activity.classroomId;
-    const room = await ownedClassroom(t.id, targetId);
-    if (room.isArchived) throw badRequest("Esa aula está archivada. Elegí otra o restaurala.");
-    if (!hit(`duplicate:${t.id}`, 30, 60 * 60_000)) {
-      throw tooMany("Duplicaste muchas actividades seguidas. Esperá unos minutos y probá de nuevo.");
-    }
-    const r = await duplicateActivity(activity, room.id);
-    return c.json({ activity: await loadActivity(t.id, r.id), copiedFiles: r.copiedFiles, skippedFiles: r.skippedFiles }, 201);
+    // The same request id (double click, retry) returns the copy made the first time.
+    const out = await once(`duplicate:${activity.id}`, t.id, requestId, { targetId }, async () => {
+      const room = await ownedClassroom(t.id, targetId);
+      if (room.isArchived) throw badRequest("Esa aula está archivada. Elegí otra o restaurala.");
+      if (!hit(`duplicate:${t.id}`, 30, 60 * 60_000)) {
+        throw tooMany("Duplicaste muchas actividades seguidas. Esperá unos minutos y probá de nuevo.");
+      }
+      const r = await duplicateActivity(activity, room.id);
+      return { activity: await loadActivity(t.id, r.id), copiedFiles: r.copiedFiles, skippedFiles: r.skippedFiles };
+    });
+    return c.json(out, 201);
   })
 
   .post("/:id/reset", async (c) => {

@@ -511,3 +511,97 @@ describe("ai design helpers", () => {
     expect((await call("POST", `/api/activities/${a.id}/rubric/import`, { cookie: t.cookie, form: form3 })).status).toBe(400);
   });
 });
+
+describe("UI audit fixes: double click, default tutor, archived classroom", () => {
+  const rid = () => crypto.randomUUID();
+
+  it("D01: the same requestId creates one classroom and one activity, even when both requests arrive at once", async () => {
+    const t = await newTeacher();
+    const requestId = rid();
+    const [c1, c2] = await Promise.all([
+      call("POST", "/api/classrooms", { cookie: t.cookie, body: { name: "Aula doble click", requestId } }),
+      call("POST", "/api/classrooms", { cookie: t.cookie, body: { name: "Aula doble click", requestId } }),
+    ]);
+    expect([c1.status, c2.status]).toEqual([201, 201]);
+    expect(c1.body.classroom.id).toBe(c2.body.classroom.id);
+    // A retry after a lost response gets the same classroom too.
+    const c3 = await call("POST", "/api/classrooms", { cookie: t.cookie, body: { name: "Aula doble click", requestId } });
+    expect(c3.body.classroom.id).toBe(c1.body.classroom.id);
+    expect(await db.select().from(schema.classrooms).where(eq(schema.classrooms.teacherId, t.id))).toHaveLength(1);
+    // Another id (or other data) is another classroom.
+    const other = await call("POST", "/api/classrooms", { cookie: t.cookie, body: { name: "Aula doble click", requestId: rid() } });
+    expect(other.body.classroom.id).not.toBe(c1.body.classroom.id);
+    const changed = await call("POST", "/api/classrooms", { cookie: t.cookie, body: { name: "Otro nombre", requestId } });
+    expect(changed.body.classroom.id).not.toBe(c1.body.classroom.id);
+    // Without an id nothing changes for older clients.
+    expect((await call("POST", "/api/classrooms", { cookie: t.cookie, body: { name: "Sin id" } })).status).toBe(201);
+    expect((await call("POST", "/api/classrooms", { cookie: t.cookie, body: { name: "x", requestId: "no-uuid" } })).status).toBe(400);
+
+    const room = c1.body.classroom.id as string;
+    const aid = rid();
+    const [a1, a2] = await Promise.all([
+      call("POST", "/api/activities", { cookie: t.cookie, body: { classroomId: room, title: "Doble click prueba", requestId: aid } }),
+      call("POST", "/api/activities", { cookie: t.cookie, body: { classroomId: room, title: "Doble click prueba", requestId: aid } }),
+    ]);
+    expect([a1.status, a2.status]).toEqual([201, 201]);
+    expect(a1.body.activity.id).toBe(a2.body.activity.id);
+    expect(await db.select().from(schema.activities).where(eq(schema.activities.classroomId, room))).toHaveLength(1);
+  });
+
+  it("D01: duplicating twice with the same requestId makes one copy; a failed request can be retried", async () => {
+    const t = await newTeacher();
+    const room = await newClassroom(t.cookie);
+    const a = await newActivity(t.cookie, room);
+    const requestId = rid();
+    const [d1, d2] = await Promise.all([
+      call("POST", `/api/activities/${a.id}/duplicate`, { cookie: t.cookie, body: { classroomId: room, requestId } }),
+      call("POST", `/api/activities/${a.id}/duplicate`, { cookie: t.cookie, body: { classroomId: room, requestId } }),
+    ]);
+    expect([d1.status, d2.status]).toEqual([201, 201]);
+    expect(d1.body.activity.id).toBe(d2.body.activity.id);
+    expect(await db.select().from(schema.activities).where(eq(schema.activities.classroomId, room))).toHaveLength(2);
+
+    // Archived target: refused, and the same id works once the classroom is restored (errors are not remembered).
+    const target = await newClassroom(t.cookie, "Destino");
+    await call("PATCH", `/api/classrooms/${target}`, { cookie: t.cookie, body: { isArchived: true } });
+    const retryId = rid();
+    expect((await call("POST", `/api/activities/${a.id}/duplicate`, { cookie: t.cookie, body: { classroomId: target, requestId: retryId } })).status).toBe(400);
+    await call("PATCH", `/api/classrooms/${target}`, { cookie: t.cookie, body: { isArchived: false } });
+    expect((await call("POST", `/api/activities/${a.id}/duplicate`, { cookie: t.cookie, body: { classroomId: target, requestId: retryId } })).status).toBe(201);
+  });
+
+  it("D04: creating with the teacher's (edited) 'Pensamiento crítico' copies the edited configuration", async () => {
+    const t = await newTeacher();
+    const room = await newClassroom(t.cookie);
+    const list = await call("GET", "/api/tutors", { cookie: t.cookie });
+    const pc = list.body.tutors.filter((x: { presetKey: string | null }) => x.presetKey === "pensamiento_critico");
+    expect(pc).toHaveLength(1); // one row per tutor, no separate "(predeterminado)"
+    await call("PATCH", `/api/tutors/${pc[0].id}`, { cookie: t.cookie, body: { rules: "REGLA-AUDITORIA-PC: pedí siempre una fuente.", helpLevel: "intensive" } });
+    const a = await newActivity(t.cookie, room, { tutorId: pc[0].id });
+    expect(a.tutorId).toBe(pc[0].id);
+    expect(a.tutorName).toBe("Pensamiento crítico");
+    expect(a.helpLevel).toBe("intensive");
+    expect(a.tutorRules).toContain("REGLA-AUDITORIA-PC");
+  });
+
+  it("D11: activities of an archived classroom are flagged and nobody counts as working there", async () => {
+    const t = await newTeacher();
+    const room = await newClassroom(t.cookie);
+    const a = await newActivity(t.cookie, room);
+    await call("PATCH", `/api/activities/${a.id}`, { cookie: t.cookie, body: { instructions: "Pensá." } });
+    await call("POST", `/api/activities/${a.id}/publish`, { cookie: t.cookie });
+    const [student] = await db.insert(schema.students).values({ classroomId: room, fullName: "Ana Pérez", nameKey: "ana perez" }).returning();
+    await db.insert(schema.learningSessions).values({ activityId: a.id, studentId: student!.id, resumeCode: "ABC123" });
+
+    const before = await call("GET", `/api/classrooms/${room}/activities`, { cookie: t.cookie });
+    expect(before.body.activities[0]).toMatchObject({ classroomArchived: false, activeNow: 1 });
+    expect((await call("GET", `/api/classrooms/${room}`, { cookie: t.cookie })).body.classroom.activeNow).toBe(1);
+
+    await call("PATCH", `/api/classrooms/${room}`, { cookie: t.cookie, body: { isArchived: true } });
+    const after = await call("GET", `/api/classrooms/${room}/activities`, { cookie: t.cookie });
+    expect(after.body.activities[0]).toMatchObject({ classroomArchived: true, activeNow: 0 });
+    const archivedList = await call("GET", "/api/classrooms?archived=1", { cookie: t.cookie });
+    expect(archivedList.body.classrooms[0]).toMatchObject({ id: room, activeNow: 0 });
+    expect((await call("GET", `/api/activities/${a.id}`, { cookie: t.cookie })).body.activity.classroomArchived).toBe(true);
+  });
+});

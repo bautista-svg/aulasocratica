@@ -1,0 +1,15 @@
+{
+  "script": "scripts/20-reproducir-defectos.mjs",
+  "fecha": "2026-10-21",
+  "D01_aulas_creadas_con_doble_clic": 2,
+  "D01_actividades_creadas_con_doble_clic": 2,
+  "D02_texto_en_mi_espacio": "Aparece en el saludo de Inicio y en el menú. Tus alumnos no lo ven.",
+  "D02_alumno_ve": "Con Profe Repro",
+  "D06_borrador_en_nueva_pestana": "",
+  "D12_boton_habilitado_con_5_caracteres": true,
+  "D12_mensaje": "Ese código no coincide. Revisalo o pedíselo a tu docente (te quedan 4 intentos).",
+  "D04_opciones": ["Pensamiento crítico (predeterminado)", "Pensamiento crítico"],
+  "D04_indicaciones_con_predeterminado": "",
+  "D05_foco_tras_cerrar": "BODY",
+  "D03_inicio_375": { "scrollWidth": 634, "clientWidth": 375 }
+}

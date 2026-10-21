@@ -10,6 +10,7 @@ import { api, ApiError, errorMessage } from "@client/lib/api";
 import { useClassrooms } from "@client/features/classrooms/api";
 import { classroomLabel } from "@shared/contracts/classrooms";
 import type { TutorSummary } from "@shared/contracts/tutors";
+import { useRequestId, useSingleFlight } from "@client/features/activities/single-flight";
 
 /** Creates a draft activity that starts from this tutor and opens it. */
 export function UseTutorDialog({ tutor, open, onOpenChange }: { tutor: TutorSummary | null; open: boolean; onOpenChange: (o: boolean) => void }) {
@@ -18,8 +19,9 @@ export function UseTutorDialog({ tutor, open, onOpenChange }: { tutor: TutorSumm
   const [title, setTitle] = useState("");
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const requestId = useRequestId(open);
   const create = useMutation({
-    mutationFn: () => api.post<{ activity: { id: string } }>("/api/activities", { classroomId, title, tutorId: tutor!.id }),
+    mutationFn: () => api.post<{ activity: { id: string } }>("/api/activities", { classroomId, title, tutorId: tutor!.id, requestId }),
     onSuccess: (r) => {
       void qc.invalidateQueries({ queryKey: ["classrooms"] });
       void qc.invalidateQueries({ queryKey: ["tutors"] });
@@ -42,6 +44,10 @@ export function UseTutorDialog({ tutor, open, onOpenChange }: { tutor: TutorSumm
 
   const fields = create.error instanceof ApiError ? create.error.fields : {};
   const ready = Boolean(classroomId && title.trim());
+  const start = useSingleFlight(create.isPending);
+  const submit = () => {
+    if (ready && tutor && start()) create.mutate();
+  };
 
   return (
     <Dialog
@@ -54,7 +60,7 @@ export function UseTutorDialog({ tutor, open, onOpenChange }: { tutor: TutorSumm
           <Button variant="secondary" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button loading={create.isPending} disabled={!ready || !tutor} onClick={() => create.mutate()}>
+          <Button loading={create.isPending} disabled={!ready || !tutor} onClick={submit}>
             Crear actividad
           </Button>
         </>
@@ -76,7 +82,7 @@ export function UseTutorDialog({ tutor, open, onOpenChange }: { tutor: TutorSumm
           className="grid gap-4"
           onSubmit={(e) => {
             e.preventDefault();
-            if (ready) create.mutate();
+            submit();
           }}
         >
           <Field label="Aula" error={fields.classroomId}>

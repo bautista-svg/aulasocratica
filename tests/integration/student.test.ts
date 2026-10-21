@@ -8,7 +8,8 @@ import { anthropic } from "@server/ai/client";
 import { randomToken } from "@server/lib/crypto";
 import { hit } from "@server/lib/rate-limit";
 import { newKey, saveFile } from "@server/lib/storage";
-import { cookieName, JOIN_LIMIT } from "@server/services/student/session";
+import { connectionKey, cookieName, JOIN_LIMIT, WRONG_CODE_LIMIT } from "@server/services/student/session";
+import { env } from "@server/env";
 import { CHAT_LIMIT, REFUSAL_REPLY } from "@server/services/student/tutor";
 import { settleStudentJobs } from "@server/services/student/background";
 import { isStreaming } from "@server/services/student/streams";
@@ -124,7 +125,8 @@ describe("entering an activity", () => {
     expect(raw).toMatch(/SameSite=Lax/i);
     expect(raw).toMatch(/Path=\/api\/s/);
     const w = r.body.workspace;
-    expect(w.studentName).toBe("Lucía Gómez");
+    // Kept as typed (only spaces are tidied); matching ignores case and accents.
+    expect(w.studentName).toBe("lucía GÓMEZ");
     expect(w.resumeCode).toMatch(/^[A-Z2-9]{6}$/);
     expect(w.stage).toBe("initial");
     // The fixture activity has no reflection questions: an empty list means no reflection step.
@@ -146,7 +148,7 @@ describe("entering an activity", () => {
     const info = await call("GET", `/api/s/${s.token}`, { cookie });
     expect(info.status).toBe(200);
     expect(info.body.availability).toBe("available");
-    expect(info.body.workspace.studentName).toBe("Lucía Gómez");
+    expect(info.body.workspace.studentName).toBe("lucía GÓMEZ");
     const anon = await call("GET", `/api/s/${s.token}`);
     expect(anon.body.workspace).toBeNull();
     expect(anon.body.activity.title).toBe("Fracciones equivalentes");
@@ -166,6 +168,18 @@ describe("entering an activity", () => {
     expect(students).toHaveLength(1);
     const [session] = await db.select().from(schema.learningSessions).where(eq(schema.learningSessions.activityId, s.activity.id));
     expect(session!.studentId).toBe(roster!.id);
+    // The entry is marked as coming from the teacher's list (to spot someone using a classmate's name).
+    expect((await eventsOf(session!.id))[0]!.details).toMatchObject({ resumed: false, fromRoster: true });
+  });
+
+  it("keeps compound names and particles exactly as typed", async () => {
+    const s = await setup();
+    const r = await join(s.token, "  María de los Ángeles   McDonald ");
+    expect(r.body.workspace.studentName).toBe("María de los Ángeles McDonald");
+    // The same name typed differently is the same student.
+    const again = await join(s.token, "maria DE LOS angeles mcdonald");
+    expect(again.status).toBe(409);
+    expect(again.body.error.code).toBe("resume_required");
   });
 
   it("validates the name and rejects unknown links and other origins", async () => {
@@ -191,6 +205,8 @@ describe("entering an activity", () => {
     const other = await join(s.token, "LUCIA GOMEZ");
     expect(other.status).toBe(409);
     expect(other.body.error.code).toBe("resume_required");
+    // F-07: the student who did not start it is told to ask the teacher.
+    expect(other.body.error.message).toMatch(/Si no empezaste vos, avisale a tu docente/);
 
     const wrong = await call("POST", `/api/s/${s.token}/resume`, { body: { name: "Lucía Gómez", code: "AAAAAA" } });
     expect(wrong.status).toBe(400);
@@ -210,7 +226,7 @@ describe("entering an activity", () => {
     const entered = (await eventsOf(s.session.id)).filter((e) => e.eventType === "session_entered");
     expect(entered.map((e) => (e.details as { resumed: boolean }).resumed)).toEqual([false, true]);
 
-    // Five wrong codes lock the name for 15 minutes, even for the right code.
+    // Five wrong codes lock the name on this connection for 15 minutes, even for the right code.
     for (let i = 0; i < 5; i++) {
       const w = await call("POST", `/api/s/${s.token}/resume`, { body: { name: "Lucía Gómez", code: "BBBBBB" } });
       expect(w.status).toBe(400);
@@ -218,9 +234,80 @@ describe("entering an activity", () => {
     const locked = await call("POST", `/api/s/${s.token}/resume`, { body: { name: "Lucía Gómez", code } });
     expect(locked.status).toBe(429);
     expect(locked.body.error.code).toBe("locked");
+  });
 
-    const nobody = await call("POST", `/api/s/${s.token}/resume`, { body: { name: "Nadie Nunca", code } });
-    expect(nobody.status).toBe(404);
+  it("a malformed code is explained and never uses up an attempt (D12)", async () => {
+    const s = await joined();
+    for (let i = 0; i < 8; i++) {
+      const short = await call("POST", `/api/s/${s.token}/resume`, { body: { name: "Lucía Gómez", code: "B4GV7" } });
+      expect(short.status).toBe(400);
+      expect(short.body.error.code).toBe("invalid");
+      expect(short.body.error.fields.code).toMatch(/^Falta 1 /);
+    }
+    const ambiguous = await call("POST", `/api/s/${s.token}/resume`, { body: { name: "Lucía Gómez", code: "B4GV7O" } });
+    expect(ambiguous.body.error.fields.code).toMatch(/0, O, 1 ni I/);
+    const wrong = await call("POST", `/api/s/${s.token}/resume`, { body: { name: "Lucía Gómez", code: "B4GV7K" } });
+    expect(wrong.body.error.message).toMatch(/quedan 4 intentos/);
+  });
+
+  it("does not tell whether a name started the activity (F-08)", async () => {
+    const s = await joined();
+    const known = await call("POST", `/api/s/${s.token}/resume`, { body: { name: "Lucía Gómez", code: "AAAAAA" } });
+    const unknown = await call("POST", `/api/s/${s.token}/resume`, { body: { name: "Nadie Nunca", code: "AAAAAA" } });
+    expect(unknown.status).toBe(known.status);
+    expect(unknown.body).toEqual(known.body);
+    expect(unknown.body.error.code).toBe("wrong_code");
+    // Unknown names count down and lock exactly like real ones.
+    for (let i = 0; i < 4; i++) await call("POST", `/api/s/${s.token}/resume`, { body: { name: "Nadie Nunca", code: "AAAAAA" } });
+    const lockedUnknown = await call("POST", `/api/s/${s.token}/resume`, { body: { name: "Nadie Nunca", code: "AAAAAA" } });
+    expect(lockedUnknown.status).toBe(429);
+    expect(lockedUnknown.body.error.code).toBe("locked");
+  });
+
+  it("someone on another connection cannot lock the real student out (F-10), but guessing stays capped", async () => {
+    const s = await joined();
+    const code = s.workspace.resumeCode as string;
+    const prev = env.TRUST_PROXY;
+    env.TRUST_PROXY = true;
+    const from = (ip: string, body: { name: string; code: string }) =>
+      call("POST", `/api/s/${s.token}/resume`, { body, headers: { "x-forwarded-for": ip } });
+    try {
+      // A classmate at home burns the attempts for Lucía's name...
+      for (let i = 0; i < WRONG_CODE_LIMIT.perConnection; i++) expect((await from("198.51.100.20", { name: "Lucía Gómez", code: "CCCCCC" })).status).toBe(400);
+      expect((await from("198.51.100.20", { name: "Lucía Gómez", code })).status).toBe(429);
+      // ...but Lucía, from the school connection, still gets in with her code.
+      const real = await from("203.0.113.5", { name: "Lucía Gómez", code });
+      expect(real.status).toBe(200);
+      expect(real.body.workspace.studentName).toBe("Lucía Gómez");
+
+      // IPv6 clients own a whole /64: rotating addresses inside it is the same connection.
+      expect(connectionKey("2001:db8:1:2::5")).toBe(connectionKey("2001:0db8:0001:0002:ffff::9"));
+      expect(connectionKey("::ffff:203.0.113.5")).toBe("203.0.113.5");
+
+      // Many different networks together are capped per name (no brute force by rotating IPs).
+      const networks = WRONG_CODE_LIMIT.perName / WRONG_CODE_LIMIT.perConnection;
+      for (let n = 0; n < networks; n++) {
+        for (let i = 0; i < WRONG_CODE_LIMIT.perConnection; i++) await from(`192.0.2.${n + 1}`, { name: "Lucía Gómez", code: "DDDDDD" });
+      }
+      const capped = await from("192.0.2.200", { name: "Lucía Gómez", code });
+      expect(capped.status).toBe(429);
+      expect(capped.body.error.code).toBe("locked");
+
+      // One connection guessing across many names is stopped too; right codes never count, so a
+      // whole class continuing on new devices from the school network is not.
+      const mateo = await join(s.token, "Mateo Paz");
+      for (let i = 0; i < 35; i++) {
+        expect((await from("203.0.113.9", { name: "Mateo Paz", code: mateo.body.workspace.resumeCode })).status).toBe(200);
+      }
+      for (let i = 0; i < WRONG_CODE_LIMIT.perConnectionAllNames; i++) {
+        await from("203.0.113.77", { name: `Alumno ${String.fromCharCode(65 + i)}`, code: "EEEEEE" });
+      }
+      const flooded = await from("203.0.113.77", { name: "Otro Nombre", code: "EEEEEE" });
+      expect(flooded.status).toBe(429);
+      expect(flooded.body.error.code).toBe("rate_limited");
+    } finally {
+      env.TRUST_PROXY = prev;
+    }
   });
 
   it("rate-limits joins per connection", async () => {
@@ -262,6 +349,42 @@ describe("availability is checked on every request", () => {
     // Re-opening the link gives the same work back.
     await db.update(schema.activities).set({ linkActive: true }).where(eq(schema.activities.id, s.activity.id));
     expect((await call("GET", `/api/s/${s.token}`, { cookie: s.cookie })).body.workspace).not.toBeNull();
+  });
+
+  it("a finished work stays readable (read-only, no files) on its device after the link closes (D38)", async () => {
+    const s = await joined({ requireInitialAnswer: false });
+    const pedro = await join(s.token, "Pedro Ruiz");
+    const pedroCookie = cookiePair(pedro.cookies, cookieName(s.activity.id));
+    await db
+      .update(schema.learningSessions)
+      .set({ status: "completed", completedAt: new Date(), finalAnswer: "Son iguales." })
+      .where(eq(schema.learningSessions.id, s.session.id));
+    await db.update(schema.activities).set({ linkActive: false }).where(eq(schema.activities.id, s.activity.id));
+
+    const info = await call("GET", `/api/s/${s.token}`, { cookie: s.cookie });
+    expect(info.body.availability).toBe("inactive");
+    expect(info.body.message).toBe("Tu docente cerró esta actividad por ahora.");
+    expect(info.body.workspace).toMatchObject({ stage: "completed", files: [], session: { finalAnswer: "Son iguales." } });
+    // Still read-only: nothing can be written while the link is closed.
+    expect((await chat(s.token, s.cookie, { text: "Hola" })).status).toBe(403);
+    // A work in progress is not shown while closed, and nobody else sees anything.
+    expect((await call("GET", `/api/s/${s.token}`, { cookie: pedroCookie })).body.workspace).toBeNull();
+    expect((await call("GET", `/api/s/${s.token}`)).body.workspace).toBeNull();
+    // Expired too; archived classrooms show nothing.
+    await db.update(schema.activities).set({ linkActive: true, expiresAt: new Date(Date.now() - 1000) }).where(eq(schema.activities.id, s.activity.id));
+    expect((await call("GET", `/api/s/${s.token}`, { cookie: s.cookie })).body.workspace.stage).toBe("completed");
+    await db.update(schema.classrooms).set({ isArchived: true }).where(eq(schema.classrooms.id, s.classroomId));
+    expect((await call("GET", `/api/s/${s.token}`, { cookie: s.cookie })).body.workspace).toBeNull();
+  });
+
+  it("shows subject, classroom and school without repeating them (D31)", async () => {
+    const s = await setup({ subject: "Ciencias Naturales" });
+    await db
+      .update(schema.classrooms)
+      .set({ name: "5.º B — Ciencias Naturales", grade: "5.º grado", division: "B", school: "Escuela N.º 12" })
+      .where(eq(schema.classrooms.id, s.classroomId));
+    const info = await call("GET", `/api/s/${s.token}`);
+    expect(info.body.activity.classroom).toBe("5.º B — Ciencias Naturales · Escuela N.º 12");
   });
 
   it("not started, expired, archived classroom and drafts", async () => {
@@ -523,7 +646,7 @@ describe("tutor chat", () => {
     expect(limited.status).toBe(429);
 
     const b = await joined({ requireInitialAnswer: false }, "Otro Alumno");
-    await db.insert(schema.aiUsage).values({ teacherId: b.teacher.id, purpose: "tutor_chat", model: "x", inputTokens: 4_000_000 });
+    await db.insert(schema.aiUsage).values({ teacherId: b.teacher.id, purpose: "tutor_chat", model: "x", inputTokens: 40_000_000 });
     const quota = await chat(b.token, b.cookie, { text: "Hola" });
     expect(quota.status).toBe(429);
     expect(quota.body.error.code).toBe("ai_quota");

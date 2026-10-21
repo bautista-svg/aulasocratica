@@ -83,6 +83,7 @@ export async function xrayList(
       classroomId: r.classroomId,
       classroomName: r.classroomName,
       status: r.s.status === "completed" ? "completed" : "in_progress",
+      endedByTeacher: r.s.endedByTeacher,
       startedAt: r.s.startedAt.toISOString(),
       lastActivityAt: r.s.lastActivityAt.toISOString(),
       completedAt: r.s.completedAt?.toISOString() ?? null,

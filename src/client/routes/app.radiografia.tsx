@@ -8,6 +8,7 @@ import { Button } from "@client/components/ui/button";
 import { Field, Input, Select } from "@client/components/ui/field";
 import { api } from "@client/lib/api";
 import { fmtRelative, plural } from "@client/lib/format";
+import { usePageTitle } from "@client/lib/page-title";
 import { useClassrooms, classroomKeys } from "@client/features/classrooms/api";
 import { useXrayList } from "@client/features/sessions/api";
 import { WorkStatusBadge } from "@client/features/live/bits";
@@ -32,7 +33,10 @@ function XrayListPage() {
   const { aula, actividad, q } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const classrooms = useClassrooms(false);
+  // Works of archived classrooms are listed too, so their classrooms can be picked as a filter — marked (D21).
+  const archivedRooms = useClassrooms(true);
   const activities = useActivitiesOf(aula);
+  usePageTitle("Radiografía del pensamiento");
   const [search, setSearch] = useState(q ?? "");
   useEffect(() => {
     const id = setTimeout(() => {
@@ -65,6 +69,15 @@ function XrayListPage() {
                   {c.name}
                 </option>
               ))}
+              {archivedRooms.data?.length ? (
+                <optgroup label="Archivadas">
+                  {archivedRooms.data.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} (archivada)
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
             </Select>
           )}
         </Field>
@@ -148,7 +161,7 @@ function XrayRow({ it }: { it: XrayListItem }) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[16px] font-semibold text-ink">{it.studentName}</span>
-            <WorkStatusBadge status={it.status} />
+            <WorkStatusBadge status={it.status} endedByTeacher={it.endedByTeacher} lastActivityAt={it.lastActivityAt} />
           </div>
           <p className="mt-0.5 truncate text-sm text-text-2">
             {it.activityTitle} · {it.classroomName}

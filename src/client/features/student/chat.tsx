@@ -308,7 +308,7 @@ export function ChatStep({
         className="sticky z-20 -mx-4 mt-4 bg-gradient-to-t from-paper from-75% to-paper/0 px-4 pt-5 pb-[max(env(safe-area-inset-bottom),12px)] lg:mx-0 lg:px-0"
         style={{ bottom: "var(--kb, 0px)" }}
       >
-        <div role="group" aria-label="Pedile ayuda al tutor" className="-mx-4 mb-2 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:px-0">
+        <div role="group" aria-label="Pedile ayuda al tutor" className="relative -mx-4 mb-2 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:px-0">
           {INTENT_ORDER.map((k) => (
             <button
               key={k}

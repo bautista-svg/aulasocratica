@@ -9,9 +9,13 @@ export function stepsFor(requireInitialAnswer: boolean): 2 | 3 {
   return requireInitialAnswer ? 3 : 2;
 }
 
-/** Progress expressed in the steps the activity really has (no initial-answer step when it is off). */
-export function progressFor(session: LiveSession, events: LiveEvent[], requireInitialAnswer: boolean): number {
-  const p = progressSteps({ ...session, requireInitialAnswer }, events);
+/**
+ * Progress expressed in the steps the activity really has (no initial-answer step when it is off).
+ * A work the teacher ended counts only the steps the student had completed (never "3 de 3").
+ */
+export function progressFor(session: LiveSession, events: LiveEvent[], requireInitialAnswer: boolean, endedByTeacher = false): number {
+  const s = endedByTeacher && session.status === "completed" ? { ...session, status: "in_progress" } : session;
+  const p = progressSteps({ ...s, requireInitialAnswer }, events);
   return requireInitialAnswer ? p : Math.max(0, p - 1);
 }
 

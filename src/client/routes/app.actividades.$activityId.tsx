@@ -8,6 +8,7 @@ import { Button, buttonClass } from "@client/components/ui/button";
 import { Menu, Tabs } from "@client/components/ui/controls";
 import { ApiError, errorMessage } from "@client/lib/api";
 import { plural } from "@client/lib/format";
+import { usePageTitle } from "@client/lib/page-title";
 import { LivePanel } from "@client/features/live/live-panel";
 import { useActivity, useActivityAction, useSaveActivity } from "@client/features/activities/api";
 import { useActivityForm } from "@client/features/activities/use-activity-form";
@@ -21,6 +22,7 @@ import type { ActivityEditorData } from "@shared/contracts/activities";
 
 const TABS = ["configuracion", "compartir", "en-vivo"] as const;
 type Tab = (typeof TABS)[number];
+const TAB_LABELS: Record<Tab, string> = { configuracion: "Configuración", compartir: "Compartir", "en-vivo": "En vivo" };
 
 export const Route = createFileRoute("/app/actividades/$activityId")({
   validateSearch: z.object({ tab: z.enum(TABS).optional() }),
@@ -30,6 +32,15 @@ export const Route = createFileRoute("/app/actividades/$activityId")({
 function ActivityPage() {
   const { activityId } = Route.useParams();
   const q = useActivity(activityId);
+  const { tab } = Route.useSearch();
+  // One title for the whole screen (a child effect would be overwritten by this one): "Título · En vivo · Aula Socrática".
+  usePageTitle(
+    q.data
+      ? [q.data.title, TAB_LABELS[tab ?? (q.data.status === "published" ? "en-vivo" : "configuracion")]]
+      : q.isError
+        ? "Actividad no encontrada"
+        : "Actividad",
+  );
   if (q.isPending) return <ActivitySkeleton />;
   if (q.isError) {
     return (
@@ -99,6 +110,12 @@ function ActivityEditor({ activity }: { activity: ActivityEditorData }) {
       <Button icon={<ArchiveRestore className="size-4" />} loading={action.isPending && action.variables === "restore"} onClick={restore}>
         Restaurar
       </Button>
+    ) : activity.classroomArchived ? (
+      // Its classroom is archived: there is nothing to share until the classroom is restored.
+      <Link to="/app/aulas/$classroomId" params={{ classroomId: activity.classroomId }} className={buttonClass("secondary")}>
+        <ArchiveRestore className="size-4" aria-hidden="true" />
+        Ir al aula para restaurarla
+      </Link>
     ) : activity.status === "published" ? (
       <Button icon={<Share2 className="size-4" />} onClick={() => goTab("compartir")}>
         Compartir
@@ -112,11 +129,11 @@ function ActivityEditor({ activity }: { activity: ActivityEditorData }) {
   return (
     <>
       <nav aria-label="Ruta" className="mb-3 flex min-w-0 items-center text-sm text-text-3">
-        <Link to="/app/aulas" className="shrink-0 hover:text-ink">
+        <Link to="/app/aulas" className="-my-3 shrink-0 py-3 hover:text-ink">
           Aulas
         </Link>
         <ChevronRight className="mx-1 size-3.5 shrink-0" aria-hidden="true" />
-        <Link to="/app/aulas/$classroomId" params={{ classroomId: activity.classroomId }} className="min-w-0 truncate hover:text-ink">
+        <Link to="/app/aulas/$classroomId" params={{ classroomId: activity.classroomId }} className="-my-3 min-w-0 truncate py-3 hover:text-ink">
           {activity.classroomName}
         </Link>
         <ChevronRight className="mx-1 size-3.5 shrink-0" aria-hidden="true" />

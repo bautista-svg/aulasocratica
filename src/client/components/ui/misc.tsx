@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { AlertTriangle, RefreshCw, WifiOff } from "lucide-react";
+import { Link, useRouterState } from "@tanstack/react-router";
+import { AlertTriangle, RefreshCw, SearchX, WifiOff } from "lucide-react";
 import { cn } from "@client/lib/cn";
-import { Button } from "./button";
+import { Button, buttonClass } from "./button";
 import { ApiError, errorMessage } from "@client/lib/api";
 
 export function Card({ className, children, as: As = "section" }: { className?: string; children: ReactNode; as?: "section" | "div" | "article" | "li" }) {
@@ -75,15 +76,50 @@ export function EmptyState({ icon, title, description, action, className }: { ic
   );
 }
 
-export function ErrorState({ error, onRetry, className }: { error: unknown; onRetry?: () => void; className?: string }) {
+/** Where a teacher can go when something does not exist (anymore): the list that contains it. */
+function exitFor(pathname: string): { to: "/app/aulas" | "/app/informes" | "/app" | "/"; label: string } {
+  if (/^\/app\/(aulas|actividades|sesiones|alumnos)\//.test(pathname)) return { to: "/app/aulas", label: "Ir a mis aulas" };
+  if (pathname.startsWith("/app/informes/")) return { to: "/app/informes", label: "Volver a Informes" };
+  if (pathname.startsWith("/app")) return { to: "/app", label: "Ir al inicio" };
+  return { to: "/", label: "Ir al inicio" };
+}
+
+/**
+ * Load error with a way forward. A 404 ("no existe o no tenés acceso") never offers "Reintentar"
+ * — retrying cannot help — but a way out instead: `notFoundAction` if given; otherwise, when the
+ * caller passed `onRetry`, a link to the list the missing thing belonged to takes its place.
+ * A caller that already handles 404 itself (no `onRetry` + its own link) gets no extra link.
+ */
+export function ErrorState({
+  error,
+  onRetry,
+  className,
+  notFoundAction,
+}: {
+  error: unknown;
+  onRetry?: () => void;
+  className?: string;
+  notFoundAction?: ReactNode;
+}) {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const network = error instanceof ApiError && error.isNetwork;
-  const Icon = network ? WifiOff : AlertTriangle;
+  const notFound = error instanceof ApiError && error.status === 404;
+  const Icon = network ? WifiOff : notFound ? SearchX : AlertTriangle;
+  const exit = exitFor(pathname);
   return (
     <div role="alert" className={cn("flex flex-col items-center rounded-lg border border-rose/20 bg-rose-soft/50 px-6 py-8 text-center", className)}>
       <Icon className="mb-2 size-6 text-rose" aria-hidden="true" />
-      <p className="font-semibold text-text">{network ? "Sin conexión" : "No se pudo cargar"}</p>
+      <p className="font-semibold text-text">{network ? "Sin conexión" : notFound ? "No lo encontramos" : "No se pudo cargar"}</p>
       <p className="mt-1 max-w-md text-sm text-text-2">{errorMessage(error)}</p>
-      {onRetry ? (
+      {notFound ? (
+        notFoundAction ? (
+          <div className="mt-4">{notFoundAction}</div>
+        ) : onRetry && notFoundAction === undefined ? (
+          <Link to={exit.to} className={buttonClass("secondary", "sm", "mt-4")}>
+            {exit.label}
+          </Link>
+        ) : null
+      ) : onRetry ? (
         <Button variant="secondary" size="sm" className="mt-4" icon={<RefreshCw className="size-4" />} onClick={onRetry}>
           Reintentar
         </Button>
@@ -114,7 +150,8 @@ export function Notice({ tone = "ink", title, children, action, className }: { t
     <div className={cn("flex flex-col gap-3 rounded-lg px-4 py-3.5 text-sm sm:flex-row sm:items-center", tones[tone], className)}>
       <div className="min-w-0 flex-1 leading-6">
         {title ? <p className="font-semibold">{title}</p> : null}
-        {children ? <div className={cn(title && "opacity-90")}>{children}</div> : null}
+        {/* Full-strength color: at 90 % opacity the leaf tone fell to 4.4:1 (WCAG 1.4.3). */}
+        {children ? <div>{children}</div> : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>

@@ -38,7 +38,10 @@ export function safeFileName(name: string): string {
 
 export async function saveActivityUploads(activityId: string, files: File[]): Promise<UploadFilesResponse> {
   if (files.length === 0) throw badRequest("Elegí al menos un archivo.");
-  let count = await fileCount(activityId);
+  // Files that could not be read do not count toward the limit, but they cannot pile up forever either.
+  const counts = await fileCount(activityId);
+  let count = counts.usable;
+  let total = counts.total;
   const rejected: UploadFilesResponse["rejected"] = [];
   const createdIds: string[] = [];
   for (const file of files) {
@@ -50,6 +53,10 @@ export async function saveActivityUploads(activityId: string, files: File[]): Pr
     }
     if (count >= MAX_FILES_PER_ACTIVITY) {
       rejected.push({ fileName, error: `"${fileName}": la actividad ya tiene ${MAX_FILES_PER_ACTIVITY} archivos, el máximo. Quitá alguno para sumar otro.` });
+      continue;
+    }
+    if (total >= MAX_FILES_PER_ACTIVITY * 2) {
+      rejected.push({ fileName, error: `"${fileName}": quitá los archivos que no se pudieron leer para sumar otros.` });
       continue;
     }
     const key = newKey("activities", activityId, check.ext);
@@ -69,6 +76,7 @@ export async function saveActivityUploads(activityId: string, files: File[]): Pr
         .returning({ id: schema.activityFiles.id });
       createdIds.push(row!.id);
       count++;
+      total++;
     } catch (err) {
       log.error("activity_file_save_failed", { activityId, ...errorFields(err) });
       await deleteFile(key).catch(() => {});

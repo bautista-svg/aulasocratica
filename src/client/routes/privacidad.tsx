@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { useMe } from "@client/lib/session";
 import { buttonClass } from "@client/components/ui/button";
 import { PublicLayout } from "@client/features/account/public-layout";
-import { usePageTitle } from "@client/features/account/page-title";
+import { usePageTitle } from "@client/lib/page-title";
 
 export const Route = createFileRoute("/privacidad")({
   component: PrivacyPage,
@@ -88,7 +88,10 @@ function PrivacyPage() {
               <strong>Del docente</strong>
             </p>
             <ul>
-              <li>El nombre que le pongas a tu espacio, si le ponés uno.</li>
+              <li>
+                El nombre que le pongas a tu espacio, si le ponés uno. Lo ven tus alumnos en la pantalla de entrada de tus actividades («Con Profe
+                Laura»).
+              </li>
               <li>
                 Si creás una cuenta: tu correo, una huella (hash) de tu contraseña y otra del código de recuperación. Con esas huellas se puede
                 comprobar que la contraseña es correcta, pero no se puede saber cuál es.
@@ -121,7 +124,10 @@ function PrivacyPage() {
                 Sugerencias de la IA sobre su trabajo (resúmenes, niveles de rúbrica propuestos, alertas e interpretaciones) y lo que el docente
                 decide sobre ellas: confirmarlas, editarlas o descartarlas.
               </li>
-              <li>Un dato guardado en su dispositivo para poder seguir donde dejó, y un código corto para continuar desde otro dispositivo.</li>
+              <li>
+                Un dato guardado en su dispositivo para poder seguir donde dejó (y lo que escribió y todavía no envió, que se borra al enviarlo o a
+                los 30 días), y un código corto para continuar desde otro dispositivo.
+              </li>
             </ul>
           </Section>
 

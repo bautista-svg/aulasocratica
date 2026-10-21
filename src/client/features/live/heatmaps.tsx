@@ -5,11 +5,12 @@ import { useState } from "react";
 import { cn } from "@client/lib/cn";
 import { Tabs } from "@client/components/ui/controls";
 import { Select } from "@client/components/ui/field";
-import { fmtTime } from "@client/lib/format";
-
-const hhmm = new Intl.DateTimeFormat("es-AR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 import { formatDuration, intensity } from "@shared/domain/live-monitor";
 import { LIVE_WINDOWS, LIVE_WINDOW_LABELS, type LiveSnapshot, type LiveWindow } from "@shared/contracts/live";
+
+// One clock for the whole heatmap: 24 h, like the column headers (no "a. m.").
+const hhmm = new Intl.DateTimeFormat("es-AR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+const fmtTime = (iso: string) => hhmm.format(new Date(iso));
 
 const SCALE = [
   "bg-sunken text-text-3",
@@ -57,7 +58,8 @@ function HeatTable({
   const colMax = columns.map((_, i) => rows.reduce((m, r) => Math.max(m, r.values[i] ?? 0), 0));
   const gridMax = Math.max(0, ...colMax);
   return (
-    <div role="region" aria-label={caption} tabIndex={0} className="max-w-full overflow-x-auto rounded-md border border-line focus-visible:outline-2">
+    // relative: keeps sr-only content inside the scroll box (otherwise it widened the page on phones).
+    <div role="region" aria-label={caption} tabIndex={0} className="relative max-w-full overflow-x-auto rounded-md border border-line focus-visible:outline-2">
       <table className="w-full border-collapse text-sm">
         <caption className="sr-only">{caption}</caption>
         <thead>
@@ -128,13 +130,13 @@ export function Heatmaps({ snapshot, window, onWindowChange }: { snapshot: LiveS
           content: (
             <div>
               <HeatTable
-                caption="Cantidad de mensajes y pedidos de ayuda por alumno"
+                caption="Cantidad de mensajes escritos y pedidos de ayuda por alumno"
                 columns={help.columns}
                 rows={help.rows}
                 mode="column"
                 footer={{ label: "Total del grupo", values: help.totals }}
               />
-              <Legend note="Cada número cuenta veces. El color compara a cada alumno con el resto del grupo en esa columna; no indica si está bien o mal." />
+              <Legend note="Cada número cuenta veces. «Mensajes escritos» son los que el alumno escribió o dictó sin usar un botón (el mismo número que en su trabajo y en el PDF); los botones de ayuda tienen su propia columna. El color compara a cada alumno con el resto del grupo en esa columna; no indica si está bien o mal." />
             </div>
           ),
         },

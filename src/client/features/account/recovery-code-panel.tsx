@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Download, KeyRound } from "lucide-react";
 import { Button } from "@client/components/ui/button";
 import { Checkbox, CopyButton } from "@client/components/ui/controls";
+import { fmtFullDateTime } from "@client/lib/format";
 import { LeaveGuard } from "./leave-guard";
 
 /**
@@ -35,7 +36,7 @@ export function RecoveryCodePanel({
       "",
       email ? `Cuenta: ${email}` : null,
       `Código: ${code}`,
-      `Generado: ${new Date().toLocaleString("es-AR")}`,
+      `Generado: ${fmtFullDateTime(new Date())}`,
       "",
       "Sirve una sola vez para crear una contraseña nueva si te olvidás la actual",
       "(en la pantalla Ingresar > Olvidé mi contraseña). Guardalo en un lugar seguro.",

@@ -91,3 +91,14 @@ export function TutorTypeTile({ type, className, size = "md" }: { type: string; 
 
 export const typeLabel = (type: string) => TUTOR_TYPES[type] ?? "Tipo propio";
 export const helpLabel = (level: string) => HELP_LEVELS[level]?.label ?? "Andamiaje moderado";
+
+/**
+ * One line per tutor in a <select>: the type only when it says something the name does not
+ * ("Tutor de fracciones · Matemático", never "Argumentación · Argumentación"), and "(editado)"
+ * when the teacher changed a built-in one — that edited version is the one that gets copied.
+ */
+export function tutorOptionLabel(t: { name: string; tutorType: string; presetKey: string | null; customized: boolean }): string {
+  const type = typeLabel(t.tutorType);
+  const base = t.name.trim().toLocaleLowerCase("es") === type.toLocaleLowerCase("es") ? t.name : `${t.name} · ${type}`;
+  return t.customized ? `${base} (editado)` : base;
+}

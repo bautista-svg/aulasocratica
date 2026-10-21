@@ -13,6 +13,7 @@ import { HELP_LEVELS, TUTOR_TYPE_GUIDANCE, TUTOR_TYPES } from "@shared/domain/pe
 import { presetValues } from "@shared/domain/tutor-presets";
 import type { TutorDetail, TutorSummary } from "@shared/contracts/tutors";
 import { useTutor, useTutorMutations } from "./api";
+import { newRequestId, useRequestId, useSingleFlight } from "@client/features/activities/single-flight";
 import { HelpLevelField, TutorTypeField } from "./tutor-fields";
 import { TutorTypeTile } from "./tutor-visual";
 
@@ -117,6 +118,9 @@ export function TutorEditorDialog({
 }) {
   const detail = useTutor(open ? tutorId : null);
   const m = useTutorMutations();
+  const startSave = useSingleFlight(m.create.isPending || m.update.isPending);
+  const startDuplicate = useSingleFlight(m.duplicate.isPending);
+  const requestId = useRequestId(open);
   const [values, setValues] = useState<TutorValues>(newTutorValues);
   const [initial, setInitial] = useState<TutorValues>(newTutorValues);
   const [confirm, setConfirm] = useState<null | "discard" | "restore" | "delete">(null);
@@ -180,7 +184,8 @@ export function TutorEditorDialog({
   };
 
   const save = () => {
-    if (!values.name.trim()) return;
+    // Enter + click or a double click: one tutor, never two.
+    if (!values.name.trim() || !startSave()) return;
     if (tutorId) {
       m.update.mutate(
         { id: tutorId, data: values },
@@ -195,7 +200,7 @@ export function TutorEditorDialog({
         },
       );
     } else {
-      m.create.mutate(values, {
+      m.create.mutate({ ...values, requestId }, {
         onSuccess: (r) => {
           setInitial(values);
           toast.success("Tutor creado");
@@ -420,7 +425,8 @@ export function TutorEditorDialog({
   );
 
   function duplicate(id: string) {
-    m.duplicate.mutate(id, {
+    if (!startDuplicate()) return;
+    m.duplicate.mutate({ id, requestId: newRequestId() }, {
       onSuccess: (r) => {
         toast.success(`Creaste «${r.tutor.name}»`);
         setInitial(values);

@@ -62,7 +62,10 @@ export function isLongMaterial(writtenChars: number, files: ActivityFile[]) {
 export function MaterialFiles({ activityId, writtenChars }: { activityId: string; writtenChars: number }) {
   const files = useActivityFiles(activityId);
   const qc = useQueryClient();
+  const fileMutations = useFileMutations(activityId);
   const inputRef = useRef<HTMLInputElement>(null);
+  /** "Subir otra versión" of a file that could not be read: the next picked file replaces it. */
+  const replacing = useRef<string | null>(null);
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [dragging, setDragging] = useState(false);
   const [announce, setAnnounce] = useState("");
@@ -71,13 +74,18 @@ export function MaterialFiles({ activityId, writtenChars }: { activityId: string
 
   const list = files.data ?? [];
   const inFlight = uploads.filter((u) => !u.error).length;
-  const remaining = MAX_FILES_PER_ACTIVITY - list.length - inFlight;
+  // Files that could not be read do not count toward the limit (the server applies the same rule).
+  const failed = list.filter((f) => f.processingStatus === "failed").length;
+  const usable = list.length - failed;
+  const remaining = MAX_FILES_PER_ACTIVITY - usable - inFlight;
   const long = isLongMaterial(writtenChars, list);
 
   const update = (key: string, patch: Partial<Upload>) => setUploads((u) => u.map((x) => (x.key === key ? { ...x, ...patch } : x)));
 
   function pick(fileList: FileList | File[] | null) {
-    const picked = Array.from(fileList ?? []);
+    const replaceId = replacing.current;
+    replacing.current = null;
+    const picked = Array.from(fileList ?? []).slice(0, replaceId ? 1 : undefined);
     if (!picked.length) return;
     let room = remaining;
     for (const file of picked) {
@@ -97,12 +105,12 @@ export function MaterialFiles({ activityId, writtenChars }: { activityId: string
       room--;
       setUploads((u) => [...u, { key, name: file.name, size: file.size, progress: 0 }]);
       // One upload at a time: steady progress and no overload on slow school connections.
-      queue.current = queue.current.then(() => send(key, file));
+      queue.current = queue.current.then(() => send(key, file, replaceId));
     }
     if (inputRef.current) inputRef.current.value = "";
   }
 
-  async function send(key: string, original: File) {
+  async function send(key: string, original: File, replaceId: string | null = null) {
     try {
       const file = original.type.startsWith("image/") ? await prepareImage(original) : original;
       const form = new FormData();
@@ -112,6 +120,10 @@ export function MaterialFiles({ activityId, writtenChars }: { activityId: string
       void qc.invalidateQueries({ queryKey: activityKeys.files(activityId) });
       setUploads((u) => u.filter((x) => x.key !== key));
       setAnnounce(`Se subió ${original.name}. Ahora se está leyendo.`);
+      if (replaceId) {
+        // The new version is in: the one that could not be read goes away.
+        await fileMutations.remove.mutateAsync(replaceId).catch(() => toast.error("Se subió la versión nueva, pero no se pudo quitar la anterior. Quitala desde su menú."));
+      }
     } catch (e) {
       update(key, { error: errorMessage(e) || `No se pudo subir "${original.name}".` });
     }
@@ -134,6 +146,7 @@ export function MaterialFiles({ activityId, writtenChars }: { activityId: string
         onDrop={(e) => {
           e.preventDefault();
           setDragging(false);
+          replacing.current = null;
           pick(e.dataTransfer.files);
         }}
         className={cn(
@@ -161,11 +174,17 @@ export function MaterialFiles({ activityId, writtenChars }: { activityId: string
           aria-hidden="true"
           onChange={(e) => pick(e.target.files)}
         />
-        <Button variant="secondary" icon={<Upload className="size-4" />} aria-describedby={hintId} disabled={remaining <= 0} onClick={() => inputRef.current?.click()}>
+        <Button variant="secondary" icon={<Upload className="size-4" />} aria-describedby={hintId} disabled={remaining <= 0}
+          onClick={() => {
+            replacing.current = null;
+            inputRef.current?.click();
+          }}
+        >
           Elegir archivos
         </Button>
         <p className="text-xs text-text-3 tabular">
-          {list.length} de {MAX_FILES_PER_ACTIVITY} archivos
+          {usable} de {MAX_FILES_PER_ACTIVITY} archivos
+          {failed ? ` · ${plural(failed, "no se pudo leer y no cuenta", "no se pudieron leer y no cuentan")}` : ""}
         </p>
       </div>
 
@@ -216,7 +235,16 @@ export function MaterialFiles({ activityId, writtenChars }: { activityId: string
         ) : list.length ? (
           <ul className="space-y-2" aria-label="Archivos de la actividad">
             {list.map((f) => (
-              <FileRow key={f.id} activityId={activityId} file={f} long={long} />
+              <FileRow
+                key={f.id}
+                activityId={activityId}
+                file={f}
+                long={long}
+                onReplace={() => {
+                  replacing.current = f.id;
+                  inputRef.current?.click();
+                }}
+              />
             ))}
           </ul>
         ) : null}
@@ -240,7 +268,7 @@ function statusLine(f: ActivityFile, long: boolean): string | null {
   return `Listo: ${use}.`;
 }
 
-function FileRow({ activityId, file: f, long }: { activityId: string; file: ActivityFile; long: boolean }) {
+function FileRow({ activityId, file: f, long, onReplace }: { activityId: string; file: ActivityFile; long: boolean; onReplace: () => void }) {
   const m = useFileMutations(activityId);
   const [removing, setRemoving] = useState(false);
   const [preview, setPreview] = useState(false);
@@ -279,13 +307,26 @@ function FileRow({ activityId, file: f, long }: { activityId: string; file: Acti
           {line ? <p className="mt-1 text-[13px] leading-5 text-text-2">{line}</p> : null}
           {readerNote ? <p className="mt-1 text-[13px] leading-5 text-text-3">{readerNote}</p> : null}
           {f.processingStatus === "failed" ? (
-            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="mt-2 grid gap-2">
               <p role="alert" className="text-[13px] leading-5 text-rose">
                 {f.processingError ?? "No se pudo leer el archivo."}
               </p>
-              <Button size="sm" variant="secondary" icon={<RotateCcw className="size-4" />} loading={m.retry.isPending} onClick={retry} className="self-start">
-                Reintentar
-              </Button>
+              <p className="text-[13px] leading-5 text-text-2">El tutor no lo usa y no cuenta en el límite de archivos.</p>
+              <div className="flex flex-wrap gap-2">
+                {/* Reading a damaged or protected file again cannot work: offer only what can (D35). */}
+                {f.retryable ? (
+                  <Button size="sm" variant="secondary" icon={<RotateCcw className="size-4" />} loading={m.retry.isPending} onClick={retry}>
+                    Reintentar
+                  </Button>
+                ) : null}
+                {/* whitespace-normal: at 320 px the file column is narrower than the label. */}
+                <Button size="sm" variant="secondary" icon={<Upload className="size-4" />} onClick={onReplace} className="h-auto min-h-9 py-1.5 text-left whitespace-normal">
+                  Subir otra versión
+                </Button>
+                <Button size="sm" variant="ghost" icon={<Trash2 className="size-4" />} onClick={() => setRemoving(true)}>
+                  Quitar
+                </Button>
+              </div>
             </div>
           ) : stuck ? (
             <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">

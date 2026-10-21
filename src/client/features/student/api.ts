@@ -2,6 +2,7 @@
 // client only ever sends the link token in the URL.
 import { useQuery, type QueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@client/lib/api";
+import { rememberLink } from "./hooks";
 import type {
   ChatInput,
   FinishInput,
@@ -19,10 +20,19 @@ const base = (token: string) => `/api/s/${encodeURIComponent(token)}`;
 export function useStudentLink(token: string) {
   return useQuery({
     queryKey: studentKey(token),
-    queryFn: ({ signal }) => api.get<StudentLinkInfo>(base(token), signal),
+    queryFn: async ({ signal }) => {
+      const info = await api.get<StudentLinkInfo>(base(token), signal);
+      rememberLink(token);
+      return info;
+    },
     // While a reply is still being written on the server (e.g. after a reload), check often;
     // otherwise a slow heartbeat notices when the teacher closes the link or ends the session.
-    refetchInterval: (query) => (query.state.data?.workspace?.replyPending ? 2000 : 60_000),
+    // A link that no longer exists (replaced by a new one) is not asked again.
+    refetchInterval: (query) => {
+      const err = query.state.error;
+      if (query.state.status === "error" && err instanceof ApiError && err.status === 404) return false;
+      return query.state.data?.workspace?.replyPending && query.state.status !== "error" ? 2000 : 60_000;
+    },
     refetchIntervalInBackground: false,
     staleTime: 10_000,
   });

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Bot, Copy, MoreHorizontal, Pencil, Plus, RotateCcw, Sparkles, Trash2 } from "lucide-react";
 import { z } from "zod";
@@ -10,6 +10,8 @@ import { ConfirmDialog } from "@client/components/ui/dialog";
 import { cn } from "@client/lib/cn";
 import { errorMessage } from "@client/lib/api";
 import { plural } from "@client/lib/format";
+import { usePageTitle } from "@client/lib/page-title";
+import { newRequestId, useSingleFlight } from "@client/features/activities/single-flight";
 import { useTutorMutations, useTutors } from "@client/features/tutors/api";
 import { TutorEditorDialog } from "@client/features/tutors/tutor-editor";
 import { UseTutorDialog } from "@client/features/tutors/use-tutor-dialog";
@@ -48,9 +50,8 @@ function TutorsPage() {
   const [restoring, setRestoring] = useState<TutorSummary | null>(null);
   const [deleting, setDeleting] = useState<TutorSummary | null>(null);
 
-  useEffect(() => {
-    document.title = "Mis tutores · Aula Socrática";
-  }, []);
+  usePageTitle("Mis tutores");
+  const startDuplicate = useSingleFlight(m.duplicate.isPending);
 
   const counts = useMemo(() => {
     const list = q.data ?? [];
@@ -70,14 +71,16 @@ function TutorsPage() {
     ].filter((s) => s.items.length);
   }, [q.data, filtro]);
 
-  const duplicate = (t: TutorSummary) =>
-    m.duplicate.mutate(t.id, {
+  const duplicate = (t: TutorSummary) => {
+    if (!startDuplicate()) return;
+    m.duplicate.mutate({ id: t.id, requestId: newRequestId() }, {
       onSuccess: (r) => {
         toast.success(`Creaste «${r.tutor.name}»`);
         setEditing({ id: r.tutor.id });
       },
       onError: (e) => toast.error(errorMessage(e)),
     });
+  };
 
   return (
     <>
@@ -99,12 +102,12 @@ function TutorsPage() {
             aria-pressed={filtro === f.value}
             onClick={() => void navigate({ search: f.value === "todos" ? {} : { filtro: f.value }, replace: true })}
             className={cn(
-              "inline-flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition-colors",
+              "inline-flex h-11 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition-colors",
               filtro === f.value ? "border-ink bg-ink text-white" : "border-line-strong bg-surface text-text-2 hover:border-ink/40 hover:text-ink",
             )}
           >
             {f.label}
-            {q.data ? <span className={cn("tabular text-xs", filtro === f.value ? "text-white/80" : "text-text-3")}>{counts[f.value]}</span> : null}
+            {q.data ? <span className="tabular text-xs">{counts[f.value]}</span> : null}
           </button>
         ))}
       </div>
@@ -229,33 +232,46 @@ function TutorCard({
 }) {
   const info = TUTOR_TYPE_INFO[t.tutorType];
   const showType = !t.presetKey || t.name !== typeLabel(t.tutorType);
+  const uid = useId();
   return (
-    <article className="relative flex h-full flex-col rounded-lg border border-line bg-surface shadow-1 transition-[border-color,box-shadow] hover:border-line-strong hover:shadow-2">
-      <button
-        type="button"
-        onClick={onOpen}
-        className="flex flex-1 flex-col rounded-lg p-5 pr-14 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lilac-ink"
-        aria-label={`Abrir ${t.name}`}
-      >
-        <span className="flex items-start gap-3">
-          <TutorTypeTile type={t.tutorType} />
-          <span className="min-w-0">
-            <span className="block font-display text-lg leading-snug font-semibold text-ink">{t.name}</span>
-            {showType ? <span className="block text-sm text-text-2">{typeLabel(t.tutorType)}</span> : null}
-          </span>
-        </span>
-        {info ? <span className="mt-3 line-clamp-3 text-sm leading-6 text-text-2">{info.description}</span> : null}
-        <span className="mt-auto flex flex-wrap gap-1.5 pt-4">
-          <Badge tone="neutral">{helpLabel(t.helpLevel)}</Badge>
-          {t.customized ? <Badge tone="lilac">Editado</Badge> : null}
-          {!t.presetKey ? <Badge tone="ink">Propio</Badge> : null}
-          {t.usedInActivities ? <Badge tone="leaf">{plural(t.usedInActivities, "actividad", "actividades")}</Badge> : null}
-        </span>
-      </button>
-      <div className="absolute top-3 right-3">
+    // The whole card opens the tutor, but the button is only the name: its accessible name is exactly
+    // the visible text (WCAG 2.5.3, D15); type, description and badges are its description.
+    <article className="relative flex h-full flex-col rounded-lg border border-line bg-surface p-5 pr-14 shadow-1 transition-[border-color,box-shadow] has-[.tutor-open:focus-visible]:outline-2 has-[.tutor-open:focus-visible]:outline-offset-2 has-[.tutor-open:focus-visible]:outline-lilac-ink hover:border-line-strong hover:shadow-2">
+      <div className="flex items-start gap-3">
+        <TutorTypeTile type={t.tutorType} />
+        <div className="min-w-0">
+          <h3 className="font-display text-lg leading-snug font-semibold text-ink">
+            <button
+              type="button"
+              onClick={onOpen}
+              aria-describedby={[showType ? `${uid}-type` : "", info ? `${uid}-desc` : "", `${uid}-badges`].filter(Boolean).join(" ")}
+              className="tutor-open text-left outline-none after:absolute after:inset-0 after:rounded-lg after:content-['']"
+            >
+              {t.name}
+            </button>
+          </h3>
+          {showType ? (
+            <p id={`${uid}-type`} className="text-sm text-text-2">
+              {typeLabel(t.tutorType)}
+            </p>
+          ) : null}
+        </div>
+      </div>
+      {info ? (
+        <p id={`${uid}-desc`} className="mt-3 line-clamp-3 text-sm leading-6 text-text-2">
+          {info.description}
+        </p>
+      ) : null}
+      <p id={`${uid}-badges`} className="mt-auto flex flex-wrap gap-1.5 pt-4">
+        <Badge tone="neutral">{helpLabel(t.helpLevel)}</Badge>
+        {t.customized ? <Badge tone="lilac">Editado</Badge> : null}
+        {!t.presetKey ? <Badge tone="ink">Propio</Badge> : null}
+        {t.usedInActivities ? <Badge tone="leaf">{plural(t.usedInActivities, "actividad", "actividades")}</Badge> : null}
+      </p>
+      <div className="absolute top-3 right-3 z-10">
         <Menu
           trigger={
-            <Button variant="ghost" size="icon" aria-label={`Más opciones de ${t.name}`}>
+            <Button variant="ghost" size="icon" aria-label={`Más opciones de ${t.name}`} className="size-11">
               <MoreHorizontal className="size-5" />
             </Button>
           }

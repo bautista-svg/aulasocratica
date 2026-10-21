@@ -236,3 +236,38 @@ describe("create the activity from a proposal", () => {
     expect(invalid.body.error.fields["proposal.title"]).toBeTruthy();
   });
 });
+
+describe("UI audit fixes in Crear con IA", () => {
+  it("D01: 'Crear y publicar' sent twice with the same requestId creates one published activity (one link)", async () => {
+    const a = await newTeacher();
+    const room = await newClassroom(a.cookie);
+    const requestId = crypto.randomUUID();
+    const body = { classroomId: room, proposal: aiProposal(), publish: true, requestId };
+    const [r1, r2] = await Promise.all([
+      call("POST", "/api/planning/create", { cookie: a.cookie, body }),
+      call("POST", "/api/planning/create", { cookie: a.cookie, body }),
+    ]);
+    expect([r1.status, r2.status]).toEqual([201, 201]);
+    expect(r1.body.activityId).toBe(r2.body.activityId);
+    const acts = await db.select().from(schema.activities).where(eq(schema.activities.classroomId, room));
+    expect(acts).toHaveLength(1);
+    expect(acts[0]!.status).toBe("published");
+    // The draft button is a different request (other data): it creates its own activity.
+    const draft = await call("POST", "/api/planning/create", { cookie: a.cookie, body: { ...body, publish: false } });
+    expect(draft.body.activityId).not.toBe(r1.body.activityId);
+  });
+
+  it("D04: with the teacher's preset of the suggested type, its edits are copied", async () => {
+    const a = await newTeacher();
+    const room = await newClassroom(a.cookie);
+    const tutors = await call("GET", "/api/tutors", { cookie: a.cookie });
+    const preset = tutors.body.tutors.find((t: { presetKey: string | null }) => t.presetKey === "comprension_lectora");
+    await call("PATCH", `/api/tutors/${preset.id}`, { cookie: a.cookie, body: { rules: "REGLA-EDITADA: citá la página." } });
+    const r = await call("POST", "/api/planning/create", { cookie: a.cookie, body: { classroomId: room, proposal: aiProposal(), tutorId: preset.id } });
+    expect(r.status).toBe(201);
+    const [act] = await db.select().from(schema.activities).where(eq(schema.activities.id, r.body.activityId));
+    expect(act!.tutorId).toBe(preset.id);
+    expect(act!.tutorRules).toContain("REGLA-EDITADA: citá la página.");
+    expect(act!.tutorRules).toContain("Indicaciones para esta actividad: Preguntá por la evaporación.");
+  });
+});

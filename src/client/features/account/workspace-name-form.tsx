@@ -41,7 +41,11 @@ export function WorkspaceNameForm({
       <Field
         className="min-w-0 flex-1"
         label={compact ? "¿Cómo querés que te llamemos?" : "Tu nombre o el de tu espacio"}
-        hint={compact ? undefined : "Aparece en el saludo de Inicio y en el menú. Tus alumnos no lo ven."}
+        hint={
+          compact
+            ? "Tus alumnos también lo ven al entrar a una actividad."
+            : "Aparece en el saludo de Inicio y en el menú. Tus alumnos también lo ven: figura en la pantalla de entrada de tus actividades («Con Profe Laura»)."
+        }
         error={fieldError}
       >
         {(p) => (

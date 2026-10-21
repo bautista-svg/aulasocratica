@@ -100,9 +100,15 @@ export function useUpdateLink(id: string) {
 export function useDuplicateActivity(id: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (classroomId: string) => api.post<DuplicateResponse>(`/api/activities/${id}/duplicate`, { classroomId }),
+    mutationFn: (body: { classroomId: string; requestId: string }) => api.post<DuplicateResponse>(`/api/activities/${id}/duplicate`, body),
     onSuccess: (r) => storeActivity(qc, r.activity),
   });
+}
+
+/** Drops every cached query of a deleted activity (call after navigating away from it). */
+export function forgetActivity(qc: QueryClient, id: string) {
+  qc.removeQueries({ queryKey: activityKeys.one(id) });
+  qc.removeQueries({ queryKey: ["live", id] });
 }
 
 export function useResetActivity(id: string) {
@@ -124,7 +130,9 @@ export function useDeleteActivity(id: string) {
   return useMutation({
     mutationFn: () => api.del<{ ok: true; classroomId: string }>(`/api/activities/${id}`, { confirm: "BORRAR" }),
     onSuccess: (r) => {
-      qc.removeQueries({ queryKey: activityKeys.one(id) });
+      // Stop the editor's polling (activity, files, live); the queries are removed after leaving the page.
+      void qc.cancelQueries({ queryKey: activityKeys.one(id) });
+      void qc.cancelQueries({ queryKey: ["live", id] });
       void qc.invalidateQueries({ queryKey: ["classrooms", r.classroomId] });
       void qc.invalidateQueries({ queryKey: ["dashboard"] });
     },

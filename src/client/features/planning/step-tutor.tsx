@@ -11,7 +11,7 @@ import { TUTOR_TYPE_GUIDANCE } from "@shared/domain/pedagogy";
 import { MAX_TUTOR_RULES } from "@shared/domain/tutors";
 import { composeActivityRules, type ClassProposal } from "@shared/domain/planning";
 import type { TutorSummary } from "@shared/contracts/tutors";
-import type { WizardState } from "./wizard-state";
+import { effectiveTutorId, type WizardState } from "./wizard-state";
 
 const DROPPED: Record<string, string> = {
   indicaciones: "las indicaciones de la propuesta",
@@ -21,7 +21,9 @@ const DROPPED: Record<string, string> = {
 
 export function StepTutor({ state: s, update }: { state: WizardState; update: (p: Partial<WizardState>) => void }) {
   const tutors = useTutors();
-  const detail = useTutor(s.tutorId);
+  // Default (D04): the teacher's own version of the suggested type, with their edits — never the base preset.
+  const tutorId = effectiveTutorId(s, tutors.data);
+  const detail = useTutor(tutorId);
   const [showAll, setShowAll] = useState(false);
   const name = useId();
   const typeId = useId();
@@ -36,9 +38,9 @@ export function StepTutor({ state: s, update }: { state: WizardState; update: (p
     return { short: [...recommended, ...mine], all: [...recommended, ...mine, ...rest] };
   }, [tutors.data, draft.tutorType]);
   const shown = showAll ? list.all : list.short;
-  const selectedOutside = s.tutorId && !shown.some((t) => t.id === s.tutorId);
+  const selectedOutside = tutorId && !shown.some((t) => t.id === tutorId);
 
-  const chosen = s.tutorId ? detail.data : null;
+  const chosen = tutorId ? detail.data : null;
   const rules = composeActivityRules({
     guidance: draft.tutorGuidance,
     tutorRules: chosen ? tutorRulesPreview(chosen).text : "",
@@ -46,47 +48,16 @@ export function StepTutor({ state: s, update }: { state: WizardState; update: (p
   });
   const type = chosen?.tutorType ?? draft.tutorType;
   const help = chosen?.helpLevel ?? draft.helpLevel;
+  const manual = !tutorId && !tutors.isPending;
 
   return (
     <div className="grid gap-6">
       <fieldset className="grid gap-2">
         <legend className="mb-2 text-sm font-semibold text-text">¿Con qué tutor trabaja esta actividad?</legend>
+        <p className="-mt-1 mb-1 text-[13px] leading-5 text-text-3">
+          Los de Mis tutores se copian con tus cambios. {s.chosen !== -1 ? "Marcamos el del tipo que sugiere la propuesta." : null}
+        </p>
 
-        <label
-          className={cn(
-            "flex cursor-pointer gap-3 rounded-lg border px-4 py-3.5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-lilac-ink",
-            !s.tutorId ? "border-ink bg-ink-soft/50" : "border-line-strong bg-surface hover:border-ink/40",
-          )}
-        >
-          <input type="radio" name={name} checked={!s.tutorId} onChange={() => update({ tutorId: null })} className="mt-1 size-4 accent-[var(--color-ink)]" />
-          <span className="min-w-0 flex-1">
-            <span className="flex flex-wrap items-center gap-2 font-semibold text-text">
-              {s.chosen === -1 ? "Elegir el tipo de tutor acá" : "La sugerencia de la propuesta"}
-              {s.chosen !== -1 ? (
-                <Badge tone="lilac">
-                  <Sparkles className="size-3" aria-hidden="true" />
-                  IA
-                </Badge>
-              ) : null}
-            </span>
-            <span className="block text-sm text-text-2">
-              {typeLabel(draft.tutorType)} · {helpLabel(draft.helpLevel)}, con las indicaciones de la actividad.
-            </span>
-          </span>
-        </label>
-        {!s.tutorId ? (
-          <div className="grid gap-4 rounded-lg border border-line bg-paper px-4 py-4">
-            <div className="grid gap-1.5">
-              <label className="text-sm font-semibold text-text" htmlFor={typeId}>
-                Tipo de tutor
-              </label>
-              <TutorTypeField id={typeId} value={draft.tutorType} onChange={(v) => setDraft({ tutorType: v })} />
-            </div>
-            <HelpLevelField value={draft.helpLevel} onChange={(v) => setDraft({ helpLevel: v })} />
-          </div>
-        ) : null}
-
-        <p className="mt-3 text-sm font-semibold text-text">O uno de Mis tutores</p>
         {tutors.isPending ? (
           <Skeleton className="h-28 w-full" />
         ) : tutors.isError ? (
@@ -94,9 +65,15 @@ export function StepTutor({ state: s, update }: { state: WizardState; update: (p
         ) : (
           <>
             <ul className="grid gap-2 sm:grid-cols-2">
-              {[...(selectedOutside ? list.all.filter((t) => t.id === s.tutorId) : []), ...shown].map((t) => (
+              {[...(selectedOutside ? list.all.filter((t) => t.id === tutorId) : []), ...shown].map((t) => (
                 <li key={t.id}>
-                  <TutorOption tutor={t} name={name} checked={s.tutorId === t.id} recommended={t.presetKey === draft.tutorType} onPick={() => update({ tutorId: t.id })} />
+                  <TutorOption
+                    tutor={t}
+                    name={name}
+                    checked={tutorId === t.id}
+                    recommended={s.chosen !== -1 && t.presetKey === draft.tutorType}
+                    onPick={() => update({ tutorId: t.id, tutorAuto: false })}
+                  />
                 </li>
               ))}
             </ul>
@@ -107,6 +84,46 @@ export function StepTutor({ state: s, update }: { state: WizardState; update: (p
             ) : null}
           </>
         )}
+
+        <label
+          className={cn(
+            "mt-2 flex cursor-pointer gap-3 rounded-lg border px-4 py-3.5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-lilac-ink",
+            manual ? "border-ink bg-ink-soft/50" : "border-line-strong bg-surface hover:border-ink/40",
+          )}
+        >
+          <input
+            type="radio"
+            name={name}
+            checked={manual}
+            onChange={() => update({ tutorId: null, tutorAuto: false })}
+            className="mt-1 size-4 accent-[var(--color-ink)]"
+          />
+          <span className="min-w-0 flex-1">
+            <span className="flex flex-wrap items-center gap-2 font-semibold text-text">
+              Sin un tutor guardado: elegir el tipo y la ayuda acá
+              {s.chosen !== -1 ? (
+                <Badge tone="lilac">
+                  <Sparkles className="size-3" aria-hidden="true" />
+                  Sugerencia de la IA
+                </Badge>
+              ) : null}
+            </span>
+            <span className="block text-sm text-text-2">
+              {typeLabel(draft.tutorType)} · {helpLabel(draft.helpLevel)}, solo con las indicaciones de la actividad.
+            </span>
+          </span>
+        </label>
+        {manual ? (
+          <div className="grid gap-4 rounded-lg border border-line bg-paper px-4 py-4">
+            <div className="grid gap-1.5">
+              <label className="text-sm font-semibold text-text" htmlFor={typeId}>
+                Tipo de tutor
+              </label>
+              <TutorTypeField id={typeId} value={draft.tutorType} onChange={(v) => setDraft({ tutorType: v })} />
+            </div>
+            <HelpLevelField value={draft.helpLevel} onChange={(v) => setDraft({ helpLevel: v })} />
+          </div>
+        ) : null}
       </fieldset>
 
       <section aria-labelledby="rules-preview" className="rounded-lg border border-line bg-paper px-4 py-4">
@@ -116,9 +133,9 @@ export function StepTutor({ state: s, update }: { state: WizardState; update: (p
         <p className="mt-0.5 text-[13px] leading-5 text-text-3">
           Se suma debajo de las reglas generales del tutor socrático. La actividad guarda una copia: si después editás el tutor en Mis tutores, esta actividad no cambia.
         </p>
-        {s.tutorId && detail.isPending ? (
+        {tutorId && detail.isPending ? (
           <Skeleton className="mt-3 h-20 w-full" />
-        ) : s.tutorId && detail.isError ? (
+        ) : tutorId && detail.isError ? (
           <div className="mt-3">
             <ErrorState error={detail.error} onRetry={() => void detail.refetch()} />
           </div>
@@ -128,6 +145,7 @@ export function StepTutor({ state: s, update }: { state: WizardState; update: (p
               <TutorTypeTile type={type} size="sm" />
               <Badge tone="ink">{typeLabel(type)}</Badge>
               <Badge tone="neutral">{helpLabel(help)}</Badge>
+              {chosen?.customized ? <Badge tone="lilac">Con tus cambios</Badge> : null}
             </div>
             {TUTOR_TYPE_GUIDANCE[type] ? (
               <p className="mt-3 text-sm leading-6 text-text-2">

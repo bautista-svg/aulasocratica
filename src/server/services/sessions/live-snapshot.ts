@@ -14,6 +14,7 @@ import {
   lastSignalAt,
   liveStatus,
   stageDurations,
+  stageReached,
   type LiveEvent,
   type LiveSession,
   type Stage,
@@ -60,6 +61,8 @@ export async function liveSnapshot(activity: Activity, window: LiveWindow, nowMs
             sessionId: schema.pedagogicalEvents.sessionId,
             eventType: schema.pedagogicalEvents.eventType,
             createdAt: schema.pedagogicalEvents.createdAt,
+            // Only this flag of the details (never student content): set on "session_entered" by the student module.
+            fromRoster: sql<boolean>`coalesce(("pedagogical_events"."details"->>'fromRoster')::boolean, false)`,
           })
           .from(schema.pedagogicalEvents)
           .innerJoin(schema.learningSessions, eq(schema.learningSessions.id, schema.pedagogicalEvents.sessionId))
@@ -95,10 +98,12 @@ export async function liveSnapshot(activity: Activity, window: LiveWindow, nowMs
     : [[], [], [], []];
 
   const eventsBySession = new Map<string, LiveEvent[]>();
+  const rosterEntries = new Set<string>();
   for (const e of events) {
     const list = eventsBySession.get(e.sessionId) ?? [];
     list.push({ eventType: e.eventType, createdAt: e.createdAt.toISOString() });
     eventsBySession.set(e.sessionId, list);
+    if (e.eventType === "session_entered" && e.fromRoster) rosterEntries.add(e.sessionId);
   }
   const countsBySession = new Map(alertCounts.map((r) => [r.sessionId, r]));
   const questionBySession = new Map(lastTutor.map((r) => [r.sessionId, tutorQuestion(r.content)]));
@@ -142,7 +147,8 @@ export async function liveSnapshot(activity: Activity, window: LiveWindow, nowMs
       liveStatus: status,
       lastSignalAt: new Date(signal).toISOString(),
       currentStage: currentStage(live, evs),
-      progressSteps: progressFor(live, evs, requireInitialAnswer),
+      reachedStage: stageReached(live, evs, s.endedByTeacher),
+      progressSteps: progressFor(live, evs, requireInitialAnswer, s.endedByTeacher),
       stepsTotal: stepsFor(requireInitialAnswer),
       stageDurations: stageDurations(live, evs, until),
       workMs: workTime(workPoints),
@@ -153,6 +159,7 @@ export async function liveSnapshot(activity: Activity, window: LiveWindow, nowMs
       lastActivityAt: live.lastActivityAt,
       completedAt: live.completedAt,
       endedByTeacher: s.endedByTeacher,
+      enteredWithRosterName: rosterEntries.has(s.id),
       resumeCode: s.resumeCode,
       openAlerts,
       immediateAlerts: alerts?.immediate ?? 0,
@@ -246,6 +253,7 @@ export async function liveSnapshot(activity: Activity, window: LiveWindow, nowMs
       title: activity.title,
       classroomId: activity.classroomId,
       status: activity.status,
+      linkActive: activity.linkActive,
       requireInitialAnswer,
     },
     generatedAt: new Date(nowMs).toISOString(),

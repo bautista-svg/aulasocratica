@@ -24,7 +24,8 @@ export function Switch({
   id?: string;
 }) {
   return (
-    <label className={cn("flex cursor-pointer items-start justify-between gap-4", disabled && "cursor-not-allowed opacity-60")}>
+    // Disabled: only the control is dimmed. Dimming the text too dropped it below 4.5:1 (WCAG 1.4.3).
+    <label className={cn("flex cursor-pointer items-start justify-between gap-4", disabled && "cursor-not-allowed")}>
       <span className="min-w-0">
         <span className="block text-[15px] font-semibold text-text">{label}</span>
         {description ? <span className="mt-0.5 block text-sm leading-5 text-text-2">{description}</span> : null}
@@ -34,7 +35,8 @@ export function Switch({
         checked={checked}
         onCheckedChange={onCheckedChange}
         disabled={disabled}
-        className="relative mt-0.5 inline-flex h-7 w-12 shrink-0 items-center rounded-full bg-line-strong transition-colors data-[state=checked]:bg-ink"
+        // 48 × 28 visible; the invisible ::before makes the touch target 48 × 44.
+        className="relative mt-0.5 inline-flex h-7 w-12 shrink-0 items-center rounded-full bg-line-strong transition-colors before:absolute before:inset-x-0 before:-inset-y-2 before:content-[''] disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-ink"
       >
         <RS.Thumb className="block size-5.5 translate-x-[3px] rounded-full bg-white shadow-1 transition-transform data-[state=checked]:translate-x-[23px]" />
       </RS.Root>
@@ -44,12 +46,13 @@ export function Switch({
 
 export function Checkbox({ checked, onCheckedChange, label, description, disabled }: { checked: boolean; onCheckedChange: (v: boolean) => void; label: ReactNode; description?: ReactNode; disabled?: boolean }) {
   return (
-    <label className={cn("flex cursor-pointer items-start gap-3", disabled && "cursor-not-allowed opacity-60")}>
+    <label className={cn("flex cursor-pointer items-start gap-3", disabled && "cursor-not-allowed")}>
       <RC.Root
         checked={checked}
         onCheckedChange={(v) => onCheckedChange(v === true)}
         disabled={disabled}
-        className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-[6px] border border-line-strong bg-surface data-[state=checked]:border-ink data-[state=checked]:bg-ink"
+        // 20 px box with a 44 px invisible touch target around it.
+        className="relative mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-[6px] border border-line-strong bg-surface before:absolute before:-inset-3 before:content-[''] disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:border-ink data-[state=checked]:bg-ink"
       >
         <RC.Indicator>
           <Check className="size-3.5 text-white" strokeWidth={3} />
@@ -124,7 +127,7 @@ export function Menu({ trigger, items, align = "end" }: { trigger: ReactNode; it
                 disabled={it.disabled}
                 onSelect={it.onSelect}
                 className={cn(
-                  "flex h-10 cursor-pointer items-center gap-2.5 rounded-sm px-2.5 text-[15px] outline-none select-none data-[disabled]:opacity-50 data-[highlighted]:bg-sunken",
+                  "flex h-10 cursor-pointer items-center gap-2.5 rounded-sm px-2.5 text-[15px] outline-none select-none max-sm:h-11 data-[disabled]:opacity-50 data-[highlighted]:bg-sunken",
                   it.danger ? "text-rose" : "text-text",
                 )}
               >

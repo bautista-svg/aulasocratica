@@ -1,0 +1,22 @@
+import { launch, instrument, shot, overflow, text, BASE, save, DATA } from "./lib.mjs";
+import path from "node:path";
+
+const browser = await launch();
+const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "es-AR" });
+const page = await ctx.newPage();
+const log = [];
+instrument(page, "docente", log);
+await page.goto(BASE + "/", { waitUntil: "networkidle" });
+await page.getByRole("button", { name: "Empezar sin cuenta" }).click();
+await page.waitForLoadState("networkidle");
+await page.waitForTimeout(1500);
+console.log("URL after start:", page.url());
+await shot(page, "01-docente-tras-empezar-1440", true);
+console.log(await text(page));
+const nav = await page.$$eval("nav a, aside a, header a", (as) => as.map((a) => `${a.innerText.trim().replace(/\n/g, " ")} -> ${a.getAttribute("href")}`));
+console.log("NAV", nav);
+console.log("BUTTONS", await page.$$eval("button", (bs) => bs.map((b) => (b.innerText.trim() || b.getAttribute("aria-label") || "").replace(/\n/g, " "))));
+console.log("COOKIES", (await ctx.cookies()).map((c) => `${c.name} httpOnly=${c.httpOnly} exp=${c.expires}`));
+await ctx.storageState({ path: path.join(DATA, "docente-state.json") });
+console.log("LOG", JSON.stringify(log, null, 1));
+await browser.close();

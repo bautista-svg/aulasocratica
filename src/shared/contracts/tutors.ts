@@ -46,6 +46,13 @@ export const tutorBody = z.object({
 });
 export type TutorInput = z.input<typeof tutorBody>;
 
+/** POST: a new tutor plus an optional request id (a repeated id returns the tutor created the first time). */
+export const tutorCreateBody = tutorBody.extend({ requestId: z.string().uuid().optional() });
+export type TutorCreateInput = z.input<typeof tutorCreateBody>;
+
+/** POST /:id/duplicate. */
+export const tutorDuplicateBody = z.object({ requestId: z.string().uuid().optional() });
+
 /** PATCH: any subset of the fields (no defaults applied, so missing fields stay as they are). */
 export const tutorPatch = z.object({
   name: z.string().trim().min(1, "Poné un nombre.").max(120, "Usá hasta 120 caracteres.").optional(),

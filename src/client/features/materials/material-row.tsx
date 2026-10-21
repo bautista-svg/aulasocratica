@@ -81,7 +81,10 @@ export function MaterialRow({
         ) : null}
 
         {m.processingStatus === "failed" ? (
-          <p className="mt-2 text-[13px] leading-5 font-medium text-rose">{m.processingError ?? "No se pudo leer el archivo."}</p>
+          <p className="mt-2 text-[13px] leading-5 font-medium text-rose">
+            {m.processingError ?? "No se pudo leer el archivo."}
+            {!m.retryable ? <span className="block font-normal text-text-2">Eliminalo (menú «⋯») y subí otra versión del archivo.</span> : null}
+          </p>
         ) : m.processingStatus === "ready" && m.kind === "file" && m.processingError ? (
           <p className="mt-2 text-[13px] leading-5 text-text-2">{m.processingError}</p>
         ) : busy ? (
@@ -91,7 +94,8 @@ export function MaterialRow({
         ) : null}
 
         <div className="mt-3 flex flex-wrap gap-2">
-          {m.processingStatus === "failed" || stuck ? (
+          {/* Trying again cannot read a damaged or protected file: then only removing it helps (D35). */}
+          {(m.processingStatus === "failed" && m.retryable) || stuck ? (
             <Button size="sm" variant="secondary" icon={<RefreshCw className="size-4" />} loading={mut.retry.isPending} onClick={retry}>
               Reintentar
             </Button>

@@ -9,8 +9,9 @@ import { ownedClassroom, isUuid } from "../services/access";
 import { audit } from "../services/audit";
 import { deleteFile } from "../lib/storage";
 import { reconcileReports } from "../services/reports/reconcile";
+import { once } from "../services/activities/idempotency";
 import {
-  classroomBody,
+  classroomCreateBody,
   classroomPatch,
   addStudentsBody,
   renameStudentBody,
@@ -31,8 +32,9 @@ async function summaries(teacherId: string, where: ReturnType<typeof and>): Prom
       activityCount: sql<number>`(select count(*)::int from activities a where a.classroom_id = classrooms.id)`,
       publishedCount: sql<number>`(select count(*)::int from activities a where a.classroom_id = classrooms.id and a.status = 'published')`,
       studentCount: sql<number>`(select count(*)::int from students s where s.classroom_id = classrooms.id)`,
-      activeNow: sql<number>`(select count(*)::int from learning_sessions ls join activities a on a.id = ls.activity_id
-        where a.classroom_id = classrooms.id and ls.status = 'in_progress' and ls.last_activity_at > ${activeSince}::timestamptz)`,
+      // An archived classroom has nobody working: its links stop students on their next request.
+      activeNow: sql<number>`(case when classrooms.is_archived then 0 else (select count(*)::int from learning_sessions ls join activities a on a.id = ls.activity_id
+        where a.classroom_id = classrooms.id and ls.status = 'in_progress' and ls.last_activity_at > ${activeSince}::timestamptz) end)`,
     })
     .from(schema.classrooms)
     .where(and(eq(schema.classrooms.teacherId, teacherId), where))
@@ -59,7 +61,9 @@ export async function activitySummaries(teacherId: string, classroomId: string |
       a: schema.activities,
       participants: sql<number>`(select count(*)::int from learning_sessions ls where ls.activity_id = activities.id)`,
       completed: sql<number>`(select count(*)::int from learning_sessions ls where ls.activity_id = activities.id and ls.status = 'completed')`,
-      activeNow: sql<number>`(select count(*)::int from learning_sessions ls where ls.activity_id = activities.id and ls.status = 'in_progress' and ls.last_activity_at > ${activeSince}::timestamptz)`,
+      classroomArchived: sql<boolean>`coalesce((select c.is_archived from classrooms c where c.id = activities.classroom_id), false)`,
+      activeNow: sql<number>`(select count(*)::int from learning_sessions ls where ls.activity_id = activities.id and ls.status = 'in_progress' and ls.last_activity_at > ${activeSince}::timestamptz
+        and not exists (select 1 from classrooms c where c.id = activities.classroom_id and c.is_archived))`,
       openAlerts: sql<number>`(select count(*)::int from student_alerts sa where sa.activity_id = activities.id and sa.status = 'open')`,
     })
     .from(schema.activities)
@@ -78,6 +82,7 @@ export async function activitySummaries(teacherId: string, classroomId: string |
     createdAt: a.createdAt.toISOString(),
     updatedAt: a.updatedAt.toISOString(),
     ...counts,
+    classroomArchived: Boolean(counts.classroomArchived),
   }));
 }
 
@@ -98,12 +103,16 @@ export const classroomRoutes = new Hono<AppEnv>()
   })
 
   .post("/", async (c) => {
-    const body = await readJson(c, classroomBody);
+    const { requestId, ...body } = await readJson(c, classroomCreateBody);
     const t = teacherOf(c);
-    const [count] = await db.select({ n: sql<number>`count(*)::int` }).from(schema.classrooms).where(eq(schema.classrooms.teacherId, t.id));
-    if ((count?.n ?? 0) >= 200) throw badRequest("Llegaste al máximo de 200 aulas. Archivá o borrá alguna para crear otra.");
-    const [row] = await db.insert(schema.classrooms).values({ ...body, teacherId: t.id }).returning();
-    const [summary] = await summaries(t.id, and(eq(schema.classrooms.id, row!.id)));
+    // A double click or a retry with the same request id returns the classroom created the first time.
+    const summary = await once("classroom", t.id, requestId, body, async () => {
+      const [count] = await db.select({ n: sql<number>`count(*)::int` }).from(schema.classrooms).where(eq(schema.classrooms.teacherId, t.id));
+      if ((count?.n ?? 0) >= 200) throw badRequest("Llegaste al máximo de 200 aulas. Archivá o borrá alguna para crear otra.");
+      const [row] = await db.insert(schema.classrooms).values({ ...body, teacherId: t.id }).returning();
+      const [created] = await summaries(t.id, and(eq(schema.classrooms.id, row!.id)));
+      return created!;
+    });
     return c.json({ classroom: summary }, 201);
   })
 

@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
@@ -7,12 +7,13 @@ import { Button, buttonClass } from "@client/components/ui/button";
 import { Field, FormError, Input } from "@client/components/ui/field";
 import { Notice } from "@client/components/ui/misc";
 import { ApiError, errorMessage } from "@client/lib/api";
+import { compactErrors, emailError, focusFirstInvalid } from "@client/lib/forms";
 import { useMe, useStartWorkspace } from "@client/lib/session";
 import { useLogin, useRecover } from "@client/features/account/api";
 import { PasswordInput, PASSWORD_MIN, StrengthMeter } from "@client/features/account/password-input";
 import { RecoveryCodePanel } from "@client/features/account/recovery-code-panel";
 import { PublicLayout } from "@client/features/account/public-layout";
-import { usePageTitle } from "@client/features/account/page-title";
+import { usePageTitle } from "@client/lib/page-title";
 
 export const Route = createFileRoute("/ingresar")({
   validateSearch: z.object({ modo: z.enum(["recuperar"]).optional() }),
@@ -72,9 +73,16 @@ function AlreadyIn({ email }: { email: string | null }) {
 function LoginForm({ anonymousHere }: { anonymousHere: boolean }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const formRef = useRef<HTMLFormElement>(null);
   const login = useLogin();
   const navigate = useNavigate();
   const fields = login.error instanceof ApiError ? login.error.fields : {};
+  // Editing a field hides the messages about the previous attempt (they would be stale).
+  const edited = (key: "email" | "password") => {
+    if (errors[key]) setErrors(({ [key]: _gone, ...rest }) => rest);
+    if (login.isError) login.reset();
+  };
 
   return (
     <>
@@ -86,12 +94,21 @@ function LoginForm({ anonymousHere }: { anonymousHere: boolean }) {
         </Notice>
       ) : null}
       <form
+        ref={formRef}
+        noValidate
         className="mt-6 grid gap-4"
         onSubmit={(e) => {
           e.preventDefault();
+          const found = compactErrors({ email: emailError(email), password: password ? undefined : "Escribí tu contraseña." });
+          setErrors(found);
+          if (Object.keys(found).length > 0) {
+            focusFirstInvalid(formRef.current);
+            return;
+          }
           login.mutate(
             { email: email.trim(), password },
             {
+              onError: () => focusFirstInvalid(formRef.current),
               onSuccess: (r) => {
                 toast.success(
                   "¡Hola de nuevo!",
@@ -103,7 +120,7 @@ function LoginForm({ anonymousHere }: { anonymousHere: boolean }) {
           );
         }}
       >
-        <Field label="Correo" error={fields.email}>
+        <Field label="Correo" error={errors.email ?? fields.email}>
           {(p) => (
             <Input
               id={p.id}
@@ -114,12 +131,15 @@ function LoginForm({ anonymousHere }: { anonymousHere: boolean }) {
               autoComplete="email"
               required
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                edited("email");
+              }}
               autoFocus
             />
           )}
         </Field>
-        <Field label="Contraseña" error={fields.password}>
+        <Field label="Contraseña" error={errors.password ?? fields.password}>
           {(p) => (
             <PasswordInput
               id={p.id}
@@ -128,17 +148,24 @@ function LoginForm({ anonymousHere }: { anonymousHere: boolean }) {
               autoComplete="current-password"
               required
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                edited("password");
+              }}
             />
           )}
         </Field>
         <FormError message={login.isError && !fields.email && !fields.password ? errorMessage(login.error) : null} />
-        <Button type="submit" size="lg" loading={login.isPending} disabled={!email.trim() || !password}>
+        <Button type="submit" size="lg" loading={login.isPending}>
           Entrar
         </Button>
       </form>
       <p className="mt-5 text-[15px]">
-        <Link to="/ingresar" search={{ modo: "recuperar" }} className="font-semibold text-ink underline decoration-lilac underline-offset-4">
+        <Link
+          to="/ingresar"
+          search={{ modo: "recuperar" }}
+          className="-my-2.5 inline-flex min-h-11 items-center font-semibold text-ink underline decoration-lilac underline-offset-4"
+        >
           Olvidé mi contraseña
         </Link>
       </p>
@@ -167,12 +194,22 @@ function RecoverForm({ anonymousHere, onRecovered }: { anonymousHere: boolean; o
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
+  const [errors, setErrors] = useState<{ email?: string; recoveryCode?: string; newPassword?: string }>({});
+  const formRef = useRef<HTMLFormElement>(null);
   const recover = useRecover((r) => onRecovered({ code: r.recoveryCode, email: r.teacher.email ?? email.trim() }));
   const fields = recover.error instanceof ApiError ? recover.error.fields : {};
+  const edited = (key: "email" | "recoveryCode" | "newPassword") => {
+    if (errors[key]) setErrors(({ [key]: _gone, ...rest }) => rest);
+    if (recover.isError) recover.reset();
+  };
 
   return (
     <>
-      <Link to="/ingresar" className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-text-2 hover:text-ink">
+      <Link
+        to="/ingresar"
+        activeOptions={{ exact: true }}
+        className="mb-2 -mt-2.5 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-text-2 hover:text-ink"
+      >
         <ArrowLeft className="size-4" aria-hidden="true" /> Volver a ingresar
       </Link>
       <h1 className="font-display text-[32px] leading-tight font-semibold text-ink">Recuperar la cuenta</h1>
@@ -186,13 +223,31 @@ function RecoverForm({ anonymousHere, onRecovered }: { anonymousHere: boolean; o
         </Notice>
       ) : null}
       <form
+        ref={formRef}
+        noValidate
         className="mt-6 grid gap-4"
         onSubmit={(e) => {
           e.preventDefault();
-          recover.mutate({ email: email.trim(), recoveryCode: code.trim(), newPassword: password });
+          const found = compactErrors({
+            email: emailError(email),
+            recoveryCode:
+              code.replace(/[\s-]/g, "").length < 8
+                ? "Escribí el código de recuperación completo: son 16 letras y números."
+                : undefined,
+            newPassword: password.length < PASSWORD_MIN ? `La contraseña nueva tiene que tener al menos ${PASSWORD_MIN} caracteres.` : undefined,
+          });
+          setErrors(found);
+          if (Object.keys(found).length > 0) {
+            focusFirstInvalid(formRef.current);
+            return;
+          }
+          recover.mutate(
+            { email: email.trim(), recoveryCode: code.trim(), newPassword: password },
+            { onError: () => focusFirstInvalid(formRef.current) },
+          );
         }}
       >
-        <Field label="Correo" error={fields.email}>
+        <Field label="Correo" error={errors.email ?? fields.email}>
           {(p) => (
             <Input
               id={p.id}
@@ -203,14 +258,17 @@ function RecoverForm({ anonymousHere, onRecovered }: { anonymousHere: boolean; o
               autoComplete="email"
               required
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                edited("email");
+              }}
               autoFocus
             />
           )}
         </Field>
         <Field
           label="Código de recuperación"
-          error={fields.recoveryCode}
+          error={errors.recoveryCode ?? fields.recoveryCode}
           hint="Son 16 letras y números, por ejemplo ABCD-EFGH-JKLM-NPQR. Da igual si usás mayúsculas."
         >
           {(p) => (
@@ -225,11 +283,14 @@ function RecoverForm({ anonymousHere, onRecovered }: { anonymousHere: boolean; o
               className="font-mono tracking-wider"
               maxLength={40}
               value={code}
-              onChange={(e) => setCode(e.target.value)}
+              onChange={(e) => {
+                setCode(e.target.value);
+                edited("recoveryCode");
+              }}
             />
           )}
         </Field>
-        <Field label="Contraseña nueva" error={fields.newPassword} hint={`Al menos ${PASSWORD_MIN} caracteres.`}>
+        <Field label="Contraseña nueva" error={errors.newPassword ?? fields.newPassword} hint={`Al menos ${PASSWORD_MIN} caracteres.`}>
           {(p) => (
             <>
               <PasswordInput
@@ -240,19 +301,17 @@ function RecoverForm({ anonymousHere, onRecovered }: { anonymousHere: boolean; o
                 required
                 maxLength={200}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  edited("newPassword");
+                }}
               />
               <StrengthMeter password={password} />
             </>
           )}
         </Field>
         <FormError message={recover.isError && !fields.email && !fields.recoveryCode && !fields.newPassword ? errorMessage(recover.error) : null} />
-        <Button
-          type="submit"
-          size="lg"
-          loading={recover.isPending}
-          disabled={!email.trim() || code.trim().length < 8 || password.length < PASSWORD_MIN}
-        >
+        <Button type="submit" size="lg" loading={recover.isPending}>
           Crear contraseña nueva
         </Button>
       </form>
@@ -268,7 +327,7 @@ function StartWithoutAccount({ hasWorkspace }: { hasWorkspace: boolean }) {
       {hasWorkspace ? (
         <p className="text-[15px] text-text-2">
           ¿Preferís seguir sin cuenta?{" "}
-          <Link to="/app" className="font-semibold text-ink underline decoration-lilac underline-offset-4">
+          <Link to="/app" className="-my-2.5 inline-flex min-h-11 items-center font-semibold text-ink underline decoration-lilac underline-offset-4">
             Volver a mi espacio en este dispositivo
           </Link>
         </p>

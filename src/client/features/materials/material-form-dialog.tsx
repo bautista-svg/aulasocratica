@@ -8,6 +8,7 @@ import { ApiError, errorMessage } from "@client/lib/api";
 import { MAX_LINK_NOTE, MAX_TEXT_BODY, isSafeUrl, sanitizeTags } from "@shared/domain/library";
 import type { MaterialDetail } from "@shared/contracts/materials";
 import { useMaterial, useMaterialMutations } from "./api";
+import { useRequestId, useSingleFlight } from "@client/features/activities/single-flight";
 
 type Mode = { kind: "new-text" } | { kind: "new-link" } | { kind: "edit"; id: string };
 interface Values {
@@ -70,6 +71,8 @@ export function MaterialFormDialog({
   const error = editId ? mut.update.error : mut.create.error;
   const fields = error instanceof ApiError ? error.fields : {};
   const pending = mut.create.isPending || mut.update.isPending;
+  const start = useSingleFlight(pending);
+  const requestId = useRequestId(open);
   const loading = Boolean(editId) && loadedFor !== editId;
   const set = (k: keyof Values) => (e: { target: { value: string } }) => setValues((v) => ({ ...v, [k]: e.target.value }));
 
@@ -86,7 +89,8 @@ export function MaterialFormDialog({
   };
 
   const submit = () => {
-    if (!canSave) return;
+    // A double click (or Enter + click) saves one material, never two.
+    if (!canSave || !start()) return;
     const tags = sanitizeTags(values.tags);
     if (editId) {
       mut.update.mutate(
@@ -111,8 +115,8 @@ export function MaterialFormDialog({
     } else {
       const data =
         kind === "link"
-          ? { kind: "link" as const, title: values.title, url: values.url.trim(), body: values.body, folder: values.folder, tags }
-          : { kind: "text" as const, title: values.title, body: values.body, folder: values.folder, tags };
+          ? { kind: "link" as const, title: values.title, url: values.url.trim(), body: values.body, folder: values.folder, tags, requestId }
+          : { kind: "text" as const, title: values.title, body: values.body, folder: values.folder, tags, requestId };
       mut.create.mutate(data, {
         onSuccess: (r) => {
           setInitial(values);

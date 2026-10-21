@@ -1,11 +1,23 @@
+// Times always in 24 h "HH:mm", as is usual in Argentina. Without hourCycle, es-AR in Chrome
+// (and Node) answers "12:41 a. m.", which also left a double dot at the end of sentences.
 const dateFmt = new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", year: "numeric" });
-const dateTimeFmt = new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-const timeFmt = new Intl.DateTimeFormat("es-AR", { hour: "2-digit", minute: "2-digit" });
+const dateTimeFmt = new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+const timeFmt = new Intl.DateTimeFormat("es-AR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+const fullDateTimeFmt = new Intl.DateTimeFormat("es-AR", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
 const rtf = new Intl.RelativeTimeFormat("es-AR", { numeric: "auto" });
 
 export const fmtDate = (iso: string | null | undefined) => (iso ? dateFmt.format(new Date(iso)) : "—");
 export const fmtDateTime = (iso: string | null | undefined) => (iso ? dateTimeFmt.format(new Date(iso)) : "—");
 export const fmtTime = (iso: string | null | undefined) => (iso ? timeFmt.format(new Date(iso)) : "—");
+/** "21 de octubre de 2026, 00:57" (for files and records that need the year). */
+export const fmtFullDateTime = (d: Date | string) => fullDateTimeFmt.format(new Date(d));
 
 export function fmtRelative(iso: string | null | undefined, now = Date.now()): string {
   if (!iso) return "—";

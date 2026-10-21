@@ -8,12 +8,12 @@ export function PublicLayout({ children, nav }: { children: ReactNode; nav?: Rea
   return (
     <div className="flex min-h-dvh flex-col bg-paper">
       <header className="mx-auto flex h-16 w-full max-w-[1120px] items-center justify-between px-5 sm:px-8">
-        <Link to="/" aria-label="Aula Socrática, inicio">
+        <Link to="/" aria-label="Aula Socrática, inicio" activeOptions={{ exact: true }} className="inline-flex min-h-11 items-center">
           <Logo />
         </Link>
         <nav aria-label="Cuenta" className="flex items-center gap-1">
           {nav ?? (
-            <Link to="/" className={buttonClass("ghost", "sm")}>
+            <Link to="/" activeOptions={{ exact: true }} className={buttonClass("ghost", "sm")}>
               Inicio
             </Link>
           )}
@@ -28,10 +28,11 @@ export function PublicLayout({ children, nav }: { children: ReactNode; nav?: Rea
             <LogoMark className="size-5" /> Aula Socrática
           </span>
           <nav aria-label="Legal" className="flex gap-5">
-            <Link to="/privacidad" className="hover:text-ink">
+            <Link to="/privacidad" className="-my-3 inline-flex min-h-11 items-center hover:text-ink">
               Privacidad
             </Link>
-            <Link to="/ingresar" className="hover:text-ink">
+            {/* exact: on "Recuperar la cuenta" (/ingresar?modo=recuperar) this is not the current page. */}
+            <Link to="/ingresar" activeOptions={{ exact: true }} className="-my-3 inline-flex min-h-11 items-center hover:text-ink">
               Ingresar
             </Link>
           </nav>

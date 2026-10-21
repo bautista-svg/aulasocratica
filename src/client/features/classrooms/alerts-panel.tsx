@@ -9,6 +9,7 @@ import { Field, FormError, Input, Select, Textarea } from "@client/components/ui
 import { errorMessage } from "@client/lib/api";
 import { ALERT_CATEGORY_LABELS, ALERT_SEVERITY_LABELS, type AlertCategory, type AlertSeverity } from "@shared/domain/alerts";
 import { useAlertMutations, useClassroomAlerts } from "./api";
+import { useSingleFlight } from "@client/features/activities/single-flight";
 
 const severityTone = (s: string) => (s === "immediate" ? "rose" : "amber") as "rose" | "amber";
 
@@ -35,23 +36,35 @@ export function AlertsPanel({ classroomId }: { classroomId: string }) {
         <ul className="mt-3 divide-y divide-line">
           {q.data.builtins.map((a) => (
             <li key={a.key} className="px-5 py-3.5">
-              <Switch
-                checked={a.enabled}
-                disabled={a.locked || m.toggleBuiltin.isPending}
-                onCheckedChange={(enabled) => m.toggleBuiltin.mutate({ key: a.key, enabled }, { onError })}
-                label={
-                  <span className="flex flex-wrap items-center gap-2">
-                    {a.name}
-                    <Badge tone={severityTone(a.severity)}>{ALERT_SEVERITY_LABELS[a.severity]}</Badge>
-                    {a.locked ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-text-3">
-                        <Lock className="size-3" aria-hidden="true" /> Siempre activa
-                      </span>
-                    ) : null}
+              {a.locked ? (
+                // Safety alerts cannot be turned off: a static row (not a greyed-out switch, whose
+                // faded text failed contrast) that says so.
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="flex flex-wrap items-center gap-2 text-[15px] font-semibold text-text">
+                      {a.name}
+                      <Badge tone={severityTone(a.severity)}>{ALERT_SEVERITY_LABELS[a.severity]}</Badge>
+                    </p>
+                    <p className="mt-0.5 text-sm leading-5 text-text-2">{`${ALERT_CATEGORY_LABELS[a.category]} · ${a.description}`}</p>
+                  </div>
+                  <span className="mt-0.5 inline-flex shrink-0 items-center gap-1.5 rounded-full bg-sunken px-2.5 py-1 text-xs font-semibold text-text-2">
+                    <Lock className="size-3" aria-hidden="true" /> Siempre activa
                   </span>
-                }
-                description={`${ALERT_CATEGORY_LABELS[a.category]} · ${a.description}`}
-              />
+                </div>
+              ) : (
+                <Switch
+                  checked={a.enabled}
+                  disabled={m.toggleBuiltin.isPending && m.toggleBuiltin.variables?.key === a.key}
+                  onCheckedChange={(enabled) => m.toggleBuiltin.mutate({ key: a.key, enabled }, { onError })}
+                  label={
+                    <span className="flex flex-wrap items-center gap-2">
+                      {a.name}
+                      <Badge tone={severityTone(a.severity)}>{ALERT_SEVERITY_LABELS[a.severity]}</Badge>
+                    </span>
+                  }
+                  description={`${ALERT_CATEGORY_LABELS[a.category]} · ${a.description}`}
+                />
+              )}
             </li>
           ))}
         </ul>
@@ -114,6 +127,7 @@ export function AlertsPanel({ classroomId }: { classroomId: string }) {
 function NewAlertDialog({ open, onOpenChange, classroomId }: { open: boolean; onOpenChange: (o: boolean) => void; classroomId: string }) {
   const [v, setV] = useState({ name: "", description: "", category: "academica", severity: "review" });
   const { create } = useAlertMutations(classroomId);
+  const start = useSingleFlight(create.isPending);
   return (
     <Dialog
       open={open}
@@ -130,14 +144,15 @@ function NewAlertDialog({ open, onOpenChange, classroomId }: { open: boolean; on
           <Button
             loading={create.isPending}
             disabled={v.name.trim().length < 2 || v.description.trim().length < 5}
-            onClick={() =>
+            onClick={() => {
+              if (!start()) return;
               create.mutate(v, {
                 onSuccess: () => {
                   toast.success("Alerta creada");
                   onOpenChange(false);
                 },
-              })
-            }
+              });
+            }}
           >
             Crear alerta
           </Button>

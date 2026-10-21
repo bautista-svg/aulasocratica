@@ -227,3 +227,22 @@ describe("activity files", () => {
     expect(logs).toHaveLength(1);
   });
 });
+
+describe("UI audit fixes: files that could not be read (D35)", () => {
+  it("are not retryable when the file itself is damaged and do not count toward the limit", async () => {
+    const { cookie, id } = await setup();
+    const bad = new File([new TextEncoder().encode("%PDF-1.4 esto no es un pdf")], "corrupto.pdf", { type: "application/pdf" });
+    const badId = await uploadReady(cookie, id, bad);
+    const files = (await call("GET", `/api/activities/${id}/files`, { cookie })).body.files;
+    expect(files.find((f: { id: string }) => f.id === badId)).toMatchObject({ processingStatus: "failed", retryable: false });
+
+    // With the damaged one in the list, there is still room for MAX_FILES_PER_ACTIVITY usable files.
+    const many = Array.from({ length: MAX_FILES_PER_ACTIVITY }, (_, i) => new File([`texto ${i}`], `nota-${i}.txt`, { type: "text/plain" }));
+    const r = await upload(cookie, id, ...many);
+    expect(r.status).toBe(201);
+    expect(r.body.files).toHaveLength(MAX_FILES_PER_ACTIVITY);
+    expect(r.body.rejected).toHaveLength(0);
+    const extra = await upload(cookie, id, new File(["una más"], "extra.txt", { type: "text/plain" }));
+    expect(extra.status).toBe(400);
+  });
+});

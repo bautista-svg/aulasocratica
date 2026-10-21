@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@client/lib/api";
-import type { TutorDetail, TutorInput, TutorPatch, TutorSummary } from "@shared/contracts/tutors";
+import type { TutorCreateInput, TutorDetail, TutorPatch, TutorSummary } from "@shared/contracts/tutors";
 
 export const tutorKeys = {
   all: ["tutors"] as const,
@@ -37,7 +37,7 @@ export function useTutorMutations() {
   };
   return {
     create: useMutation({
-      mutationFn: (data: TutorInput) => api.post<{ tutor: TutorDetail }>("/api/tutors", data),
+      mutationFn: (data: TutorCreateInput) => api.post<{ tutor: TutorDetail }>("/api/tutors", data),
       onSuccess: done,
     }),
     update: useMutation({
@@ -49,7 +49,7 @@ export function useTutorMutations() {
       onSuccess: done,
     }),
     duplicate: useMutation({
-      mutationFn: (id: string) => api.post<{ tutor: TutorDetail }>(`/api/tutors/${id}/duplicate`),
+      mutationFn: ({ id, requestId }: { id: string; requestId: string }) => api.post<{ tutor: TutorDetail }>(`/api/tutors/${id}/duplicate`, { requestId }),
       onSuccess: done,
     }),
     remove: useMutation({

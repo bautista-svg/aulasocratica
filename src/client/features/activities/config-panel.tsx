@@ -1,6 +1,6 @@
 // "Configuración" tab: everything the teacher prepares before (and while) students work.
 // One explicit "Guardar cambios" for all sections (files and notes save on their own).
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Mic, Save } from "lucide-react";
 import { Button } from "@client/components/ui/button";
@@ -18,6 +18,7 @@ import { TutorSection } from "./tutor-section";
 import { RubricEditor } from "./rubric-editor";
 import { ReflectionEditor } from "./reflection-editor";
 import { errorKeyBelongsTo, type ActivityForm, type DraftKey, type FieldErrors } from "./use-activity-form";
+import { useKeepFieldVisible, useKeyboardOpen } from "./keep-field-visible";
 
 export const SECTIONS: { id: string; title: string; keys: DraftKey[] }[] = [
   { id: "consigna", title: "Consigna", keys: ["instructions"] },
@@ -92,9 +93,15 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
     material: draft.material.slice(0, ACTIVITY_LIMITS.material),
   };
   const dirtyTitles = SECTIONS.filter((s) => sectionDirty(s.keys)).map((s) => s.title);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+  const keyboardOpen = useKeyboardOpen();
+  const barShown = dirty && !keyboardOpen;
+  useKeepFieldVisible(rootRef, barRef, barShown);
 
   return (
-    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_190px] lg:gap-8">
+    // scroll-mb: fields brought into view (focus, scrollIntoView) stop above the save bar and the phone tab bar.
+    <div ref={rootRef} className="lg:grid lg:grid-cols-[minmax(0,1fr)_190px] lg:gap-8 [&_input]:scroll-mb-44 [&_textarea]:scroll-mb-44 lg:[&_input]:scroll-mb-24 lg:[&_textarea]:scroll-mb-24">
       <div className="grid min-w-0 gap-4">
         <EditorSection id="consigna" title="Consigna" description="Lo primero que leen tus alumnos al entrar. Escribila como una pregunta o un desafío." {...meta("consigna")}>
           <Field label="Consigna" error={errors.instructions} counter={{ value: draft.instructions.length, max: ACTIVITY_LIMITS.instructions }}>
@@ -238,13 +245,15 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
           <ReflectionEditor activityId={activity.id} form={form} context={aiContext} />
         </EditorSection>
 
-        {/* Save bar: sticks above the phone tab bar while there are unsaved changes. */}
+        {/* Save bar: sticks above the phone tab bar while there are unsaved changes; it steps aside while the
+            on-screen keyboard is open so it never covers the field being edited (D09). */}
         <div
+          ref={barRef}
           className={cn(
             "sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-20 lg:bottom-4",
-            dirty ? "visible" : "invisible h-0 overflow-hidden",
+            barShown ? "visible" : "invisible h-0 overflow-hidden",
           )}
-          aria-hidden={!dirty}
+          aria-hidden={!barShown}
         >
           <div className="flex flex-col gap-3 rounded-lg border border-line-strong bg-surface/95 px-4 py-3 shadow-pop backdrop-blur sm:flex-row sm:items-center">
             <p className="min-w-0 flex-1 text-sm text-text-2" aria-live="polite">

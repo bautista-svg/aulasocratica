@@ -7,11 +7,23 @@ export const ABANDONED_AFTER_MS = 15 * 60_000;
 
 export type LiveStatus = "active" | "idle" | "abandoned" | "completed";
 
+/**
+ * The only vocabulary for a student's work state, used by the live cards, the filters, the
+ * work page and the lists: Activo / Sin actividad / Abandonada / Terminó.
+ */
 export const LIVE_STATUS_LABELS: Record<LiveStatus, string> = {
   active: "Activo",
   idle: "Sin actividad",
   abandoned: "Abandonada",
-  completed: "Finalizó",
+  completed: "Terminó",
+};
+
+/** What each state means (the live legend and the tooltips say the same). */
+export const LIVE_STATUS_HELP: Record<LiveStatus, string> = {
+  active: "Hizo algo en los últimos 2 minutos.",
+  idle: "No hace nada hace entre 2 y 15 minutos.",
+  abandoned: "No hace nada hace más de 15 minutos y no terminó.",
+  completed: "Envió su trabajo, o lo terminaste vos.",
 };
 
 export interface LiveEvent {
@@ -74,6 +86,26 @@ export function currentStage(session: LiveSession, events: LiveEvent[]): Stage |
   return "tutor";
 }
 
+/** Stages the activity really has (no initial answer when the teacher turned it off). */
+export function stagesOf(requireInitialAnswer: boolean): Stage[] {
+  return requireInitialAnswer ? STAGES : STAGES.filter((s) => s !== "initial");
+}
+
+/**
+ * Stage the student got to, even when the work is finished: for a work the teacher ended,
+ * this is where the student was when it was ended ("closing" for a work the student sent).
+ */
+export function stageReached(session: LiveSession, events: LiveEvent[], endedByTeacher = false): Stage {
+  if (session.status === "completed" && !endedByTeacher) return "closing";
+  const st = currentStage({ ...session, status: "in_progress" }, events);
+  return st === "done" ? "closing" : st;
+}
+
+/** 1-based position of a stage among the activity's stages ("Etapa 2 de 3", like the student's "Paso 2 de 3"). */
+export function stageNumber(stage: Stage, requireInitialAnswer: boolean): number {
+  return Math.max(1, stagesOf(requireInitialAnswer).indexOf(stage) + 1);
+}
+
 /** Completed steps out of 3 (initial answer, tutor conversation, final + reflection). */
 export function progressSteps(session: LiveSession, events: LiveEvent[]): number {
   if (session.status === "completed") return 3;
@@ -109,7 +141,7 @@ export const HELP_EVENT_TYPES = [
 ] as const;
 
 export const HELP_EVENT_SHORT: Record<(typeof HELP_EVENT_TYPES)[number], string> = {
-  message_sent: "Mensajes",
+  message_sent: "Mensajes escritos",
   hint_requested: "Pistas",
   clarification_requested: "No entendí",
   example_requested: "Ejemplos",
@@ -122,6 +154,34 @@ export function helpCounts(events: LiveEvent[]): Record<(typeof HELP_EVENT_TYPES
   const out = Object.fromEntries(HELP_EVENT_TYPES.map((t) => [t, 0])) as Record<(typeof HELP_EVENT_TYPES)[number], number>;
   for (const e of events) if (e.eventType in out) out[e.eventType as (typeof HELP_EVENT_TYPES)[number]]++;
   return out;
+}
+
+/** Student intents that are help requests (buttons) and the ones that carry the student's own reformulation. */
+export const HELP_INTENTS = ["hint", "not_understood", "example"] as const;
+export const REFORMULATION_INTENTS = ["review", "other_idea", "explain"] as const;
+
+/**
+ * One definition of "messages" for the live heatmap, the work page and the PDF:
+ * - written: what the student typed (or dictated) without a button — the heatmap's "Mensajes escritos"
+ *   (each one is a `message_sent` event);
+ * - help: "Necesito una pista", "No entendí", "¿Podés darme un ejemplo?";
+ * - reformulations: "Quiero revisar mi respuesta", "Tengo otra idea", "Quiero explicar lo que aprendí".
+ */
+export function studentMessageCounts(messages: { role: string; intent: string | null; isPartial?: boolean }[]): {
+  written: number;
+  help: number;
+  reformulations: number;
+} {
+  let written = 0;
+  let help = 0;
+  let reformulations = 0;
+  for (const m of messages) {
+    if (m.role !== "user" || m.isPartial) continue;
+    if (m.intent && (HELP_INTENTS as readonly string[]).includes(m.intent)) help++;
+    else if (m.intent && (REFORMULATION_INTENTS as readonly string[]).includes(m.intent)) reformulations++;
+    else written++;
+  }
+  return { written, help, reformulations };
 }
 
 /** Number of events in each of `count` equal time buckets between start and end. */

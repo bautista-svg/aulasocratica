@@ -42,16 +42,63 @@ function weights(t: ReportTable): number[] {
   });
 }
 
+const BODY_SIZE = 9;
+const HEADER_SIZES = [8.5, 7.5, 7];
+
+const longestWord = (d: PDFKit.PDFDocument, text: string) => Math.max(0, ...text.split(/\s+/).map((word) => d.widthOfString(word)));
+
+/**
+ * Widths that follow the content weights but never go below a column's minimum: its longest
+ * header word on one line (so "Finalizaron" or "Ejemplos" never split mid-word) and its longest
+ * cell word (capped, so a long link cannot take the whole table). If the minimums do not fit,
+ * the header font gets smaller before anything is squeezed.
+ */
+export function columnWidths(d: PDFKit.PDFDocument, t: ReportTable, total: number, pad: number): { widths: number[]; headerSize: number } {
+  const ws = weights(t);
+  d.font("Helvetica").fontSize(BODY_SIZE);
+  const bodyMins = t.columns.map((_, i) =>
+    Math.min(total * 0.3, Math.max(0, ...t.rows.map((r) => longestWord(d, cellText(r[i] ?? "")))) + pad * 2 + 1),
+  );
+  let headerSize = HEADER_SIZES[0]!;
+  let mins: number[] = [];
+  for (const size of HEADER_SIZES) {
+    headerSize = size;
+    d.font("Helvetica-Bold").fontSize(size);
+    mins = t.columns.map((c, i) => Math.max(bodyMins[i]!, longestWord(d, cellText(c)) + pad * 2 + 1));
+    if (mins.reduce((a, b) => a + b, 0) <= total) break;
+  }
+  const minSum = mins.reduce((a, b) => a + b, 0);
+  if (minSum > total) return { widths: mins.map((m) => (m / minSum) * total), headerSize };
+
+  // Water-filling: columns that would fall under their minimum get exactly it; the rest share
+  // what is left in proportion to their weights.
+  const fixed = new Set<number>();
+  for (;;) {
+    const free = total - [...fixed].reduce((a, i) => a + mins[i]!, 0);
+    const freeWeight = ws.reduce((a, x, i) => (fixed.has(i) ? a : a + x), 0);
+    // Every column is at its minimum: share the spare room in proportion to those minimums.
+    if (freeWeight === 0) return { widths: mins.map((m) => (m / minSum) * total), headerSize };
+    let changed = false;
+    ws.forEach((x, i) => {
+      if (!fixed.has(i) && (x / freeWeight) * free < mins[i]!) {
+        fixed.add(i);
+        changed = true;
+      }
+    });
+    if (!changed) {
+      return { widths: ws.map((x, i) => (fixed.has(i) ? mins[i]! : (x / freeWeight) * free)), headerSize };
+    }
+  }
+}
+
 function drawTable(w: PdfWriter, t: ReportTable) {
   const d = w.doc;
-  const ws = weights(t);
-  const total = ws.reduce((a, b) => a + b, 0);
-  const widths = ws.map((x) => (x / total) * w.width);
   const pad = 4;
+  const { widths, headerSize } = columnWidths(d, t, w.width, pad);
   const usable = d.page.height - d.page.margins.top - d.page.margins.bottom;
 
   const measure = (cells: string[], bold: boolean) => {
-    d.font(bold ? "Helvetica-Bold" : "Helvetica").fontSize(bold ? 8.5 : 9);
+    d.font(bold ? "Helvetica-Bold" : "Helvetica").fontSize(bold ? headerSize : BODY_SIZE);
     return Math.max(...cells.map((c, i) => d.heightOfString(c || " ", { width: widths[i]! - pad * 2 }))) + pad * 2;
   };
   const bottom = () => d.page.height - d.page.margins.bottom;
@@ -61,7 +108,7 @@ function drawTable(w: PdfWriter, t: ReportTable) {
     let x = w.left;
     cells.forEach((c, i) => {
       d.font(bold ? "Helvetica-Bold" : "Helvetica")
-        .fontSize(bold ? 8.5 : 9)
+        .fontSize(bold ? headerSize : BODY_SIZE)
         .fillColor(bold ? COLORS.ink : COLORS.text)
         .text(c, x + pad, y + pad, { width: widths[i]! - pad * 2, height: h - pad, ellipsis: true });
       x += widths[i]!;

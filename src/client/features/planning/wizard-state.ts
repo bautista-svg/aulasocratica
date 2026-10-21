@@ -31,8 +31,13 @@ export interface WizardState {
   draft: ClassProposal | null;
   /** The chosen proposal as it came, to know whether the teacher edited it. */
   draftBase: string | null;
-  /** A tutor of "Mis tutores", or null to keep the proposal's suggestion. */
+  /** A tutor of "Mis tutores", or null to set the type and help level by hand (no saved tutor). */
   tutorId: string | null;
+  /**
+   * True until the teacher picks an option in the Tutor step: then the tutor is the teacher's own
+   * version (edited or not) of the type the proposal suggests, from "Mis tutores" (D04).
+   */
+  tutorAuto: boolean;
 }
 
 export function initialWizard(): WizardState {
@@ -59,7 +64,15 @@ export function initialWizard(): WizardState {
     draft: null,
     draftBase: null,
     tutorId: null,
+    tutorAuto: true,
   };
+}
+
+/** The tutor the activity will copy: the explicit pick, or the teacher's preset of the suggested type. */
+export function effectiveTutorId(s: WizardState, tutors: { id: string; presetKey: string | null }[] | undefined): string | null {
+  if (!s.tutorAuto) return s.tutorId;
+  const type = s.draft?.tutorType;
+  return (type && tutors?.find((t) => t.presetKey === type)?.id) || null;
 }
 
 const storageKey = (teacherId: string) => `aula.crear.v1.${teacherId}`;
@@ -70,7 +83,8 @@ function load(teacherId: string): WizardState | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<WizardState>;
     if (!parsed || parsed.v !== 1) return null;
-    return { ...initialWizard(), ...parsed };
+    // States saved before tutorAuto existed: an explicit tutor stays; otherwise use the default.
+    return { ...initialWizard(), ...parsed, tutorAuto: parsed.tutorAuto ?? !parsed.tutorId };
   } catch {
     return null;
   }

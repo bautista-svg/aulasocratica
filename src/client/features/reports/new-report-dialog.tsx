@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Dialog } from "@client/components/ui/dialog";
@@ -12,6 +12,7 @@ import { useClassroomActivities, useClassroomStudents, useClassrooms } from "@cl
 import { classroomLabel } from "@shared/contracts/classrooms";
 import type { CreateReportInput } from "@shared/contracts/reports";
 import { REPORT_KIND_DESCRIPTIONS, REPORT_KIND_LABELS, REPORT_KINDS, type ReportKind } from "@shared/domain/reports";
+import { focusFirstInvalid } from "@client/lib/forms";
 import { useCreateReport } from "./api";
 
 export function NewReportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
@@ -21,6 +22,9 @@ export function NewReportDialog({ open, onOpenChange }: { open: boolean; onOpenC
   const [sessionId, setSessionId] = useState("");
   const [activityId, setActivityId] = useState("");
   const [title, setTitle] = useState("");
+  // Missing choices are explained under each field when "Crear informe" is pressed.
+  const [missing, setMissing] = useState<{ classroom?: string; student?: string }>({});
+  const formRef = useRef<HTMLFormElement>(null);
   const create = useCreateReport();
   const navigate = useNavigate();
   const rooms = useClassrooms(false);
@@ -34,6 +38,7 @@ export function NewReportDialog({ open, onOpenChange }: { open: boolean; onOpenC
       setSessionId("");
       setActivityId("");
       setTitle("");
+      setMissing({});
       create.reset();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -55,11 +60,14 @@ export function NewReportDialog({ open, onOpenChange }: { open: boolean; onOpenC
     if (!studentId) return null;
     return { kind, scope: sessionId ? { sessionId } : { studentId }, ...t };
   };
-  const ready = body() !== null && !noRooms;
-
   const submit = () => {
+    if (noRooms) return;
     const b = body();
-    if (!b) return;
+    if (!b) {
+      setMissing(!classroomId ? { classroom: "Elegí un aula." } : { student: "Elegí un alumno." });
+      focusFirstInvalid(formRef.current);
+      return;
+    }
     create.mutate(b, {
       onSuccess: (r) => {
         toast.success("Informe creado");
@@ -81,13 +89,15 @@ export function NewReportDialog({ open, onOpenChange }: { open: boolean; onOpenC
           <Button variant="secondary" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button loading={create.isPending} disabled={!ready} onClick={submit}>
+          <Button loading={create.isPending} disabled={noRooms} onClick={submit}>
             Crear informe
           </Button>
         </>
       }
     >
       <form
+        ref={formRef}
+        noValidate
         className="grid gap-5"
         onSubmit={(e) => {
           e.preventDefault();
@@ -111,7 +121,10 @@ export function NewReportDialog({ open, onOpenChange }: { open: boolean; onOpenC
                     name={kindName}
                     value={k}
                     checked={kind === k}
-                    onChange={() => setKind(k)}
+                    onChange={() => {
+                      setKind(k);
+                      setMissing({});
+                    }}
                     className="size-4 accent-[var(--color-ink)]"
                   />
                   <span className="font-semibold text-text">{REPORT_KIND_LABELS[k]}</span>
@@ -132,7 +145,7 @@ export function NewReportDialog({ open, onOpenChange }: { open: boolean; onOpenC
           </p>
         ) : (
           <>
-            <Field label="Aula" error={fields["scope.classroomId"]}>
+            <Field label="Aula" error={missing.classroom ?? fields["scope.classroomId"]}>
               {(p) => (
                 <Select
                   id={p.id}
@@ -142,6 +155,7 @@ export function NewReportDialog({ open, onOpenChange }: { open: boolean; onOpenC
                   disabled={rooms.isPending}
                   onChange={(e) => {
                     setClassroomId(e.target.value);
+                    setMissing({});
                     setStudentId("");
                     setSessionId("");
                     setActivityId("");
@@ -165,9 +179,10 @@ export function NewReportDialog({ open, onOpenChange }: { open: boolean; onOpenC
                 onStudent={(id) => {
                   setStudentId(id);
                   setSessionId("");
+                  setMissing({});
                 }}
                 onSession={setSessionId}
-                error={fields["scope.studentId"]}
+                error={missing.student ?? fields["scope.studentId"]}
               />
             ) : null}
             {classroomId && kind === "group" ? <ActivityPicker classroomId={classroomId} value={activityId} onChange={setActivityId} /> : null}

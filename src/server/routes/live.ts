@@ -10,7 +10,7 @@ import { ownedActivity, isUuid } from "../services/access";
 import { audit } from "../services/audit";
 import { publish, subscribe } from "../lib/events";
 import { log } from "../lib/logger";
-import { alertStatusBody, confirmBody, LIVE_WINDOWS, type LiveWindow } from "@shared/contracts/live";
+import { alertStatusBody, endAllBody, LIVE_WINDOWS, type EndAllResponse, type LiveWindow } from "@shared/contracts/live";
 import { liveSnapshot } from "../services/sessions/live-snapshot";
 import { endAll } from "../services/sessions/actions";
 
@@ -87,9 +87,17 @@ export const liveRoutes = new Hono<AppEnv>()
   .post("/:activityId/end-all", async (c) => {
     const t = teacherOf(c);
     const activity = await ownedActivity(t.id, c.req.param("activityId"));
-    await readJson(c, confirmBody);
+    const body = await readJson(c, endAllBody);
+    // Close the link first: nobody new can join while (or after) the current works are ended.
+    let linkClosed = false;
+    if (body.closeLink && activity.linkActive) {
+      await db.update(schema.activities).set({ linkActive: false }).where(eq(schema.activities.id, activity.id));
+      linkClosed = true;
+      publish(activity.id, "activity");
+    }
     const ended = await endAll(activity.id);
-    await audit(c, t.id, "sessions_ended_all", "activity", activity.id, { ended });
-    log.info("live_end_all", { activityId: activity.id, ended });
-    return c.json({ ended });
+    await audit(c, t.id, "sessions_ended_all", "activity", activity.id, { ended, linkClosed });
+    log.info("live_end_all", { activityId: activity.id, ended, linkClosed });
+    const res: EndAllResponse = { ended, linkClosed };
+    return c.json(res);
   });

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { LogOut, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Logo } from "@client/components/brand/logo";
@@ -8,11 +8,12 @@ import { Field, FormError } from "@client/components/ui/field";
 import { ErrorState } from "@client/components/ui/misc";
 import { PageSpinner } from "@client/components/ui/spinner";
 import { ApiError, errorMessage } from "@client/lib/api";
+import { focusFirstInvalid } from "@client/lib/forms";
 import { useAdminLogin, useAdminLogout, useAdminOverview, useAdminSession } from "@client/features/admin/api";
 import { AdminOverviewPanel } from "@client/features/admin/overview";
 import { WorkspacesPanel } from "@client/features/admin/workspaces";
 import { PasswordInput } from "@client/features/account/password-input";
-import { usePageTitle } from "@client/features/account/page-title";
+import { usePageTitle } from "@client/lib/page-title";
 
 // Platform owner's panel. Not linked from the public UI (robots.txt disallows it too).
 export const Route = createFileRoute("/admin")({
@@ -26,6 +27,7 @@ function AdminPage() {
   if (session.isError) {
     return (
       <main id="contenido" className="mx-auto max-w-lg px-5 py-16">
+        <h1 className="sr-only">Administración</h1>
         <ErrorState error={session.error} onRetry={() => void session.refetch()} />
       </main>
     );
@@ -49,26 +51,34 @@ function Disabled() {
 
 function Login() {
   const [password, setPassword] = useState("");
+  const [empty, setEmpty] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
   const login = useAdminLogin();
   const locked = login.error instanceof ApiError && login.error.status === 429;
+  const wrong = login.error instanceof ApiError && login.error.status === 401 ? errorMessage(login.error) : undefined;
   return (
     <main id="contenido" className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-6 py-12">
       <Logo className="mb-10" />
       <h1 className="font-display text-3xl font-semibold text-ink">Administración</h1>
       <p className="mt-2 text-text-2">Acceso para el responsable de la plataforma.</p>
       <form
+        ref={formRef}
+        noValidate
         className="mt-8 grid gap-4"
         onSubmit={(e) => {
           e.preventDefault();
+          if (!password) {
+            setEmpty(true);
+            focusFirstInvalid(formRef.current);
+            return;
+          }
           login.mutate(password, {
             onSuccess: () => setPassword(""),
+            onError: () => focusFirstInvalid(formRef.current),
           });
         }}
       >
-        <Field
-          label="Contraseña de administración"
-          error={login.error instanceof ApiError && login.error.status === 401 ? errorMessage(login.error) : undefined}
-        >
+        <Field label="Contraseña de administración" error={empty ? "Escribí la contraseña de administración." : wrong}>
           {(p) => (
             <PasswordInput
               id={p.id}
@@ -76,14 +86,17 @@ function Login() {
               invalid={p.invalid}
               autoComplete="current-password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setEmpty(false);
+              }}
               autoFocus
               disabled={locked}
             />
           )}
         </Field>
         <FormError message={login.isError && !(login.error instanceof ApiError && login.error.status === 401) ? errorMessage(login.error) : null} />
-        <Button type="submit" size="lg" loading={login.isPending} disabled={!password || locked}>
+        <Button type="submit" size="lg" loading={login.isPending} disabled={locked}>
           Entrar
         </Button>
       </form>
@@ -103,7 +116,7 @@ function Dashboard() {
         <div className="mx-auto flex h-16 max-w-[1240px] items-center justify-between gap-3 px-4 sm:px-6">
           <span className="flex min-w-0 items-center gap-3">
             <Logo compact />
-            <span className="truncate font-display text-lg font-semibold text-ink">Administración</span>
+            <h1 className="truncate font-display text-lg font-semibold text-ink">Administración</h1>
           </span>
           <Button
             variant="ghost"
@@ -116,11 +129,14 @@ function Dashboard() {
           </Button>
         </div>
       </header>
-      <main id="contenido" className="mx-auto grid max-w-[1240px] gap-8 px-4 py-6 sm:px-6 lg:py-10">
-        <p className="flex items-start gap-2.5 rounded-md bg-sunken px-4 py-3 text-sm leading-6 text-text-2">
+      {/* One column that never grows past the screen: wide tables scroll inside their own box. */}
+      <main id="contenido" className="mx-auto grid max-w-[1240px] grid-cols-1 gap-8 px-4 py-6 sm:px-6 lg:py-10">
+        <p className="flex min-w-0 items-start gap-2.5 rounded-md bg-sunken px-4 py-3 text-sm leading-6 text-text-2">
           <ShieldAlert className="mt-0.5 size-4 shrink-0 text-ink" aria-hidden="true" />
-          Vista de solo lectura para supervisar el servicio y frenar abusos. No muestra nombres de alumnos, conversaciones ni contenido de las
-          actividades.
+          <span>
+            Panel para supervisar el servicio y frenar abusos: muestra cantidades y te deja suspender o reactivar un espacio. No muestra nombres de
+            alumnos, conversaciones ni contenido de las actividades.
+          </span>
         </p>
         <AdminOverviewPanel />
         <WorkspacesPanel dailyLimit={overview.data?.ai.dailyUsdPerWorkspace ?? null} />

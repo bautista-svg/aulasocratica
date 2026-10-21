@@ -6,7 +6,7 @@ import { Button } from "@client/components/ui/button";
 import { fmtDate, fmtRelative } from "@client/lib/format";
 import { useReports } from "@client/features/reports/api";
 import { NewReportDialog } from "@client/features/reports/new-report-dialog";
-import { usePageTitle } from "@client/features/account/page-title";
+import { usePageTitle } from "@client/lib/page-title";
 import { REPORT_KIND_LABELS } from "@shared/domain/reports";
 
 export const Route = createFileRoute("/app/informes/")({

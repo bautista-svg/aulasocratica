@@ -8,6 +8,7 @@ import { requireTeacher, teacherOf } from "../auth/teacher";
 import { ownedClassroom } from "../services/access";
 import { generateProposals } from "../services/planning/proposals";
 import { createActivityFromProposal } from "../services/planning/create";
+import { once } from "../services/activities/idempotency";
 import { createFromProposalBody, proposalsBody } from "@shared/contracts/planning";
 
 export const planningRoutes = new Hono<AppEnv>()
@@ -25,6 +26,7 @@ export const planningRoutes = new Hono<AppEnv>()
 
   .post("/create", async (c) => {
     const t = teacherOf(c);
-    const body = await readJson(c, createFromProposalBody);
-    return c.json(await createActivityFromProposal(t.id, body), 201);
+    const { requestId, ...body } = await readJson(c, createFromProposalBody);
+    // "Crear y publicar" clicked twice (or retried after a lost response) creates one activity, with one link.
+    return c.json(await once("planning-create", t.id, requestId, body, () => createActivityFromProposal(t.id, body)), 201);
   });

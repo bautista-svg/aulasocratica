@@ -1,0 +1,247 @@
+{
+  "teacher": "f04d2dc8-cf3d-404d-99b2-fd3450ff1c4e",
+  "D01_aulas_creadas": 1,
+  "D17_title_aulas": "Aulas · Aula Socrática",
+  "D17_title_aula": "Repro doble clic · Actividades · Aula Socrática",
+  "D04_opciones_pc": [
+    "Pensamiento crítico"
+  ],
+  "D04_seleccionada": "Pensamiento crítico",
+  "D01_actividades_creadas": 1,
+  "D17_title_tutores": "Mis tutores · Aula Socrática",
+  "axe_tutores_1440": [],
+  "D04_opciones_tras_editar": [
+    "Pensamiento crítico (editado)"
+  ],
+  "D04_seleccionada_tras_editar": "Pensamiento crítico (editado)",
+  "D04_indicaciones": "Dificultad: Intermedia\nObjetivos del tutor: Que el estudiante distinga hechos de opiniones, identifique supuestos y evalúe evidencias y puntos de vista antes de concluir.\nTipo de preguntas: Preguntas sobre supuestos, evidencias, puntos de vista alternativos y consecuencias.\nEstrategias metacognitivas: Invitar a evaluar la fuerza de sus razones y a considerar una objeción.\nCriterios de cierre: Sostiene una posición con razones y responde a una objeción.\nReglas del docente: REGLA-REPRO",
+  "D30_opciones_tutor": [
+    "Elegí un tutor",
+    "Argumentación",
+    "Comprensión lectora",
+    "Contenido teórico",
+    "Conversación con personaje",
+    "Conversación guiada"
+  ],
+  "D01_copias": 1,
+  "D17_title_actividad": "El agua en la montaña · Configuración · Aula Socrática",
+  "link": true,
+  "activityId": "93ae97da-1e1f-4b8f-8f8e-60287dd9ae62",
+  "sessions": 3,
+  "ana": "0f203735-67fd-46b7-8f0b-6c26458941ef",
+  "D13_live_1440": {
+    "scrollWidth": 1440,
+    "clientWidth": 1440
+  },
+  "D19_live_vocab": {
+    "tarjeta": true,
+    "filtroActivos": true,
+    "filtroSinTerminar": true,
+    "etapa": [
+      "Etapa 2 de 3",
+      "Etapa 2 de 3",
+      "Etapa 1 de 3"
+    ],
+    "trabajandoViejo": false
+  },
+  "F07_marca": false,
+  "D13_pdf_visible_1440": 3,
+  "D20_columna": [],
+  "D25_heat_text": null,
+  "D13_live_1024": {
+    "scrollWidth": 1024,
+    "clientWidth": 1024
+  },
+  "D13_pdf_buttons_1024": 3,
+  "D13_live_320": {
+    "scrollWidth": 320,
+    "clientWidth": 320
+  },
+  "D13_live_375": {
+    "scrollWidth": 375,
+    "clientWidth": 375
+  },
+  "D17_title_trabajo": "Ana Pérez · El agua en la montaña · Recorrido · Aula Socrática",
+  "D07_recorrido": {
+    "respuestasAlumno": 2,
+    "pista": true,
+    "reformulacion": true
+  },
+  "D19_trabajo_estado": {
+    "enCursoYAbandonada": false,
+    "etapa": "Etapa 2 de 3 · Charla con el tutor"
+  },
+  "D20_numeros": "En números Preguntas del tutor 3 Mensajes escritos 2 Reformulaciones 1 Pedidos de ayuda 1 Pistas pedidas 1",
+  "axe_recorrido_1440": [],
+  "axe_conversacion_1440": [],
+  "axe_conversacion_375": [],
+  "recorrido_375": {
+    "scrollWidth": 375,
+    "clientWidth": 375
+  },
+  "axe_aula_alumnos_1440": [],
+  "axe_aula_alertas_1440": [],
+  "D33_toast": "Se agregaron 2 alumnos. 1 ya estaba en la lista.",
+  "D10_dialogo": "¿Terminar el trabajo de todos? Se termina el trabajo de 3 alumnos que todavía no terminaron. Se guarda lo que hicieron hasta ahora y ya no pueden seguir escribiendo. Desde el trabajo de cada uno podés permitirle continuar. Cerrar también el enlace Nadie más puede entrar a la actividad. La volvés a abrir desde Compartir con «Aceptar alumnos». Cancelar Terminar y cerrar el enlace",
+  "D10_alumno_nuevo": "Saltar al contenido Aula Socrática Actividad El agua en la montaña Repro doble clic Tu docente cerró esta actividad por ahora. Si creés que es un error, avisale a tu docente. Volver a fijarme",
+  "D19_terminado_por_docente": "Quedó en la etapa 2 de 3 · Charla con el tutor",
+  "D11_dialogo": "¿Archivar esta aula? Ahora hay 1 alumno trabajando: si la archivás, no va a poder seguir. Se cierran los enlaces de sus 1 actividad publicada: nadie puede entrar ni seguir escribiendo. Las actividades, los alumnos y sus trabajos se conservan. Podés restaurarla cuando quieras desde la pestaña Archivadas de Aulas. Cancelar Archivar aula",
+  "D11_estados": [
+    "Cerrada (aula archivada)",
+    "Borrador",
+    "Borrador",
+    "El agua en la montaña· recién",
+    "El agua en la montaña· hace 31 minutos",
+    "El agua en la montaña· recién"
+  ],
+  "D11_texto": 1,
+  "D11_header": "Aula Socrática",
+  "D11_archivadas_ahora": false,
+  "D18_current": [
+    "Activas:null",
+    "Archivadas:page"
+  ],
+  "D21_opciones": [
+    "Repro doble clic (archivada) [deshabilitada]",
+    "No tenés aulas activas"
+  ],
+  "D09": {
+    "field": [
+      534,
+      626
+    ],
+    "bar": [
+      638,
+      740
+    ],
+    "covered": false
+  },
+  "D35": {
+    "reintentar": false,
+    "subirOtra": true,
+    "contador": "0 de 20 archivos · 1 no se pudo leer y no cuenta"
+  },
+  "D17_title_radiografia": "Radiografía del pensamiento · Aula Socrática",
+  "D17_title_materiales": "Mis materiales · Aula Socrática",
+  "D17_title_crear": "Crear con IA · Aula Socrática",
+  "axe_crear_1440": [],
+  "axe_materiales_1440": [
+    {
+      "id": "heading-order",
+      "impact": "moderate",
+      "nodes": 1
+    }
+  ],
+  "D17_title_alumno": "Ana Pérez · Repro doble clic · Aula Socrática",
+  "D23_aula_404": {
+    "reintentar": 0,
+    "salir": 1,
+    "title": "Aula no encontrada · Actividades · Aula Socrática"
+  },
+  "axe_tutores_375": [],
+  "tutores_375": {
+    "scrollWidth": 375,
+    "clientWidth": 375
+  },
+  "D37_small_aula": [
+    "Aulas 34x44"
+  ],
+  "overflow_375_aula": {
+    "scrollWidth": 375,
+    "clientWidth": 375
+  },
+  "D37_small_aulas": [],
+  "overflow_375_aulas": {
+    "scrollWidth": 375,
+    "clientWidth": 375
+  },
+  "D37_small_actividad": [
+    "Aulas 34x44",
+    "Ver Mis tutores 222x35",
+    " 48x28"
+  ],
+  "overflow_375_actividad": {
+    "scrollWidth": 375,
+    "clientWidth": 375
+  },
+  "D37_small_crear": [],
+  "overflow_375_crear": {
+    "scrollWidth": 375,
+    "clientWidth": 375
+  },
+  "D37_small_materiales": [],
+  "overflow_375_materiales": {
+    "scrollWidth": 375,
+    "clientWidth": 375
+  },
+  "sweep_aula_320": {
+    "scrollWidth": 320,
+    "clientWidth": 320
+  },
+  "sweep_actividad-config_320": {
+    "scrollWidth": 340,
+    "clientWidth": 320
+  },
+  "sweep_trabajo_320": {
+    "scrollWidth": 320,
+    "clientWidth": 320
+  },
+  "sweep_tutores_320": {
+    "scrollWidth": 320,
+    "clientWidth": 320
+  },
+  "sweep_aula_375": {
+    "scrollWidth": 375,
+    "clientWidth": 375
+  },
+  "sweep_actividad-config_375": {
+    "scrollWidth": 375,
+    "clientWidth": 375
+  },
+  "sweep_trabajo_375": {
+    "scrollWidth": 375,
+    "clientWidth": 375
+  },
+  "sweep_tutores_375": {
+    "scrollWidth": 375,
+    "clientWidth": 375
+  },
+  "sweep_aula_1024": {
+    "scrollWidth": 1024,
+    "clientWidth": 1024
+  },
+  "sweep_actividad-config_1024": {
+    "scrollWidth": 1024,
+    "clientWidth": 1024
+  },
+  "sweep_trabajo_1024": {
+    "scrollWidth": 1024,
+    "clientWidth": 1024
+  },
+  "sweep_tutores_1024": {
+    "scrollWidth": 1024,
+    "clientWidth": 1024
+  },
+  "sweep_aula_1440": {
+    "scrollWidth": 1440,
+    "clientWidth": 1440
+  },
+  "sweep_actividad-config_1440": {
+    "scrollWidth": 1440,
+    "clientWidth": 1440
+  },
+  "sweep_trabajo_1440": {
+    "scrollWidth": 1440,
+    "clientWidth": 1440
+  },
+  "sweep_tutores_1440": {
+    "scrollWidth": 1440,
+    "clientWidth": 1440
+  },
+  "D40_errores_tras_eliminar": [],
+  "network_errors": [
+    "404 GET /api/classrooms/00000000-0000-4000-8000-000000000000",
+    "console: Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "errors": []
+}

@@ -102,7 +102,7 @@ export function StepClass({
               placeholder="80"
             />
             {DURATIONS.map((d) => (
-              <Button key={d} size="sm" variant={s.duration === String(d) ? "primary" : "secondary"} aria-pressed={s.duration === String(d)} onClick={() => update({ duration: String(d) })}>
+              <Button key={d} size="sm" className="h-11 px-3.5" variant={s.duration === String(d) ? "primary" : "secondary"} aria-pressed={s.duration === String(d)} onClick={() => update({ duration: String(d) })}>
                 {d} min
               </Button>
             ))}

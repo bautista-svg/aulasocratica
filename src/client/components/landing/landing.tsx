@@ -42,7 +42,7 @@ export function Landing({ hasWorkspace, starting, startError, onStart }: Landing
   return (
     <div className="min-h-dvh bg-paper">
       <header className="mx-auto flex h-16 max-w-[1120px] items-center justify-between px-5 sm:px-8">
-        <a href="/" aria-label="Aula Socrática, inicio">
+        <a href="/" aria-label="Aula Socrática, inicio" className="inline-flex min-h-11 items-center">
           <Logo />
         </a>
         <nav aria-label="Cuenta" className="flex items-center gap-1">
@@ -189,7 +189,10 @@ export function Landing({ hasWorkspace, starting, startError, onStart }: Landing
               <dt className="font-semibold text-ink">Pocos datos de los alumnos</dt>
               <dd className="mt-1.5 leading-7 text-text-2">
                 Los alumnos entran solo con su nombre: no pedimos correo, teléfono ni otros datos personales.{" "}
-                <a href="/privacidad" className="font-semibold text-ink underline decoration-lilac underline-offset-4">
+                <a
+                  href="/privacidad"
+                  className="-my-3 inline-flex min-h-11 items-center font-semibold text-ink underline decoration-lilac underline-offset-4"
+                >
                   Cómo tratamos los datos
                 </a>
               </dd>
@@ -204,10 +207,10 @@ export function Landing({ hasWorkspace, starting, startError, onStart }: Landing
             <LogoMark className="size-5" /> Aula Socrática
           </span>
           <nav aria-label="Legal" className="flex gap-5">
-            <a href="/privacidad" className="hover:text-ink">
+            <a href="/privacidad" className="-my-3 inline-flex min-h-11 items-center hover:text-ink">
               Privacidad
             </a>
-            <a href="/ingresar" className="hover:text-ink">
+            <a href="/ingresar" className="-my-3 inline-flex min-h-11 items-center hover:text-ink">
               Ingresar
             </a>
           </nav>

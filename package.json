@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "concurrently -k -n api,web -c blue,magenta \"npm:dev:server\" \"npm:dev:client\"",
-    "dev:server": "node --watch-path=src --env-file-if-exists=.env --import tsx src/server/index.ts",
+    "dev:server": "node --watch-path=src/server --watch-path=src/shared --env-file-if-exists=.env --import tsx src/server/index.ts",
     "dev:client": "vite",
     "build": "vite build && node scripts/prerender.mjs && node scripts/build-server.mjs",
     "start": "node dist/server/index.mjs",

@@ -5,7 +5,7 @@ import { cn } from "@client/lib/cn";
 import { Badge } from "@client/components/ui/misc";
 import { Button } from "@client/components/ui/button";
 import { fmtRelative } from "@client/lib/format";
-import { LIVE_STATUS_LABELS, STAGE_LABELS, type LiveStatus, type Stage } from "@shared/domain/live-monitor";
+import { LIVE_STATUS_HELP, LIVE_STATUS_LABELS, STAGE_LABELS, liveStatus, stageNumber, type LiveStatus, type Stage } from "@shared/domain/live-monitor";
 import { ALERT_CATEGORY_LABELS, ALERT_SEVERITY_LABELS, type AlertCategory } from "@shared/domain/alerts";
 import type { AlertStatus } from "@shared/contracts/live";
 
@@ -16,53 +16,89 @@ const DOT: Record<LiveStatus, string> = {
   completed: "bg-ink",
 };
 
+/** Activo / Sin actividad / Abandonada / Terminó — the same words on every screen (D19). */
 export function LiveStatusLabel({ status, endedByTeacher, className }: { status: LiveStatus; endedByTeacher?: boolean; className?: string }) {
   return (
-    <span className={cn("inline-flex flex-col text-sm", className)}>
+    <span className={cn("inline-flex flex-col text-sm", className)} title={LIVE_STATUS_HELP[status]}>
       <span className="inline-flex items-center gap-2 font-semibold text-text">
         <span className={cn("size-2.5 shrink-0 rounded-full", DOT[status], status === "active" && "animate-pulse-dot")} aria-hidden="true" />
         {LIVE_STATUS_LABELS[status]}
       </span>
-      {status === "completed" && endedByTeacher ? <span className="pl-[18px] text-xs text-text-3">Lo terminaste vos</span> : null}
+      {status === "completed" && endedByTeacher ? <span className="pl-[18px] text-xs text-text-2">Lo terminaste vos</span> : null}
     </span>
   );
 }
 
-export function stageLabel(stage: Stage | "done"): string {
-  return stage === "done" ? "Terminó" : STAGE_LABELS[stage];
+/** Live state of a work from its row data (lists without events use the last activity time). */
+export function workLiveStatus(status: string, lastActivityAt: string, now = Date.now()): LiveStatus {
+  if (status === "completed") return "completed";
+  return liveStatus({ status, initialAnswer: null, startedAt: lastActivityAt, lastActivityAt, completedAt: null }, new Date(lastActivityAt).getTime(), now);
 }
 
-/** Segmented progress bar (2 or 3 steps) with an accessible name. */
-export function StageProgress({ stage, done, total, className }: { stage: Stage | "done"; done: number; total: number; className?: string }) {
+export function workStatusLabel(status: string, lastActivityAt: string, endedByTeacher = false): string {
+  const s = workLiveStatus(status, lastActivityAt);
+  return s === "completed" && endedByTeacher ? "Terminó (lo terminaste vos)" : LIVE_STATUS_LABELS[s];
+}
+
+/**
+ * Where the student is, numbered like the student sees it ("Paso 2 de 3" ↔ "Etapa 2 de 3").
+ * A work the teacher ended shows the stage it was ended in, never "3 de 3".
+ */
+export function stageText(p: { stage: Stage | "done"; reached: Stage; total: number; endedByTeacher?: boolean }): { main: string; detail: string } {
+  const n = stageNumber(p.reached, p.total === 3);
+  if (p.stage === "done" && !p.endedByTeacher) return { main: "Terminó todas las etapas", detail: `${p.total} de ${p.total}` };
+  if (p.stage === "done") return { main: `Quedó en la etapa ${n} de ${p.total}`, detail: STAGE_LABELS[p.reached] };
+  return { main: `Etapa ${n} de ${p.total}`, detail: STAGE_LABELS[p.reached] };
+}
+
+/** Segmented bar (2 or 3 stages): completed stages filled, the current one half-filled. The text says the same. */
+export function StageProgress({
+  stage,
+  reached,
+  done,
+  total,
+  endedByTeacher,
+  className,
+}: {
+  stage: Stage | "done";
+  reached: Stage;
+  done: number;
+  total: number;
+  endedByTeacher?: boolean;
+  className?: string;
+}) {
+  const t = stageText({ stage, reached, total, endedByTeacher });
+  const finished = stage === "done" && !endedByTeacher;
+  const current = stage === "done" ? -1 : stageNumber(reached, total === 3) - 1;
   return (
     <div className={cn("min-w-0", className)}>
-      <div className="flex items-baseline justify-between gap-2 text-sm">
-        <span className="truncate font-medium text-text">{stageLabel(stage)}</span>
-        <span className="tabular shrink-0 text-xs text-text-3" aria-hidden="true">
-          {done}/{total}
+      <p className="text-sm leading-5">
+        <span className="font-medium text-text">{t.main}</span>
+        <span className="text-text-2">
+          {" · "}
+          {t.detail}
         </span>
-      </div>
-      <div
-        role="progressbar"
-        aria-valuemin={0}
-        aria-valuemax={total}
-        aria-valuenow={done}
-        aria-label={`Progreso: ${done} de ${total} pasos`}
-        className="mt-1.5 flex gap-1"
-      >
+      </p>
+      <div className="mt-1.5 flex gap-1" aria-hidden="true">
         {Array.from({ length: total }, (_, i) => (
-          <span key={i} className={cn("h-1.5 flex-1 rounded-full", i < done ? (done === total ? "bg-leaf" : "bg-lilac-ink") : "bg-sunken")} />
+          <span
+            key={i}
+            className={cn("h-1.5 flex-1 rounded-full", finished ? "bg-leaf" : i < done ? "bg-lilac-ink" : i === current ? "bg-lilac/50" : "bg-sunken")}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-export function WorkStatusBadge({ status, endedByTeacher }: { status: string; endedByTeacher?: boolean }) {
-  if (status === "completed") return <Badge tone="leaf">{endedByTeacher ? "Terminado por vos" : "Terminó"}</Badge>;
+const WORK_TONE: Record<LiveStatus, "leaf" | "amber" | "neutral" | "ink"> = { active: "leaf", idle: "amber", abandoned: "neutral", completed: "leaf" };
+
+/** Status badge for lists (Radiografía, ficha del alumno): same vocabulary as En vivo. */
+export function WorkStatusBadge({ status, endedByTeacher, lastActivityAt }: { status: string; endedByTeacher?: boolean; lastActivityAt: string }) {
+  const s = workLiveStatus(status, lastActivityAt);
   return (
-    <Badge tone="ink" dot>
-      En curso
+    <Badge tone={WORK_TONE[s]} dot={s === "active"}>
+      {s === "completed" && endedByTeacher ? "Terminó · lo terminaste vos" : LIVE_STATUS_LABELS[s]}
     </Badge>
   );
 }

@@ -129,6 +129,8 @@ export interface SessionDetail {
     liveStatus: LiveStatus;
     lastSignalAt: string;
     currentStage: Stage | "done";
+    /** Stage the student got to (for a work the teacher ended: where it was ended). */
+    reachedStage: Stage;
     progressSteps: number;
     stepsTotal: 2 | 3;
   };
@@ -181,6 +183,7 @@ export interface XrayListItem {
   classroomId: string;
   classroomName: string;
   status: "in_progress" | "completed";
+  endedByTeacher: boolean;
   startedAt: string;
   lastActivityAt: string;
   completedAt: string | null;

@@ -49,14 +49,19 @@ export function useClassroomStudents(id: string) {
 export function useSaveClassroom() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id?: string; data: Partial<ClassroomInput> & { isArchived?: boolean } }) =>
+    mutationFn: ({ id, data }: { id?: string; data: Partial<ClassroomInput> & { isArchived?: boolean; requestId?: string } }) =>
       id
         ? api.patch<{ classroom: ClassroomSummary }>(`/api/classrooms/${id}`, data)
         : api.post<{ classroom: ClassroomSummary }>("/api/classrooms", data),
-    onSuccess: (r) => {
+    onSuccess: (r, vars) => {
       qc.setQueryData(classroomKeys.one(r.classroom.id), { classroom: r.classroom });
       void qc.invalidateQueries({ queryKey: ["classrooms", "list"] });
       void qc.invalidateQueries({ queryKey: ["dashboard"] });
+      if (vars.data.isArchived !== undefined) {
+        // Archiving closes every link of the classroom: the activity states change too.
+        void qc.invalidateQueries({ queryKey: classroomKeys.activities(r.classroom.id) });
+        void qc.invalidateQueries({ queryKey: ["activities"] });
+      }
     },
   });
 }

@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { usePageTitle } from "@client/lib/page-title";
 import { toast } from "sonner";
 import { FolderOpen, Link2, NotebookPen, Search, X } from "lucide-react";
 import { EmptyState, ErrorState, Notice, PageHeader, SkeletonList } from "@client/components/ui/misc";
@@ -33,9 +34,7 @@ function MaterialsPage() {
   const [using, setUsing] = useState<MaterialSummary | null>(null);
   const [deleting, setDeleting] = useState<MaterialSummary | null>(null);
 
-  useEffect(() => {
-    document.title = "Mis materiales · Aula Socrática";
-  }, []);
+  usePageTitle("Mis materiales");
   // Search as you type (debounced).
   useEffect(() => {
     const t = setTimeout(() => setFilters((f) => (f.q === search ? f : { ...f, q: search })), 300);
@@ -106,7 +105,7 @@ function MaterialsPage() {
                 aria-pressed={on}
                 onClick={() => setFilters((f) => ({ ...f, tag: on ? null : t.name }))}
                 className={cn(
-                  "inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-sm font-semibold transition-colors",
+                  "inline-flex h-11 items-center gap-1.5 rounded-full border px-3.5 text-sm font-semibold transition-colors",
                   on ? "border-ink bg-ink text-white" : "border-line-strong bg-surface text-text-2 hover:border-ink/40 hover:text-ink",
                 )}
               >
@@ -118,6 +117,8 @@ function MaterialsPage() {
         </div>
       ) : null}
 
+      {/* Keeps the heading order h1 → h2 → h3 (each material and the empty state use an h3). */}
+      <h2 className="sr-only">Tus materiales</h2>
       {q.isPending ? (
         <SkeletonList rows={4} />
       ) : q.isError ? (

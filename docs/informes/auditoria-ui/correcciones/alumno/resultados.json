@@ -1,0 +1,243 @@
+[
+  {
+    "k": "seed",
+    "v": {
+      "id": "dcc3036f-a17a-4bdb-b387-a6332e8a97dd",
+      "token": "qfUSEhHWeuC-uV1VAZvfsA",
+      "roomId": "040fcac1-6bbd-430d-adba-d9da11f1b3e9"
+    }
+  },
+  {
+    "k": "files",
+    "v": {
+      "ready": 6,
+      "statuses": [
+        "apunte-3-paginas.pdf:ready",
+        "revolucion-mayo.docx:ready",
+        "texto-fotosintesis.txt:ready",
+        "audio-tono.wav:ready",
+        "foto-fracciones.png:ready",
+        "foto-fracciones.jpg:ready"
+      ]
+    }
+  },
+  {
+    "k": "entry 320 meta",
+    "v": "5.º B — Ciencias Naturales · Escuela N.º 12 Domingo F. Sarmiento"
+  },
+  {
+    "k": "entry 320 title",
+    "v": "El agua en la montaña · Entrar · Aula Socrática"
+  },
+  {
+    "k": "entry 320 overflow",
+    "v": 0
+  },
+  {
+    "k": "entry 320 small targets",
+    "v": []
+  },
+  {
+    "k": "entry 320 empty submit",
+    "v": {
+      "error": 1,
+      "requests": 0,
+      "focus": "INPUT"
+    }
+  },
+  {
+    "k": "entry 375 meta",
+    "v": "5.º B — Ciencias Naturales · Escuela N.º 12 Domingo F. Sarmiento"
+  },
+  {
+    "k": "entry 375 title",
+    "v": "El agua en la montaña · Entrar · Aula Socrática"
+  },
+  {
+    "k": "entry 375 overflow",
+    "v": 0
+  },
+  {
+    "k": "entry 375 small targets",
+    "v": []
+  },
+  {
+    "k": "entry axe",
+    "v": []
+  },
+  {
+    "k": "entry 375 empty submit",
+    "v": {
+      "error": 1,
+      "requests": 0,
+      "focus": "INPUT"
+    }
+  },
+  {
+    "k": "entry 1440 meta",
+    "v": "5.º B — Ciencias Naturales · Escuela N.º 12 Domingo F. Sarmiento"
+  },
+  {
+    "k": "entry 1440 title",
+    "v": "El agua en la montaña · Entrar · Aula Socrática"
+  },
+  {
+    "k": "entry 1440 overflow",
+    "v": 0
+  },
+  {
+    "k": "entry 1440 small targets",
+    "v": []
+  },
+  {
+    "k": "entry 1440 empty submit",
+    "v": {
+      "error": 1,
+      "requests": 0,
+      "focus": "INPUT"
+    }
+  },
+  {
+    "k": "resume 5 chars",
+    "v": {
+      "requests": 0,
+      "message": [
+        "Faltan 1 letra o número: el código tiene 6."
+      ],
+      "focus": "_r_2_"
+    }
+  },
+  {
+    "k": "resume ambiguous char",
+    "v": {
+      "requests": 0,
+      "message": [
+        "Revisá el código: nunca lleva 0, O, 1 ni I."
+      ]
+    }
+  },
+  {
+    "k": "resume unknown name",
+    "v": {
+      "requests": 1,
+      "message": "Ese nombre y ese código no coinciden con ningún trabajo de esta actividad. Revisá los dos o pedile tu código a tu docente (te quedan 4 intentos)."
+    }
+  },
+  {
+    "k": "D26 header name",
+    "v": "Trabajando como maría de los ángeles McDonald"
+  },
+  {
+    "k": "D16 focus after join",
+    "v": "initial-title"
+  },
+  {
+    "k": "D16 scrollY after join",
+    "v": 0
+  },
+  {
+    "k": "D16 field top (px from page top)",
+    "v": 847
+  },
+  {
+    "k": "D16 tabs from heading to field",
+    "v": 1
+  },
+  {
+    "k": "D17 title workspace",
+    "v": "El agua en la montaña · Aula Socrática"
+  },
+  {
+    "k": "workspace 375 small targets",
+    "v": []
+  },
+  {
+    "k": "workspace 375 overflow",
+    "v": 0
+  },
+  {
+    "k": "D06 after reload",
+    "v": "Creo que en la montaña hay menos aire encima"
+  },
+  {
+    "k": "D06 new tab",
+    "v": "Creo que en la montaña hay menos aire encima"
+  },
+  {
+    "k": "D06 browser closed and reopened",
+    "v": "Creo que en la montaña hay menos aire encima"
+  },
+  {
+    "k": "D06 drafts after sending",
+    "v": []
+  },
+  {
+    "k": "F-07 notice",
+    "v": "Ya hay un trabajo empezado como «Maria de los Angeles mcdonald». Si sos vos, escribí el código que te mostramos al empezar. Si no lo tenés, pedíselo a tu docente.¿No empezaste vos? Puede que otra persona haya entrado con tu nombre. Avisale a tu docente: puede ver ese trabajo, darte el código o borrarlo para que entres vos."
+  },
+  {
+    "k": "D38 finished after close",
+    "v": {
+      "status": "Tu docente cerró esta actividad por ahora. Igual podés ver tu trabajo en este dispositivo.",
+      "title": "El agua en la montaña · Cerrada · Aula Socrática"
+    }
+  },
+  {
+    "k": "D38 unsent",
+    "v": {
+      "text": "Tu docente cerró esta actividad por ahora.Lo que ya habías enviado quedó guardado. Si creés que es un error, avisale a tu docente.Tu último mensaje para el tutor no se envió. Quedó guardado en este dispositivo y va a volver a aparecer si tu docente vuelve a abrir la actividad.Volver a fijarme",
+      "title": "El agua en la montaña · Cerrada · Aula Socrática"
+    }
+  },
+  {
+    "k": "D38 draft back after reopen",
+    "v": "Pienso que es por la presión"
+  },
+  {
+    "k": "D22 seen device",
+    "v": {
+      "h1": "Este enlace ya no funciona",
+      "title": "Enlace no encontrado · Aula Socrática"
+    }
+  },
+  {
+    "k": "D22 polls after 404 (2.5 s)",
+    "v": 0
+  },
+  {
+    "k": "D22 new device",
+    "v": "No encontramos esta actividadRevisá que el enlace esté completo. Si lo está, puede que tu docente lo haya cambiado por uno nuevo: pedíselo."
+  },
+  {
+    "k": "workspace 320 overflow",
+    "v": 0
+  },
+  {
+    "k": "workspace 320 small targets",
+    "v": []
+  },
+  {
+    "k": "workspace 320 focus",
+    "v": "initial-title"
+  },
+  {
+    "k": "workspace 1440 overflow",
+    "v": 0
+  },
+  {
+    "k": "workspace 1440 small targets",
+    "v": []
+  },
+  {
+    "k": "workspace 1440 focus",
+    "v": "initial-title"
+  },
+  {
+    "k": "workspace axe 1440",
+    "v": []
+  },
+  {
+    "k": "320 code overflow",
+    "v": 0
+  }
+]

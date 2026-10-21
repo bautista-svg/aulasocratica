@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@client/lib/api";
-import type { AlertStatus, LiveSnapshot, LiveWindow } from "@shared/contracts/live";
+import type { AlertStatus, EndAllResponse, LiveSnapshot, LiveWindow } from "@shared/contracts/live";
 
 export const liveKeys = {
   all: (activityId: string) => ["live", activityId] as const,
@@ -106,8 +106,13 @@ export function useLiveMutations(activityId: string) {
       onSuccess: refresh,
     }),
     endAll: useMutation({
-      mutationFn: () => api.post<{ ended: number }>(`/api/live/${activityId}/end-all`, { confirm: true }),
-      onSuccess: refresh,
+      mutationFn: ({ closeLink }: { closeLink: boolean }) => api.post<EndAllResponse>(`/api/live/${activityId}/end-all`, { confirm: true, closeLink }),
+      onSuccess: (r) => {
+        refresh();
+        // The link state shows in the activity header and in Compartir.
+        if (r.linkClosed) void qc.invalidateQueries({ queryKey: ["activities", activityId] });
+        void qc.invalidateQueries({ queryKey: ["classrooms"] });
+      },
     }),
   };
 }

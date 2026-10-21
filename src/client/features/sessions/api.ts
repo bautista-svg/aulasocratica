@@ -51,7 +51,8 @@ export function useSessionMutations(id: string) {
     remove: useMutation({
       mutationFn: () => api.del<{ ok: true; activityId: string; classroomId: string }>(`/api/sessions/${id}`, { confirm: true }),
       onSuccess: (r) => {
-        qc.removeQueries({ queryKey: sessionKeys.one(id) });
+        // Stop polling the deleted work; the page removes it from the cache once it navigated away.
+        void qc.cancelQueries({ queryKey: sessionKeys.one(id) });
         void qc.invalidateQueries({ queryKey: ["live", r.activityId] });
         void qc.invalidateQueries({ queryKey: ["students"] });
         void qc.invalidateQueries({ queryKey: ["classrooms"] });
@@ -102,6 +103,17 @@ export function useSessionActions(activityId: string) {
     reopen: useMutation({
       mutationFn: (sessionId: string) => api.post<{ ok: true; changed: boolean }>(`/api/sessions/${sessionId}/reopen`),
       onSuccess: (_r, sessionId) => refresh(sessionId),
+    }),
+    /** "Eliminar trabajo" from the live list (e.g. someone entered with a classmate's name). */
+    remove: useMutation({
+      mutationFn: (sessionId: string) => api.del<{ ok: true; activityId: string; classroomId: string }>(`/api/sessions/${sessionId}`, { confirm: true }),
+      onSuccess: (r, sessionId) => {
+        qc.removeQueries({ queryKey: sessionKeys.one(sessionId) });
+        void qc.invalidateQueries({ queryKey: ["live", activityId] });
+        void qc.invalidateQueries({ queryKey: ["activities", activityId] });
+        void qc.invalidateQueries({ queryKey: ["classrooms", r.classroomId] });
+        void qc.invalidateQueries({ queryKey: ["students"] });
+      },
     }),
   };
 }

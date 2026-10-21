@@ -6,6 +6,7 @@ import { PageHeader, EmptyState, ErrorState, SkeletonList, Badge } from "@client
 import { Button } from "@client/components/ui/button";
 import { cn } from "@client/lib/cn";
 import { plural } from "@client/lib/format";
+import { usePageTitle } from "@client/lib/page-title";
 import { useClassrooms } from "@client/features/classrooms/api";
 import { ClassroomFormDialog } from "@client/features/classrooms/classroom-form";
 
@@ -20,6 +21,7 @@ function ClassroomsPage() {
   const q = useClassrooms(archived);
   const [creating, setCreating] = useState(false);
   const navigate = useNavigate();
+  usePageTitle(["Aulas", archived ? "Archivadas" : null]);
 
   return (
     <>
@@ -33,7 +35,8 @@ function ClassroomsPage() {
         }
       />
 
-      <div role="tablist" aria-label="Filtrar aulas" className="mb-5 inline-flex rounded-md border border-line bg-surface p-1">
+      {/* Two links (not tabs): the current one is marked with aria-current="page" only (D18). */}
+      <nav aria-label="Filtrar aulas" className="mb-5 inline-flex rounded-md border border-line bg-surface p-1">
         {[
           { label: "Activas", value: false },
           { label: "Archivadas", value: true },
@@ -42,17 +45,17 @@ function ClassroomsPage() {
             key={t.label}
             to="/app/aulas"
             search={t.value ? { archivadas: true } : {}}
-            role="tab"
-            aria-selected={archived === t.value}
+            // Exact match: "Activas" (no search) must not read as current while "Archivadas" is open.
+            activeOptions={{ exact: true }}
             className={cn(
-              "rounded-sm px-3.5 py-1.5 text-sm font-semibold transition-colors",
+              "inline-flex min-h-11 items-center rounded-sm px-4 text-sm font-semibold transition-colors",
               archived === t.value ? "bg-ink text-white" : "text-text-2 hover:text-ink",
             )}
           >
             {t.label}
           </Link>
         ))}
-      </div>
+      </nav>
 
       {q.isPending ? (
         <SkeletonList rows={3} />
