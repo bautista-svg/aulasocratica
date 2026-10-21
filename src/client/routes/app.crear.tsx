@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { z } from "zod";
+import { optionalUuid, searchParams } from "@client/lib/search";
 import { PageSpinner } from "@client/components/ui/spinner";
 import { useMe } from "@client/lib/session";
 import { CreateWizard } from "@client/features/planning/create-wizard";
 
 export const Route = createFileRoute("/app/crear")({
-  validateSearch: z.object({ aula: z.string().uuid().optional() }),
+  validateSearch: searchParams({ aula: optionalUuid }),
   component: CreatePage,
 });
 

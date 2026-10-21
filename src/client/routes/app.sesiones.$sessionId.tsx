@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { z } from "zod";
+import { optionalEnum, searchParams } from "@client/lib/search";
 import { toast } from "sonner";
 import { ChevronRight, Download, KeyRound, MoreHorizontal, Play, Square, Trash2, UserRound } from "lucide-react";
 import { Badge, ErrorState, PageHeader } from "@client/components/ui/misc";
@@ -23,7 +23,7 @@ import type { SessionDetail } from "@shared/contracts/sessions";
 const TABS = ["recorrido", "conversacion", "evaluacion", "radiografia"] as const;
 
 export const Route = createFileRoute("/app/sesiones/$sessionId")({
-  validateSearch: z.object({ tab: z.enum(TABS).optional() }),
+  validateSearch: searchParams({ tab: optionalEnum(TABS) }),
   component: SessionPage,
 });
 

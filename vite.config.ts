@@ -4,6 +4,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import { compressAssets } from "./scripts/vite-compress";
+import { preloadFonts, routePreloads } from "./scripts/vite-preloads";
 
 export default defineConfig({
   root: "src/client",
@@ -18,6 +19,8 @@ export default defineConfig({
     }),
     react(),
     tailwindcss(),
+    preloadFonts(),
+    routePreloads(),
     compressAssets(),
   ],
   resolve: {

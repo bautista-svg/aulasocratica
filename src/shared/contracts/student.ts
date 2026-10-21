@@ -8,12 +8,9 @@ import type { ReflectionAnswer, ReflectionQuestion } from "../domain/activity-de
 import type { VoiceLanguage } from "../domain/voice";
 import type { FileKind } from "../domain/files";
 import { AWAY_MIN_MS, PASTE_MIN_CHARS } from "../domain/alerts";
+import { MAX_ANSWER_CHARS, MAX_CHAT_CHARS, MAX_REFLECTION_ANSWER_CHARS, MIN_ANSWER_CHARS } from "./student-limits";
 
-export const MAX_CHAT_CHARS = 3000;
-export const MIN_ANSWER_CHARS = 3;
-export const MAX_ANSWER_CHARS = 4000;
-export const MAX_REFLECTION_ANSWER_CHARS = 2000;
-export const RESUME_CODE_LENGTH = 6;
+export { MAX_ANSWER_CHARS, MAX_CHAT_CHARS, MAX_REFLECTION_ANSWER_CHARS, MIN_ANSWER_CHARS, RESUME_CODE_LENGTH } from "./student-limits";
 
 export const joinBody = z.object({
   name: z.string().max(200, "El nombre es demasiado largo."),
