@@ -43,6 +43,8 @@ export function tokenize(s: string): string[] {
     .filter((w) => w.length > 2 && !STOP.has(w));
 }
 
+const isHighSurrogate = (code: number) => code >= 0xd800 && code <= 0xdbff;
+
 export function splitChunks(text: string, size = CHUNK_CHARS): string[] {
   const paras = text.split(/\n{2,}/);
   const chunks: string[] = [];
@@ -51,7 +53,13 @@ export function splitChunks(text: string, size = CHUNK_CHARS): string[] {
     if (p.length > size) {
       if (cur) chunks.push(cur);
       cur = "";
-      for (let i = 0; i < p.length; i += size) chunks.push(p.slice(i, i + size));
+      for (let i = 0; i < p.length; ) {
+        let end = Math.min(i + size, p.length);
+        // Never cut a character that takes two UTF-16 units (an emoji, PDF math letters like 𝑥) in half.
+        if (end < p.length && end - i > 1 && isHighSurrogate(p.charCodeAt(end - 1))) end--;
+        chunks.push(p.slice(i, end));
+        i = end;
+      }
       continue;
     }
     if ((cur + "\n\n" + p).length > size && cur) {

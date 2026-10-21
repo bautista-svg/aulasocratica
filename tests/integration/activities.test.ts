@@ -469,9 +469,11 @@ describe("ai design helpers", () => {
     expect(r.body.questions[0].question).toBe("¿Qué descubriste sobre los múltiplos de 3?");
     expect(r.body.questions[0].key).toBeTruthy();
 
+    // A request the API rejects is not a server configuration problem (502, its own message).
     aiMock.error(400, "invalid_request_error");
     const fail = await call("POST", `/api/activities/${a.id}/ai/reflection`, { cookie: t.cookie, body: { count: 2 } });
-    expect(fail.status).toBe(503);
+    expect(fail.status).toBe(502);
+    expect(fail.body.error.code).toBe("ai_rejected");
     expect(fail.body.error.message).toMatch(/IA/);
   });
 
