@@ -14,3 +14,6 @@ coverage/
 src/client/routeTree.gen.ts
 data-test*/
 data-audit/
+.claude/worktrees/
+docs/informes/auditoria-ui/scripts/archivos/
+docs/informes/auditoria-ui/evidencia/*.webm

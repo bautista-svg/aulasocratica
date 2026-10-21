@@ -148,6 +148,10 @@ function PrivacyPage() {
                 leerlos, los archivos que sube el docente. También recibe los datos de un informe (incluidos los nombres de los alumnos que figuran en
                 él) cuando el docente pide una propuesta de texto. Anthropic trata ese contenido según sus condiciones para el uso de su servicio.
               </li>
+              <li>
+                <strong>Cloudflare</strong>, que entrega y protege el sitio. Todo el tráfico pasa por su red, y su medición de visitas (Cloudflare Web
+                Analytics) registra datos agregados de las páginas, como cantidad de visitas y tiempos de carga, sin cookies.
+              </li>
             </ul>
           </Section>
 

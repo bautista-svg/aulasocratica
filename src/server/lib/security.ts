@@ -41,11 +41,12 @@ export const securityHeaders: MiddlewareHandler = async (c, next) => {
       "Content-Security-Policy",
       [
         "default-src 'self'",
-        "script-src 'self'",
+        // Cloudflare Web Analytics is injected by the zone (becode.com.ar); disclosed in /privacidad.
+        "script-src 'self' https://static.cloudflareinsights.com",
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: blob:",
         "font-src 'self'",
-        "connect-src 'self'",
+        "connect-src 'self' https://cloudflareinsights.com",
         "media-src 'self' blob:",
         "object-src 'none'",
         "base-uri 'self'",
