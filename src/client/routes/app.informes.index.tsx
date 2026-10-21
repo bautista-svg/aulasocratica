@@ -30,6 +30,8 @@ function ReportsPage() {
         }
       />
 
+      {/* Keeps the heading order h1 → h2 → h3 (the empty state uses an h3). */}
+      <h2 className="sr-only">Tus informes</h2>
       {q.isPending ? (
         <SkeletonList rows={3} />
       ) : q.isError ? (

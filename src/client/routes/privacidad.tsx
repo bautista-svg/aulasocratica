@@ -155,6 +155,12 @@ function PrivacyPage() {
                 él) cuando el docente pide una propuesta de texto. Anthropic trata ese contenido según sus condiciones para el uso de su servicio.
               </li>
               <li>
+                <strong>El servicio de voz del navegador</strong>, solo si el docente activa la voz en una actividad y el alumno usa el dictado. El
+                reconocimiento de voz lo hace el navegador con el servicio de su fabricante (por ejemplo, Google en Chrome, Microsoft en Edge o
+                Apple en Safari), que puede recibir el audio. A Aula Socrática llega solo el texto que queda escrito en el mensaje: el audio no
+                pasa por nuestro servidor ni se guarda. La lectura en voz alta de las respuestas también la hace el navegador.
+              </li>
+              <li>
                 <strong>Cloudflare</strong>, que entrega y protege el sitio. Todo el tráfico pasa por su red, y su medición de visitas (Cloudflare Web
                 Analytics) registra datos agregados de las páginas, como cantidad de visitas y tiempos de carga, sin cookies.
               </li>

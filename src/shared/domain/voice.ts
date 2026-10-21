@@ -1,6 +1,6 @@
-// Client-safe rules for voice messages with the tutor. The teacher picks the language per
-// activity; students record a voice message that is transcribed into the chat, and the
-// tutor's written reply is read aloud.
+// Client-safe rules for voice with the tutor. The teacher picks the language per activity;
+// students dictate with the browser's speech recognition (only the text reaches the server),
+// and the tutor's written reply can be read aloud by the browser.
 
 export type VoiceLanguage = "off" | "es" | "en";
 
@@ -14,10 +14,8 @@ export function isVoiceLanguage(v: unknown): v is VoiceLanguage {
   return v === "off" || v === "es" || v === "en";
 }
 
-/** Longest voice message a student can record, in seconds. */
+/** Longest dictation in one go, in seconds. */
 export const MAX_VOICE_SECONDS = 120;
-/** Upload cap for one recording (16 kHz mono WAV ≈ 32 KB/s; leaves headroom for 48 kHz devices). */
-export const MAX_VOICE_BYTES = 12 * 1024 * 1024;
 /** Characters per speech request; replies are split at sentence boundaries. */
 export const SPEECH_CHUNK_CHARS = 600;
 

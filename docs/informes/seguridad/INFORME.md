@@ -512,3 +512,30 @@ terceros al prompt.
 - **Inyección de prompt en LLM:** acotada (F-16) pero intrínsecamente no eliminable al 100 %.
 - No se auditó la configuración viva de Cloudflare/Coolify ni la rotación real de secretos (fuera de
   alcance; solo lectura de headers en producción).
+
+---
+
+## Estado de las correcciones (verificado el 21-10-2026, commit desplegado en producción)
+
+| ID | Gravedad | Estado | Qué se hizo | Cómo se verifica |
+|---|---|---|---|---|
+| F-01 | Crítica | **Corregido** | La lectura de PDF y Word corre en un worker aislado con límite de memoria y de tiempo; los `.docx` cuyo contenido descomprimido declarado supera 80 MB se rechazan antes de abrirlos; una lectura interrumpida por un reinicio queda como "falló" (con Reintentar) en vez de reintentarse sola, así no hay bucle de reinicio | `tests/integration/upload-safety.test.ts` (bomba `.docx` real: el proceso sigue vivo) |
+| F-02 | Alta | **Corregido** | Topes diarios por **costo real** en USD (precios de Haiku 5.5): 3 USD por espacio docente, 40 USD global, 150 respuestas del tutor por alumno, día y actividad; máximo 300 espacios nuevos por hora en todo el sitio | `tests/integration/security-fixes.test.ts`; `src/shared/domain/ai-cost.ts` |
+| F-03 | Media | **Corregido** | La IP real se toma de `CF-Connecting-IP` solo si la conexión viene de un rango publicado de Cloudflare; si no, se usa el último salto de `X-Forwarded-For` (el que agrega Traefik) | `src/server/lib/cloudflare-ip.test.ts` |
+| F-04 | Media | **Corregido** | Al borrar alumnos, trabajos, actividades o aulas, los informes que los incluían se reconstruyen o se redactan (`reconcileReports`) | `tests/integration/reports.test.ts`, `security-fixes.test.ts` |
+| F-05 | Media | **Corregido** | Cambiar la contraseña rota el código de recuperación y devuelve el nuevo | `tests/integration/auth-classrooms.test.ts`, `security-fixes.test.ts` |
+| F-06 | Media | **Corregido** | Cuota de disco de 2 GB por espacio (`STORAGE_QUOTA_MB_PER_WORKSPACE`) aplicada a subidas, duplicados y "Crear con IA"; límite de frecuencia para duplicar | `tests/integration/security-fixes.test.ts` |
+| F-07 | Media | **Mitigado** | El docente ve cuándo alguien entra con un nombre de la lista ("nombre de la lista" en En vivo y en la conversación) para detectar suplantaciones. No se puede eliminar sin dar cuentas a los alumnos (decisión de producto: menores sin cuenta) | `tests/integration/live.test.ts`; evidencia `auditoria-ui/correcciones/docente/F07-*.png` |
+| F-08 | Baja | **Corregido** | En "continuar con código", un nombre desconocido y un código incorrecto reciben la misma respuesta y la misma cuenta regresiva | `tests/integration/student.test.ts` |
+| F-09 | Baja | **Corregido / aceptado** | Login: un correo inexistente también ejecuta scrypt (contra un hash señuelo), así el tiempo de respuesta no revela qué correos tienen cuenta. Registro: el aviso "ya existe una cuenta con ese correo" se mantiene a propósito (sin él, el docente no sabría que debe ingresar); requiere un espacio y está limitado a 10 por hora | `src/server/routes/auth.ts` |
+| F-10 | Baja | **Corregido** | El bloqueo por códigos incorrectos es por nombre **y** conexión: un compañero desde otra red no puede bloquear al alumno real; hay además un tope por nombre que hace inviable adivinar | `tests/integration/student.test.ts` |
+| F-11 | Baja | **Aceptado (mitigado)** | El servidor decide el tipo por la extensión permitida (no hay HTML ni SVG entre los tipos aceptados), sirve con `X-Content-Type-Options: nosniff`, `Content-Disposition` y la CSP; un archivo con contenido que no coincide simplemente no se puede leer y queda marcado como dañado | `src/server/services/student/files.ts` |
+| F-12 | Baja | **Aceptado** | `/api/health` es necesario para el health check de Coolify; solo informa `ok` y el estado de la base, sin datos internos | — |
+| F-13 | Info | **Aceptado** | Quedan 3 avisos moderados de `npm audit --omit=dev`, todos de `argparse`/`sprintf-js` usados por la línea de comandos de mammoth (el servidor no la usa); la lectura de Word corre en el worker aislado de F-01 | `npm audit --omit=dev` |
+| F-14 | Info | **Aceptado** | El tope global de intentos fallidos de `/admin` protege contra adivinación distribuida; el costo es que el dueño puede quedar bloqueado 15 minutos durante un ataque | `tests/integration/admin.test.ts` |
+| F-15 | Info | **Corregido** | Borrar un aula ahora borra también las carpetas de sus actividades (antes quedaban vacías) | `src/server/routes/classrooms.ts` |
+| F-16 | Info | **Aceptado** | El tutor recibe solo la actividad y la conversación de ese alumno: no hay datos de terceros ni secretos que extraer | `src/shared/domain/tutor-prompt.test.ts` |
+
+Verificación en producción (`https://aulasocratica.becode.com.ar`): HTTPS con certificado de Cloudflare, HSTS,
+CSP, `X-Frame-Options`, `Referrer-Policy` y `Permissions-Policy` presentes; cookies `HttpOnly; Secure; SameSite=Lax`;
+pedidos que modifican datos sin `Origin` propio ni el encabezado de la app → 403.

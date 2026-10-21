@@ -506,3 +506,49 @@ node scripts/bench/compare.mjs before after      # tablas en Markdown
 - `.gitignore` y `.dockerignore` ignoran `data-perf/` (datos y logs de las mediciones).
 - Sin variables de entorno nuevas. Tests: 23 archivos / 189 tests en verde (7 tests nuevos de equivalencia y de
   compresión); `npm run typecheck` limpio; e2e `@smoke` 6/6 contra el build de producción.
+
+## 10. Medición final en producción (21-10-2026)
+
+`https://aulasocratica.becode.com.ar`, a través de Cloudflare: Lighthouse móvil (Moto G Power emulado, 150 ms RTT,
+1,6 Mbps, CPU ×4), **mediana de 5 corridas por página**. Datos crudos en `docs/benchmarks/lighthouse-produccion.json`.
+Para `/clase/<token>` se usó una actividad publicada en un espacio de prueba que se borró al terminar.
+
+| Página | Rendimiento | Accesibilidad | FCP | LCP | TBT | CLS | Transferido | JS | Pedidos |
+|---|---|---|---|---|---|---|---|---|---|
+| `/` | 0,97 | 1,00 | 2137 ms | 2137 ms | 1 ms | 0 | 241 KB | 119 KB | 15 |
+| `/ingresar` | 0,98 | 1,00 | 1728 ms | 2223 ms | 41 ms | 0 | 293 KB | 176 KB | 35 |
+| `/privacidad` | 0,98 | 1,00 | 1679 ms | 2027 ms | 1 ms | 0 | 237 KB | 120 KB | 17 |
+| `/clase/<token>` (ingreso del alumno) | 0,98 | 1,00 | 1676 ms | 2126 ms | 38 ms | 0 | 268 KB | 150 KB | 33 |
+| `/clase/<token inexistente>` | 0,98 | 1,00 | 1690 ms | 2143 ms | 40 ms | 0 | 268 KB | 150 KB | 33 |
+
+TTFB medido en producción: 62–75 ms.
+
+### Prototipo original vs. producción
+
+El original (`docs/benchmarks/lighthouse-original-local.json`, 3 corridas) se midió **sirviéndolo en esta misma
+máquina** (TTFB 2–4 ms, sin red real). Producción se midió por internet, con Cloudflare de por medio. La comparación
+favorece al original, así que las mejoras reales son por lo menos las que se ven acá.
+
+| Página | Métrica | Original | Producción | Cambio |
+|---|---|---|---|---|
+| Portada `/` | Rendimiento | 0,62 | 0,97 | +0,35 |
+| | LCP | 6563 ms | 2137 ms | −67 % |
+| | FCP | 6114 ms | 2137 ms | −65 % |
+| | JS transferido | 684 KB | 119 KB | −83 % |
+| | Pedidos | 33 | 15 | −55 % |
+| Ingreso del docente (`/auth` → `/ingresar`) | Rendimiento | 0,61 | 0,98 | +0,37 |
+| | LCP | 6791 ms | 2223 ms | −67 % |
+| | JS transferido | 711 KB | 176 KB | −75 % |
+| Página del alumno (`/clase/<token inexistente>`, misma URL en ambos) | Rendimiento | 0,55 | 0,98 | +0,43 |
+| | LCP | 17 915 ms | 2143 ms | −88 % |
+| | FCP | 13 467 ms | 1690 ms | −87 % |
+| | JS transferido | 2683 KB | 150 KB | −94 % |
+| | Pedidos | 75 | 33 | −56 % |
+| Todas | Accesibilidad (Lighthouse) | 0,96–0,98 | 1,00 | |
+
+Notas:
+- El SEO de `/clase/…` da 0,63 porque esas páginas llevan `noindex` a propósito: son enlaces privados de una clase.
+- "Buenas prácticas" da 0,96 solo en `/clase/<token inexistente>`. El navegador registra en la consola el 404 de la
+  API para un enlace que no existe (verificado). La página muestra correctamente "Enlace no encontrado".
+- Son mediciones de laboratorio. Los datos de uso real (Core Web Vitals de usuarios) van a aparecer en Cloudflare Web
+  Analytics cuando haya tráfico; hoy no hay usuarios reales que medir.

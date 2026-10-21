@@ -25,9 +25,13 @@ Para escalar a varias réplicas hay que mover ambos a Postgres o Redis.
 | `PUBLIC_URL` | sí | `https://aulasocratica.becode.com.ar` | Origen permitido (CSRF), cookies seguras |
 | `TRUST_PROXY` | sí | `true` | Tomar la IP real de `CF-Connecting-IP` / `X-Forwarded-For` |
 | `ANTHROPIC_API_KEY` | para IA | `sk-ant-…` | Claude |
-| `ANTHROPIC_WORKSPACE_ID` | si la key no es de un workspace | `wrkspc_…` | Header `anthropic-workspace-id` (keys de usuario/organización) |
+| `ANTHROPIC_WORKSPACE_ID` | si la key no es de un workspace | `wrkspc_…` | Header `anthropic-workspace-id` (keys de usuario/organización). **En producción está cargada**: sin ella toda la IA responde 401 |
+| `ANTHROPIC_BASE_URL` | no | — | Solo para pruebas locales con la IA simulada (`scripts/dev/fake-claude.mjs`); vacío en producción |
 | `AI_MODEL` | no | `claude-haiku-5-5` | Modelo |
-| `AI_DAILY_TOKENS_PER_WORKSPACE` | no | `4000000` | Tope diario de tokens por espacio docente (protege el costo) |
+| `AI_DAILY_USD_PER_WORKSPACE` | no | `3` | Tope diario de gasto en IA por espacio docente, en USD (calculado con el uso real y los precios del modelo) |
+| `AI_DAILY_USD_GLOBAL` | no | `40` | Tope diario de gasto en IA de todo el sitio, en USD |
+| `AI_DAILY_REPLIES_PER_STUDENT` | no | `150` | Respuestas del tutor por alumno, por día y por actividad |
+| `STORAGE_QUOTA_MB_PER_WORKSPACE` | no | `2048` | Espacio en disco por espacio docente (subidas, duplicados, Crear con IA) |
 | `ADMIN_PASSWORD` | no | 28 caracteres aleatorios | Habilita `/admin` (vacío = deshabilitado) |
 | `LOG_LEVEL` | no | `info` | `debug` / `info` / `warn` / `error` |
 

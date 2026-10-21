@@ -150,7 +150,7 @@ export function AlertItem({
       <p className="mt-2 text-[15px] font-semibold text-text">
         {showStudent && alert.studentName ? (
           <>
-            <Link to="/app/sesiones/$sessionId" params={{ sessionId: alert.sessionId }} className="text-ink underline-offset-4 hover:underline">
+            <Link to="/app/sesiones/$sessionId" params={{ sessionId: alert.sessionId }} className="text-ink underline decoration-ink/35 underline-offset-4 hover:decoration-ink">
               {alert.studentName}
             </Link>
             <span className="font-normal text-text-3"> · </span>

@@ -210,7 +210,8 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
           description={
             <span className="flex items-start gap-1.5">
               <Mic className="mt-1 size-3.5 shrink-0" aria-hidden="true" />
-              Usa el micrófono y la voz del navegador del alumno. Si su navegador no lo permite, escribe como siempre.
+              Usa el micrófono y la voz del navegador del alumno: el dictado lo procesa el servicio de voz del navegador (Google, Microsoft o
+              Apple) y a la app llega solo el texto. Si su navegador no lo permite, escribe como siempre.
             </span>
           }
           {...meta("voz")}
