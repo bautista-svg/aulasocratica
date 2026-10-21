@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { Archive, ArchiveRestore, ChevronRight, Copy, MoreHorizontal, RotateCcw, Send, Share2, Trash2, Undo2 } from "lucide-react";
@@ -57,12 +57,22 @@ function ActivityEditor({ activity }: { activity: ActivityEditorData }) {
   const [dialog, setDialog] = useState<LifecycleDialog>(null);
   const bypass = useRef(false);
   const state = activityState(activity);
-  const publishing = action.isPending && action.variables === "publish";
+  const [publishing, setPublishing] = useState(false);
+  // The live view (SSE + polling) starts the first time its tab is opened, then stays mounted.
+  const [liveOpened, setLiveOpened] = useState(current === "en-vivo");
+  useEffect(() => {
+    if (current === "en-vivo") setLiveOpened(true);
+  }, [current]);
 
   async function publish() {
     const hadChanges = form.dirty;
-    if (!(await draftSave.run({ quiet: true }))) return;
+    setPublishing(true);
+    if (!(await draftSave.run({ quiet: true }))) {
+      setPublishing(false);
+      return;
+    }
     action.mutate("publish", {
+      onSettled: () => setPublishing(false),
       onSuccess: () => {
         toast.success(hadChanges ? "Cambios guardados y actividad publicada" : "Actividad publicada: ya tiene su enlace");
         goTab("compartir");
@@ -94,7 +104,7 @@ function ActivityEditor({ activity }: { activity: ActivityEditorData }) {
         Compartir
       </Button>
     ) : (
-      <Button icon={<Send className="size-4" />} loading={publishing || (draftSave.pending && action.isIdle)} onClick={() => void publish()} disabled={activity.classroomArchived}>
+      <Button icon={<Send className="size-4" />} loading={publishing} onClick={() => void publish()} disabled={activity.classroomArchived}>
         Publicar
       </Button>
     );
@@ -188,7 +198,7 @@ function ActivityEditor({ activity }: { activity: ActivityEditorData }) {
               activity.participants > 0 ? (
                 <span className="rounded-full bg-sunken px-2 py-0.5 text-xs font-semibold text-text-2 tabular">{activity.participants}</span>
               ) : undefined,
-            content: <LivePanel activityId={activity.id} />,
+            content: liveOpened ? <LivePanel activityId={activity.id} /> : null,
           },
         ]}
       />

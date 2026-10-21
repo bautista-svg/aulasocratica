@@ -12,7 +12,6 @@ import { cookieName, JOIN_LIMIT } from "@server/services/student/session";
 import { CHAT_LIMIT, REFUSAL_REPLY } from "@server/services/student/tutor";
 import { settleStudentJobs } from "@server/services/student/background";
 import { isStreaming } from "@server/services/student/streams";
-import { DEFAULT_REFLECTION_QUESTIONS } from "@shared/domain/activity-design";
 
 type ActivityInsert = typeof schema.activities.$inferInsert;
 
@@ -128,7 +127,8 @@ describe("entering an activity", () => {
     expect(w.studentName).toBe("Lucía Gómez");
     expect(w.resumeCode).toMatch(/^[A-Z2-9]{6}$/);
     expect(w.stage).toBe("initial");
-    expect(w.activity.reflectionQuestions).toEqual(DEFAULT_REFLECTION_QUESTIONS);
+    // The fixture activity has no reflection questions: an empty list means no reflection step.
+    expect(w.activity.reflectionQuestions).toEqual([]);
 
     const students = await db.select().from(schema.students).where(eq(schema.students.classroomId, s.classroomId));
     expect(students).toHaveLength(1);

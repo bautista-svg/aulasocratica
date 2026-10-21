@@ -65,6 +65,7 @@ export function ReflectionEditor({ activityId, form, context }: { activityId: st
                       value={q.question}
                       maxLength={300}
                       minRows={1}
+                      rows={1}
                       maxRows={5}
                       invalid={Boolean(error)}
                       aria-describedby={error ? `refl-${q.key}-err` : undefined}

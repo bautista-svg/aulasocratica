@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from "hono";
-import { env, isProd } from "../env";
+import { env, isProd, secureCookies } from "../env";
 import { forbidden } from "./errors";
 
 const allowedOrigin = new URL(env.PUBLIC_URL).origin;
@@ -34,7 +34,7 @@ export const securityHeaders: MiddlewareHandler = async (c, next) => {
   h.set("Permissions-Policy", "camera=(), geolocation=(), microphone=(self), payment=()");
   h.set("Cross-Origin-Opener-Policy", "same-origin");
   h.set("Cross-Origin-Resource-Policy", "same-origin");
-  if (isProd) h.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  if (isProd && secureCookies) h.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   const ct = h.get("content-type") ?? "";
   if (ct.includes("text/html")) {
     h.set(
@@ -51,7 +51,7 @@ export const securityHeaders: MiddlewareHandler = async (c, next) => {
         "base-uri 'self'",
         "form-action 'self'",
         "frame-ancestors 'none'",
-        "upgrade-insecure-requests",
+        ...(secureCookies ? ["upgrade-insecure-requests"] : []),
       ].join("; "),
     );
   }

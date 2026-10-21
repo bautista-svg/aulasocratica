@@ -39,8 +39,9 @@ export async function readFile(key: string): Promise<Buffer> {
   return fsp.readFile(resolveKey(key));
 }
 
-export function fileStream(key: string): fs.ReadStream {
-  return fs.createReadStream(resolveKey(key));
+/** Read stream for a stored file; `range` is inclusive (as in HTTP Range requests). */
+export function fileStream(key: string, range?: { start: number; end: number }): fs.ReadStream {
+  return fs.createReadStream(resolveKey(key), range);
 }
 
 export async function fileSize(key: string): Promise<number | null> {

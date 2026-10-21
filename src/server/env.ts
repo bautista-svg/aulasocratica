@@ -40,7 +40,9 @@ function load(): Env {
   }
   const env = parsed.data;
   if (env.NODE_ENV === "production") {
-    if (!env.PUBLIC_URL.startsWith("https://")) throw new Error("PUBLIC_URL debe usar https en producción");
+    const local = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(env.PUBLIC_URL);
+    // http is only accepted for local benchmarks of the production build.
+    if (!env.PUBLIC_URL.startsWith("https://") && !local) throw new Error("PUBLIC_URL debe usar https en producción");
     if (env.ADMIN_PASSWORD && env.ADMIN_PASSWORD.length < 16) {
       throw new Error("ADMIN_PASSWORD debe tener al menos 16 caracteres");
     }

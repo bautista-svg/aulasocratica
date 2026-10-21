@@ -16,7 +16,7 @@ import { publish } from "../../lib/events";
 import { secureCookies } from "../../env";
 import { LINK_AVAILABILITY_MESSAGE, linkAvailability, type LinkAvailability } from "@shared/domain/access-rules";
 import { validateStudentName } from "@shared/domain/names";
-import { DEFAULT_REFLECTION_QUESTIONS, readReflection, sanitizeReflectionQuestions, type ReflectionQuestion } from "@shared/domain/activity-design";
+import { readReflection, sanitizeReflectionQuestions, type ReflectionQuestion } from "@shared/domain/activity-design";
 import { isVoiceLanguage } from "@shared/domain/voice";
 import { classroomLabel } from "@shared/contracts/classrooms";
 import type { StudentFile, StudentLinkInfo, StudentMessage, StudentStage, StudentWorkspace } from "@shared/contracts/student";
@@ -331,9 +331,12 @@ export async function refreshSession(ctx: StudentCtx): Promise<StudentCtx> {
 
 // ── Workspace payload ──
 
+/**
+ * The activity's reflection questions exactly as the teacher left them. New activities start
+ * with DEFAULT_REFLECTION_QUESTIONS; an empty list is a deliberate choice (no reflection step).
+ */
 export function reflectionQuestionsOf(activity: Activity): ReflectionQuestion[] {
-  const qs = sanitizeReflectionQuestions(activity.reflectionQuestions);
-  return qs.length ? qs : DEFAULT_REFLECTION_QUESTIONS;
+  return sanitizeReflectionQuestions(activity.reflectionQuestions);
 }
 
 export function stageOf(activity: Activity, session: Session): StudentStage {

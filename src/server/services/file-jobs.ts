@@ -42,6 +42,7 @@ function pump() {
 
 function failureMessage(err: unknown): string {
   if (err instanceof HttpError) return err.message;
+  if ((err as NodeJS.ErrnoException)?.code === "ENOENT") return "El archivo ya no está en el servidor. Quitalo y subilo de nuevo.";
   return "No se pudo leer el archivo. Probá de nuevo o subilo en otro formato.";
 }
 

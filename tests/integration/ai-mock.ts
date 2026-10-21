@@ -10,7 +10,7 @@ export interface RecordedRequest {
 
 type Reply =
   | { kind: "json"; value: unknown } // structured output (messages.parse)
-  | { kind: "text"; text: string } // plain text (create or stream)
+  | { kind: "text"; text: string; stopReason?: string } // plain text (create or stream)
   | { kind: "error"; status: number; type: string; message: string };
 
 const queue: Reply[] = [];
@@ -22,8 +22,8 @@ export const aiMock = {
   json(value: unknown) {
     queue.push({ kind: "json", value });
   },
-  text(text: string) {
-    queue.push({ kind: "text", text });
+  text(text: string, stopReason?: string) {
+    queue.push({ kind: "text", text, stopReason });
   },
   error(status: number, type = "api_error", message = "mock error") {
     queue.push({ kind: "error", status, type, message });
@@ -53,20 +53,20 @@ function nextReply(body: Record<string, unknown>): Reply {
   return hasFormat ? { kind: "json", value: { detections: [] } } : { kind: "text", text: "¿Qué pensás que pasaría si probás con otro ejemplo?" };
 }
 
-function message(text: string) {
+function message(text: string, stopReason = "end_turn") {
   return {
     id: `msg_mock_${Date.now()}`,
     type: "message",
     role: "assistant",
     model: "claude-haiku-5-5",
     content: [{ type: "text", text }],
-    stop_reason: "end_turn",
+    stop_reason: stopReason,
     stop_sequence: null,
     usage,
   };
 }
 
-function sse(res: http.ServerResponse, text: string) {
+function sse(res: http.ServerResponse, text: string, stopReason = "end_turn") {
   res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" });
   const send = (event: string, data: unknown) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   const base = message("");
@@ -76,7 +76,7 @@ function sse(res: http.ServerResponse, text: string) {
     send("content_block_delta", { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: piece } });
   }
   send("content_block_stop", { type: "content_block_stop", index: 0 });
-  send("message_delta", { type: "message_delta", delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: 40 } });
+  send("message_delta", { type: "message_delta", delta: { stop_reason: stopReason, stop_sequence: null }, usage: { output_tokens: 40 } });
   send("message_stop", { type: "message_stop" });
   res.end();
 }
@@ -96,9 +96,10 @@ export function startAiMock(port = 47811): Promise<void> {
         return;
       }
       const text = reply.kind === "json" ? JSON.stringify(reply.value) : reply.text;
-      if (body.stream) return sse(res, text);
+      const stop = reply.kind === "text" ? reply.stopReason : undefined;
+      if (body.stream) return sse(res, text, stop);
       res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify(message(text)));
+      res.end(JSON.stringify(message(text, stop)));
     });
   });
   return new Promise((resolve) => server!.listen(port, "127.0.0.1", () => resolve()));

@@ -200,7 +200,7 @@ function LiveNow({ d }: { d: DashboardResponse }) {
               <Link
                 to="/app/actividades/$activityId"
                 params={{ activityId: a.id }}
-                search={{ tab: "envivo" } as never}
+                search={{ tab: "en-vivo" }}
                 className="group flex h-full flex-col rounded-lg border border-leaf/30 bg-surface p-5 shadow-1 transition-[border-color,box-shadow] hover:border-leaf/60 hover:shadow-2"
               >
                 <span className="inline-flex items-center gap-2 text-sm font-semibold text-leaf">

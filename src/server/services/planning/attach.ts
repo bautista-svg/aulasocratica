@@ -12,6 +12,7 @@ import { copyFile, deleteFile, newKey, saveFile } from "../../lib/storage";
 import { enqueueFile } from "../file-jobs";
 import { MAX_FILES_PER_ACTIVITY, fileExtension } from "@shared/domain/files";
 import { MAX_TEXT_FOR_ACTIVITY, appendMaterialText, materialAsActivityText } from "@shared/domain/library";
+import { ACTIVITY_LIMITS } from "@shared/contracts/activities";
 
 type MaterialRow = typeof schema.materials.$inferSelect;
 
@@ -34,49 +35,57 @@ async function assertFileRoom(activityId: string) {
   }
 }
 
-/** Appends text to activities.material under a row lock (two attaches at once never lose text). */
-export async function appendToActivityMaterial(activityId: string, block: string): Promise<void> {
-  await db.transaction(async (tx) => {
+/**
+ * Appends text to activities.material under a row lock (two attaches at once never lose text).
+ * Returns false (and changes nothing) when the result would exceed the editor's limit, so the
+ * caller attaches the text as a file instead — the written material stays editable.
+ */
+export async function appendToActivityMaterial(activityId: string, block: string): Promise<boolean> {
+  return db.transaction(async (tx) => {
     const [row] = await tx.execute<{ material: string }>(sql`select material from activities where id = ${activityId} for update`);
     if (!row) throw new HttpError(404, "La actividad no existe o no tenés acceso.", "not_found");
-    await tx
-      .update(schema.activities)
-      .set({ material: appendMaterialText(row.material, block) })
-      .where(eq(schema.activities.id, activityId));
+    const next = appendMaterialText(row.material, block);
+    if (next.length > ACTIVITY_LIMITS.material) return false;
+    await tx.update(schema.activities).set({ material: next }).where(eq(schema.activities.id, activityId));
+    return true;
   });
+}
+
+async function attachTextAsFile(activityId: string, title: string, body: string): Promise<AttachResult> {
+  await assertFileRoom(activityId);
+  const key = newKey("activities", activityId, "txt");
+  const data = new TextEncoder().encode(body);
+  await saveFile(key, data);
+  try {
+    await db.insert(schema.activityFiles).values({
+      activityId,
+      storageKey: key,
+      fileName: `${title.replace(/[\\/:*?"<>|]+/g, " ").trim().slice(0, 150) || "Texto"}.txt`,
+      mimeType: "text/plain",
+      kind: "text",
+      sizeBytes: data.byteLength,
+      extractedText: body,
+      processingStatus: "ready",
+    });
+  } catch (err) {
+    await deleteFile(key);
+    throw err;
+  }
+  return { attachedAs: "file", processing: false };
 }
 
 export async function attachMaterialToActivity(m: MaterialRow, activityId: string): Promise<AttachResult> {
   if (m.kind === "link") {
-    await appendToActivityMaterial(activityId, materialAsActivityText(m));
-    return { attachedAs: "text", processing: false };
+    const block = materialAsActivityText(m);
+    if (await appendToActivityMaterial(activityId, block)) return { attachedAs: "text", processing: false };
+    return attachTextAsFile(activityId, m.title, block);
   }
 
   if (m.kind === "text") {
-    if (m.body.trim().length <= MAX_TEXT_FOR_ACTIVITY) {
-      await appendToActivityMaterial(activityId, materialAsActivityText(m));
+    if (m.body.trim().length <= MAX_TEXT_FOR_ACTIVITY && (await appendToActivityMaterial(activityId, materialAsActivityText(m)))) {
       return { attachedAs: "text", processing: false };
     }
-    await assertFileRoom(activityId);
-    const key = newKey("activities", activityId, "txt");
-    const data = new TextEncoder().encode(m.body);
-    await saveFile(key, data);
-    try {
-      await db.insert(schema.activityFiles).values({
-        activityId,
-        storageKey: key,
-        fileName: `${m.title.replace(/[\\/:*?"<>|]+/g, " ").trim().slice(0, 150) || "Texto"}.txt`,
-        mimeType: "text/plain",
-        kind: "text",
-        sizeBytes: data.byteLength,
-        extractedText: m.body,
-        processingStatus: "ready",
-      });
-    } catch (err) {
-      await deleteFile(key);
-      throw err;
-    }
-    return { attachedAs: "file", processing: false };
+    return attachTextAsFile(activityId, m.title, m.body);
   }
 
   // kind === "file"

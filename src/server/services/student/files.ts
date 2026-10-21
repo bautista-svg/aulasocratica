@@ -1,24 +1,12 @@
 // Serves an activity's files to its students. Only ready files of the activity the device
 // session belongs to; supports Range requests (iOS Safari needs them to play audio).
-import fs from "node:fs";
-import fsp from "node:fs/promises";
-import path from "node:path";
 import { Readable } from "node:stream";
 import type { Context } from "hono";
 import { and, eq } from "drizzle-orm";
 import { db, schema } from "../../db/client";
-import { env } from "../../env";
+import { fileSize, fileStream } from "../../lib/storage";
 import { HttpError } from "../../lib/errors";
 import { isUuid } from "../access";
-
-// Same layout as lib/storage.ts (which has no ranged reads): keys are server-generated and
-// the resolved path must stay inside the uploads folder.
-const root = path.resolve(env.DATA_DIR, "uploads");
-function resolveKey(key: string): string {
-  const full = path.resolve(root, key);
-  if (!full.startsWith(root + path.sep)) throw new Error("invalid storage key");
-  return full;
-}
 
 const INLINE_TYPES = /^(application\/pdf|image\/(jpeg|png|webp|gif)|audio\/[a-z0-9.+-]+|text\/(plain|markdown|csv))$/;
 
@@ -50,14 +38,8 @@ export async function serveActivityFile(c: Context, activityId: string, fileId: 
     .limit(1);
   if (!file) throw fileGone();
 
-  let full: string;
-  let size: number;
-  try {
-    full = resolveKey(file.storageKey);
-    size = (await fsp.stat(full)).size;
-  } catch {
-    throw fileGone();
-  }
+  const size = await fileSize(file.storageKey).catch(() => null);
+  if (size === null) throw fileGone();
 
   const mime = file.mimeType.toLowerCase();
   const inlineOk = INLINE_TYPES.test(mime);
@@ -91,6 +73,6 @@ export async function serveActivityFile(c: Context, activityId: string, fileId: 
   }
   headers["Content-Length"] = String(size === 0 ? 0 : end - start + 1);
   if (size === 0) return new Response(null, { status: 200, headers });
-  const body = Readable.toWeb(fs.createReadStream(full, { start, end })) as unknown as ReadableStream<Uint8Array>;
+  const body = Readable.toWeb(fileStream(file.storageKey, { start, end })) as unknown as ReadableStream<Uint8Array>;
   return new Response(body, { status, headers });
 }
