@@ -1,0 +1,306 @@
+{
+  "label": "before",
+  "date": "2026-10-21T04:04:28.618Z",
+  "base": "http://localhost:4500",
+  "isolated": {
+    "concurrency": 10,
+    "seconds": 10,
+    "endpoints": {
+      "me": {
+        "path": "/api/auth/me",
+        "responseBytes": 170,
+        "encodedBytes": null,
+        "contentEncoding": "gzip",
+        "requests": 9063,
+        "errors": 0,
+        "rps": 906,
+        "p50": 10.6,
+        "p95": 15.5,
+        "p99": 18.2,
+        "max": 28
+      },
+      "dashboard": {
+        "path": "/api/dashboard",
+        "responseBytes": 5295,
+        "encodedBytes": null,
+        "contentEncoding": "gzip",
+        "requests": 1086,
+        "errors": 0,
+        "rps": 108,
+        "p50": 90.2,
+        "p95": 124.3,
+        "p99": 151.9,
+        "max": 237
+      },
+      "classrooms": {
+        "path": "/api/classrooms",
+        "responseBytes": 9565,
+        "encodedBytes": null,
+        "contentEncoding": "gzip",
+        "requests": 5933,
+        "errors": 0,
+        "rps": 593,
+        "p50": 16.3,
+        "p95": 23,
+        "p99": 27,
+        "max": 312
+      },
+      "classroom-activities": {
+        "path": "/api/classrooms/<id>/activities",
+        "responseBytes": 1770,
+        "encodedBytes": null,
+        "contentEncoding": "gzip",
+        "requests": 5803,
+        "errors": 0,
+        "rps": 579,
+        "p50": 16.7,
+        "p95": 23,
+        "p99": 26.3,
+        "max": 35
+      },
+      "classroom-students": {
+        "path": "/api/classrooms/<id>/students",
+        "responseBytes": 32196,
+        "encodedBytes": null,
+        "contentEncoding": "gzip",
+        "requests": 4459,
+        "errors": 0,
+        "rps": 445,
+        "p50": 21.7,
+        "p95": 29.8,
+        "p99": 33,
+        "max": 43
+      },
+      "activity": {
+        "path": "/api/activities/<id>",
+        "responseBytes": 7977,
+        "encodedBytes": null,
+        "contentEncoding": "gzip",
+        "requests": 4847,
+        "errors": 0,
+        "rps": 484,
+        "p50": 20,
+        "p95": 27.1,
+        "p99": 30.6,
+        "max": 65
+      },
+      "live": {
+        "path": "/api/live/<id>?window=30m",
+        "responseBytes": 48839,
+        "encodedBytes": null,
+        "contentEncoding": "gzip",
+        "requests": 994,
+        "errors": 0,
+        "rps": 99,
+        "p50": 97,
+        "p95": 136.2,
+        "p99": 163.4,
+        "max": 175
+      },
+      "session": {
+        "path": "/api/sessions/<id>",
+        "responseBytes": 14393,
+        "encodedBytes": null,
+        "contentEncoding": "gzip",
+        "requests": 2573,
+        "errors": 0,
+        "rps": 257,
+        "p50": 36.9,
+        "p95": 54.8,
+        "p99": 67.2,
+        "max": 86
+      },
+      "radiografia": {
+        "path": "/api/sessions?view=radiografia",
+        "responseBytes": 16786,
+        "encodedBytes": null,
+        "contentEncoding": "gzip",
+        "requests": 3021,
+        "errors": 0,
+        "rps": 301,
+        "p50": 31.5,
+        "p95": 48.3,
+        "p99": 63.5,
+        "max": 133
+      },
+      "student-workspace": {
+        "path": "/api/s/<token>",
+        "responseBytes": 12852,
+        "encodedBytes": null,
+        "contentEncoding": "gzip",
+        "requests": 4079,
+        "errors": 0,
+        "rps": 407,
+        "p50": 23.7,
+        "p95": 32.4,
+        "p99": 36.8,
+        "max": 44
+      }
+    }
+  },
+  "mixed": {
+    "concurrency": 50,
+    "seconds": 30,
+    "throughputRps": 266,
+    "endpoints": {
+      "me": {
+        "requests": 798,
+        "errors": 0,
+        "rps": 26,
+        "p50": 137.1,
+        "p95": 170.6,
+        "p99": 193.1,
+        "max": 204
+      },
+      "dashboard": {
+        "requests": 801,
+        "errors": 0,
+        "rps": 27,
+        "p50": 131.5,
+        "p95": 182.3,
+        "p99": 206.9,
+        "max": 235
+      },
+      "classrooms": {
+        "requests": 801,
+        "errors": 0,
+        "rps": 27,
+        "p50": 114,
+        "p95": 152.1,
+        "p99": 176.4,
+        "max": 207
+      },
+      "classroom-activities": {
+        "requests": 802,
+        "errors": 0,
+        "rps": 27,
+        "p50": 185.3,
+        "p95": 227.1,
+        "p99": 247.2,
+        "max": 265
+      },
+      "classroom-students": {
+        "requests": 802,
+        "errors": 0,
+        "rps": 27,
+        "p50": 235.3,
+        "p95": 290,
+        "p99": 309.2,
+        "max": 315
+      },
+      "activity": {
+        "requests": 800,
+        "errors": 0,
+        "rps": 27,
+        "p50": 243,
+        "p95": 300.8,
+        "p99": 326.6,
+        "max": 355
+      },
+      "live": {
+        "requests": 801,
+        "errors": 0,
+        "rps": 27,
+        "p50": 261.9,
+        "p95": 329.5,
+        "p99": 358.4,
+        "max": 376
+      },
+      "session": {
+        "requests": 801,
+        "errors": 0,
+        "rps": 27,
+        "p50": 174.4,
+        "p95": 224.7,
+        "p99": 244.1,
+        "max": 279
+      },
+      "radiografia": {
+        "requests": 801,
+        "errors": 0,
+        "rps": 27,
+        "p50": 136.8,
+        "p95": 177.1,
+        "p99": 201.2,
+        "max": 224
+      },
+      "student-workspace": {
+        "requests": 801,
+        "errors": 0,
+        "rps": 27,
+        "p50": 239.5,
+        "p95": 302.1,
+        "p99": 326.8,
+        "max": 347
+      }
+    }
+  },
+  "sequential": {
+    "report-overview-refresh": {
+      "requests": 10,
+      "errors": 0,
+      "p50": 147.4,
+      "p95": 424.6,
+      "p99": 424.6,
+      "max": 425
+    },
+    "report-classroom-refresh": {
+      "requests": 10,
+      "errors": 0,
+      "p50": 41.7,
+      "p95": 49.7,
+      "p99": 49.7,
+      "max": 50
+    },
+    "journey-pdf": {
+      "requests": 10,
+      "errors": 0,
+      "p50": 20,
+      "p95": 55.6,
+      "p99": 55.6,
+      "max": 56
+    }
+  },
+  "memory": {
+    "idleBefore": {
+      "samples": 3,
+      "rssMaxMB": 113,
+      "rssAvgMB": 113,
+      "heapUsedMaxMB": 38,
+      "heapUsedAvgMB": 38,
+      "eventLoopP99MaxMs": 11.4,
+      "eventLoopP99AvgMs": 11.1,
+      "eventLoopMaxMs": 11.5
+    },
+    "isolated": {
+      "samples": 120,
+      "rssMaxMB": 270,
+      "rssAvgMB": 249,
+      "heapUsedMaxMB": 159,
+      "heapUsedAvgMB": 80,
+      "eventLoopP99MaxMs": 24.4,
+      "eventLoopP99AvgMs": 13.2,
+      "eventLoopMaxMs": 26.8
+    },
+    "mixed": {
+      "samples": 31,
+      "rssMaxMB": 285,
+      "rssAvgMB": 280,
+      "heapUsedMaxMB": 173,
+      "heapUsedAvgMB": 108,
+      "eventLoopP99MaxMs": 22,
+      "eventLoopP99AvgMs": 17.5,
+      "eventLoopMaxMs": 28.1
+    },
+    "processPeak": {
+      "samples": 550,
+      "rssMaxMB": 285,
+      "rssAvgMB": 149,
+      "heapUsedMaxMB": 173,
+      "heapUsedAvgMB": 50,
+      "eventLoopP99MaxMs": 24.7,
+      "eventLoopP99AvgMs": 11.9,
+      "eventLoopMaxMs": 46.5
+    }
+  }
+}

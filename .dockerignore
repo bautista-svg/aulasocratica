@@ -12,3 +12,4 @@ test-results
 playwright-report
 coverage
 docs/benchmarks/*.html
+data-perf
