@@ -4,7 +4,8 @@ FROM node:22.22-bookworm-slim AS build
 WORKDIR /app
 ENV CI=true
 COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund
+# Coolify passes the app's env (NODE_ENV=production) as build args: install dev deps explicitly.
+RUN npm ci --include=dev --no-audit --no-fund
 COPY . .
 RUN npm run build && npm prune --omit=dev --no-audit --no-fund
 
