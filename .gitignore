@@ -13,3 +13,4 @@ coverage/
 .DS_Store
 src/client/routeTree.gen.ts
 data-test*/
+data-audit/
