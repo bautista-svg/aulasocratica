@@ -2,6 +2,7 @@
 // throwaway workspace that is deleted at the end. Usage:
 //   node scripts/dev/prod-ai-full.mjs https://aulasocratica.becode.com.ar
 import { chromium } from "@playwright/test";
+import { PDFDocument } from "pdf-lib";
 
 const BASE = process.argv[2] ?? "https://aulasocratica.becode.com.ar";
 const results = [];
@@ -88,6 +89,25 @@ try {
     await sleep(1500);
   }
   ok("lectura de foto con IA (visión)", /evapora|ciclo/i.test(imgText), imgText.slice(0, 90).replace(/\s+/g, " "));
+
+  // A scanned PDF (pages are images, no text layer): read by the AI page by page.
+  const scan = await PDFDocument.create();
+  const pageImg = await scan.embedPng(await textImage());
+  for (let i = 0; i < 2; i++) scan.addPage([pageImg.width, pageImg.height]).drawImage(pageImg, { x: 0, y: 0 });
+  const scanForm = new FormData();
+  scanForm.append("file", new Blob([await scan.save()], { type: "application/pdf" }), "apunte-escaneado.pdf");
+  const scanUp = await req(teacher, "POST", "/api/materials/files", undefined, scanForm);
+  const scanId = scanUp.data.materials?.[0]?.id;
+  let scanText = "";
+  for (let i = 0; i < 60 && scanId; i++) {
+    const m = await req(teacher, "GET", `/api/materials/${scanId}/text?offset=0&limit=4000`);
+    if (m.status === 200 && m.data.text) {
+      scanText = m.data.text;
+      break;
+    }
+    await sleep(2000);
+  }
+  ok("lectura de PDF escaneado con IA", /evapora/i.test(scanText) && /hidrol/i.test(scanText), `${scanUp.status} ${scanText.slice(0, 90).replace(/\s+/g, " ")}`);
 
   // Crear con IA.
   const prop = await req(teacher, "POST", "/api/planning/proposals", {

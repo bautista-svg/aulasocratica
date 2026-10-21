@@ -7,7 +7,7 @@ import { readJson, badRequest, notFound } from "../lib/errors";
 import { requireTeacher, teacherOf } from "../auth/teacher";
 import { ownedClassroom, isUuid } from "../services/access";
 import { audit } from "../services/audit";
-import { deleteFile } from "../lib/storage";
+import { deleteFile, deletePrefix } from "../lib/storage";
 import { reconcileReports } from "../services/reports/reconcile";
 import { once } from "../services/activities/idempotency";
 import {
@@ -157,6 +157,7 @@ export const classroomRoutes = new Hono<AppEnv>()
     await db.delete(schema.classrooms).where(eq(schema.classrooms.id, room.id));
     await reconcileReports(t.id, names.map((x) => x.n));
     for (const f of files) await deleteFile(f.key);
+    for (const a of acts) await deletePrefix(`activities/${a.id}`).catch(() => {});
     await audit(c, t.id, "classroom_deleted", "classroom", room.id, { activities: acts.length });
     return c.json({ ok: true });
   })

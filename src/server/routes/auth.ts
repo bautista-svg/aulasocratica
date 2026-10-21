@@ -3,7 +3,7 @@ import { and, eq, ne, sql } from "drizzle-orm";
 import type { AppEnv } from "../types";
 import { db, schema } from "../db/client";
 import { readJson, badRequest, conflict, HttpError } from "../lib/errors";
-import { hashPassword, verifyPassword, humanCode, normalizeCode, sha256 } from "../lib/crypto";
+import { hashPassword, verifyPassword, humanCode, normalizeCode, randomToken, sha256 } from "../lib/crypto";
 import { rateLimit, hit } from "../lib/rate-limit";
 import { clientIp } from "../lib/request";
 import { createTeacherSession, clearTeacherCookie, requireTeacher, teacherOf } from "../auth/teacher";
@@ -23,6 +23,13 @@ const newRecoveryCode = () => {
   const raw = humanCode(16);
   return { display: raw.match(/.{4}/g)!.join("-"), hash: sha256(raw) };
 };
+
+let decoy: Promise<string> | null = null;
+/** A real scrypt hash of a random secret, computed once, to verify against when the email is unknown. */
+function decoyHash(): Promise<string> {
+  decoy ??= hashPassword(randomToken(32));
+  return decoy;
+}
 
 export const authRoutes = new Hono<AppEnv>()
   .get("/me", async (c) => {
@@ -93,7 +100,10 @@ export const authRoutes = new Hono<AppEnv>()
       throw new HttpError(429, "Demasiados intentos con este correo. Esperá 15 minutos.", "rate_limited");
     }
     const [account] = await db.select().from(schema.teachers).where(sql`lower(${schema.teachers.email}) = ${body.email}`).limit(1);
-    const valid = account?.passwordHash ? await verifyPassword(body.password, account.passwordHash) : false;
+    // Unknown emails still pay for one scrypt run, so the response time does not reveal which emails have an account.
+    const valid = account?.passwordHash
+      ? await verifyPassword(body.password, account.passwordHash)
+      : await verifyPassword(body.password, await decoyHash()).then(() => false);
     if (!account || !valid) {
       await audit(c, null, "login_failed", "teacher", null, { ip: clientIp(c) });
       throw new HttpError(401, "El correo o la contraseña no coinciden.", "bad_credentials");
