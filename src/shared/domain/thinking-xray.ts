@@ -111,7 +111,10 @@ const REFORMULATION_INTENTS = new Set(["review", "other_idea", "explain"]);
 /** Last question in a tutor turn (what the tutor actually asked). */
 export function tutorQuestion(content: string): string | null {
   const plain = content.replace(/[*_`#>]/g, "").replace(/\s+/g, " ").trim();
-  const matches = plain.match(/[^.!?¿¡]*¿?[^.!?¿¡]*\?/g);
+  // Same matches as /[^.!?¿¡]*¿?[^.!?¿¡]*\?/g (a sentence ending in "?", with at most one "¿"),
+  // written without two adjacent identical quantifiers: that version backtracked quadratically on
+  // every sentence that does not end in "?" (it showed up in the live view's CPU profile).
+  const matches = plain.match(/[^.!?¿¡]*(?:¿[^.!?¿¡]*)?\?/g);
   const q = matches?.map((s) => s.trim()).filter((s) => s.length > 3).pop();
   return q ? q.slice(0, 300) : null;
 }

@@ -1,7 +1,7 @@
 // Snapshot of the live view of one activity. Participants are the activity's learning
 // sessions only. Everything is fetched in bulk (sessions, events, alerts, last tutor turn)
 // and computed in memory with the shared live-monitor rules — no per-student queries.
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "../../db/client";
 import {
   HELP_EVENT_SHORT,
@@ -38,6 +38,9 @@ const NOT_STUDENT_WORK = new Set(["session_entered", "left_app", "pasted_text", 
 /** A student who just joined is not "needing support" for not having written yet. */
 const INITIAL_ANSWER_GRACE_MS = 5 * 60_000;
 
+/** Same order as localeCompare(…, "es", { sensitivity: "base" }), without building a collator per comparison. */
+const byName = new Intl.Collator("es", { sensitivity: "base" });
+
 const WINDOWS: Record<LiveWindow, { ms: number | null; buckets: number }> = {
   "30m": { ms: 30 * 60_000, buckets: 15 },
   "60m": { ms: 60 * 60_000, buckets: 20 },
@@ -46,25 +49,42 @@ const WINDOWS: Record<LiveWindow, { ms: number | null; buckets: number }> = {
 
 export async function liveSnapshot(activity: Activity, window: LiveWindow, nowMs = Date.now()): Promise<LiveSnapshot> {
   const requireInitialAnswer = activity.requireInitialAnswer;
+  const ls = schema.learningSessions;
   const sessions = await db
-    .select({ s: schema.learningSessions, studentName: schema.students.fullName })
-    .from(schema.learningSessions)
-    .innerJoin(schema.students, eq(schema.students.id, schema.learningSessions.studentId))
-    .where(eq(schema.learningSessions.activityId, activity.id));
+    .select({
+      // Only what the live view uses (not the final answer or the reflection texts).
+      s: {
+        id: ls.id,
+        studentId: ls.studentId,
+        status: ls.status,
+        initialAnswer: ls.initialAnswer,
+        hintCount: ls.hintCount,
+        resumeCode: ls.resumeCode,
+        endedByTeacher: ls.endedByTeacher,
+        startedAt: ls.startedAt,
+        lastActivityAt: ls.lastActivityAt,
+        completedAt: ls.completedAt,
+      },
+      studentName: schema.students.fullName,
+    })
+    .from(ls)
+    .innerJoin(schema.students, eq(schema.students.id, ls.studentId))
+    .where(eq(ls.activityId, activity.id));
 
   const ids = sessions.map((r) => r.s.id);
   const [events, alertRows, alertCounts, lastTutor] = ids.length
     ? await Promise.all([
+        // Every event of the activity (≈40 per student): read as plain rows with the time in epoch
+        // ms (the same value Drizzle's Date would hold) instead of mapping a Date object per row.
         db
-          .select({
-            sessionId: schema.pedagogicalEvents.sessionId,
-            eventType: schema.pedagogicalEvents.eventType,
-            createdAt: schema.pedagogicalEvents.createdAt,
-          })
-          .from(schema.pedagogicalEvents)
-          .innerJoin(schema.learningSessions, eq(schema.learningSessions.id, schema.pedagogicalEvents.sessionId))
-          .where(eq(schema.learningSessions.activityId, activity.id))
-          .orderBy(asc(schema.pedagogicalEvents.createdAt)),
+          .execute<{ session_id: string; event_type: string; at: number }>(
+            sql`select e.session_id, e.event_type, floor(extract(epoch from e.created_at) * 1000)::float8 as at
+                from pedagogical_events e
+                join learning_sessions ls on ls.id = e.session_id
+                where ls.activity_id = ${activity.id}
+                order by e.created_at asc`,
+          )
+          .then((rows) => Array.from(rows)),
         db
           .select({ a: schema.studentAlerts, studentId: schema.students.id, studentName: schema.students.fullName })
           .from(schema.studentAlerts)
@@ -96,9 +116,10 @@ export async function liveSnapshot(activity: Activity, window: LiveWindow, nowMs
 
   const eventsBySession = new Map<string, LiveEvent[]>();
   for (const e of events) {
-    const list = eventsBySession.get(e.sessionId) ?? [];
-    list.push({ eventType: e.eventType, createdAt: e.createdAt.toISOString() });
-    eventsBySession.set(e.sessionId, list);
+    let list = eventsBySession.get(e.session_id);
+    if (!list) eventsBySession.set(e.session_id, (list = []));
+    const at = Number(e.at);
+    list.push({ eventType: e.event_type, createdAt: new Date(at).toISOString(), at });
   }
   const countsBySession = new Map(alertCounts.map((r) => [r.sessionId, r]));
   const questionBySession = new Map(lastTutor.map((r) => [r.sessionId, tutorQuestion(r.content)]));
@@ -130,7 +151,7 @@ export async function liveSnapshot(activity: Activity, window: LiveWindow, nowMs
     if (nowMs - s.startedAt.getTime() < INITIAL_ANSWER_GRACE_MS) reasons = reasons.filter((r) => !r.includes("respuesta inicial"));
     const workPoints = [
       s.startedAt.getTime(),
-      ...evs.filter((e) => !NOT_STUDENT_WORK.has(e.eventType)).map((e) => new Date(e.createdAt).getTime()),
+      ...evs.filter((e) => !NOT_STUDENT_WORK.has(e.eventType)).map((e) => e.at!),
       ...(s.completedAt ? [s.completedAt.getTime()] : []),
     ];
     const openAlerts = alerts?.open ?? 0;
@@ -161,7 +182,7 @@ export async function liveSnapshot(activity: Activity, window: LiveWindow, nowMs
       lastTutorQuestion: questionBySession.get(s.id) ?? null,
     };
   });
-  participants.sort((a, b) => a.studentName.localeCompare(b.studentName, "es", { sensitivity: "base" }));
+  participants.sort((a, b) => byName.compare(a.studentName, b.studentName));
 
   const alerts: LiveAlert[] = alertRows.map(({ a, studentId, studentName }) => ({
     id: a.id,

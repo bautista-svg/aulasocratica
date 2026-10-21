@@ -53,27 +53,43 @@ export async function xrayList(
   );
   const rows = await db
     .select({
-      s: schema.learningSessions,
+      // Only what the list shows (not the answers or the reflection of each work).
+      s: {
+        id: schema.learningSessions.id,
+        studentId: schema.learningSessions.studentId,
+        activityId: schema.learningSessions.activityId,
+        status: schema.learningSessions.status,
+        startedAt: schema.learningSessions.startedAt,
+        lastActivityAt: schema.learningSessions.lastActivityAt,
+        completedAt: schema.learningSessions.completedAt,
+      },
       studentName: schema.students.fullName,
       activityTitle: schema.activities.title,
       classroomId: schema.classrooms.id,
       classroomName: schema.classrooms.name,
       rank,
       tsText: sql<string>`${ts}::text`,
-      items: schema.thinkingAnalyses.items,
     })
     .from(schema.learningSessions)
     .innerJoin(schema.activities, eq(schema.activities.id, schema.learningSessions.activityId))
     .innerJoin(schema.classrooms, eq(schema.classrooms.id, schema.activities.classroomId))
     .innerJoin(schema.students, eq(schema.students.id, schema.learningSessions.studentId))
-    .leftJoin(schema.thinkingAnalyses, eq(schema.thinkingAnalyses.sessionId, schema.learningSessions.id))
     .where(where)
     .orderBy(asc(rank), desc(ts), desc(schema.learningSessions.id))
     .limit(XRAY_PAGE_SIZE + 1);
 
   const page = rows.slice(0, XRAY_PAGE_SIZE);
+  // The x-ray of the page's works only (a join before the LIMIT hashed every analysis of the database).
+  const analyses = page.length
+    ? await db
+        .select({ sessionId: schema.thinkingAnalyses.sessionId, items: schema.thinkingAnalyses.items })
+        .from(schema.thinkingAnalyses)
+        .where(inArray(schema.thinkingAnalyses.sessionId, page.map((r) => r.s.id)))
+    : [];
+  const itemsBySession = new Map(analyses.map((a) => [a.sessionId, a.items]));
   const items: XrayListItem[] = page.map((r) => {
-    const counts = xrayCounts(r.items);
+    const raw = itemsBySession.has(r.s.id) ? itemsBySession.get(r.s.id)! : null;
+    const counts = xrayCounts(raw);
     return {
       sessionId: r.s.id,
       studentId: r.s.studentId,
@@ -86,7 +102,7 @@ export async function xrayList(
       startedAt: r.s.startedAt.toISOString(),
       lastActivityAt: r.s.lastActivityAt.toISOString(),
       completedAt: r.s.completedAt?.toISOString() ?? null,
-      xray: { analyzed: r.items !== null, ...counts },
+      xray: { analyzed: raw !== null, ...counts },
     };
   });
   const last = page.at(-1);

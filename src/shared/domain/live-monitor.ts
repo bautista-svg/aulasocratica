@@ -17,7 +17,11 @@ export const LIVE_STATUS_LABELS: Record<LiveStatus, string> = {
 export interface LiveEvent {
   eventType: string;
   createdAt: string;
+  /** `createdAt` in epoch ms, when the caller already has it (saves re-parsing the ISO string). */
+  at?: number;
 }
+
+const timeOf = (e: LiveEvent): number => e.at ?? new Date(e.createdAt).getTime();
 
 export interface LiveSession {
   status: string;
@@ -34,7 +38,7 @@ export const NON_WORK_EVENTS = new Set(["left_app", "pasted_text", "ended_by_tea
 
 export function lastSignalAt(session: LiveSession, events: LiveEvent[]): number {
   let t = Math.max(new Date(session.lastActivityAt).getTime(), new Date(session.startedAt).getTime());
-  for (const e of events) if (!NON_WORK_EVENTS.has(e.eventType)) t = Math.max(t, new Date(e.createdAt).getTime());
+  for (const e of events) if (!NON_WORK_EVENTS.has(e.eventType)) t = Math.max(t, timeOf(e));
   return t;
 }
 
@@ -56,11 +60,11 @@ export const STAGE_LABELS: Record<Stage, string> = {
 
 const firstAt = (events: LiveEvent[], type: string) => {
   const e = events.find((x) => x.eventType === type);
-  return e ? new Date(e.createdAt).getTime() : null;
+  return e ? timeOf(e) : null;
 };
 const lastAt = (events: LiveEvent[], type: string) => {
   let t: number | null = null;
-  for (const e of events) if (e.eventType === type) t = new Date(e.createdAt).getTime();
+  for (const e of events) if (e.eventType === type) t = timeOf(e);
   return t;
 };
 
@@ -130,7 +134,7 @@ export function activityBuckets(events: LiveEvent[], start: number, end: number,
   if (end <= start || count <= 0) return buckets;
   const size = (end - start) / count;
   for (const e of events) {
-    const t = new Date(e.createdAt).getTime();
+    const t = timeOf(e);
     if (t < start || t > end) continue;
     buckets[Math.min(count - 1, Math.floor((t - start) / size))]!++;
   }

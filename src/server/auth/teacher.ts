@@ -2,7 +2,7 @@
 // httpOnly cookie; adding an email + password lets the teacher open it on other devices.
 import type { Context, MiddlewareHandler } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, sql } from "drizzle-orm";
 import { db, schema } from "../db/client";
 import { randomToken, sha256 } from "../lib/crypto";
 import { HttpError } from "../lib/errors";
@@ -43,25 +43,35 @@ export function clearTeacherCookie(c: Context) {
   deleteCookie(c, TEACHER_COOKIE, { path: "/", secure: secureCookies });
 }
 
+// Runs on every API request with a workspace cookie: a prepared statement (built once by Drizzle,
+// parsed once per connection by Postgres). `now` goes as an ISO string.
+const sessionByToken = db
+  .select({
+    sessionId: schema.teacherSessions.id,
+    lastUsedAt: schema.teacherSessions.lastUsedAt,
+    teacherId: schema.teachers.id,
+    displayName: schema.teachers.displayName,
+    email: schema.teachers.email,
+    passwordHash: schema.teachers.passwordHash,
+    isSuspended: schema.teachers.isSuspended,
+    lastSeenAt: schema.teachers.lastSeenAt,
+  })
+  .from(schema.teacherSessions)
+  .innerJoin(schema.teachers, eq(schema.teachers.id, schema.teacherSessions.teacherId))
+  .where(
+    and(
+      eq(schema.teacherSessions.tokenHash, sql.placeholder("tokenHash")),
+      gt(schema.teacherSessions.expiresAt, sql`${sql.placeholder("now")}::timestamptz`),
+    ),
+  )
+  .limit(1)
+  .prepare("teacher_session_by_token");
+
 /** Loads the teacher from the session cookie when present (does not require it). */
 export const loadTeacher: MiddlewareHandler<AppEnv> = async (c, next) => {
   const token = getCookie(c, TEACHER_COOKIE);
   if (token && token.length >= 20 && token.length <= 100) {
-    const rows = await db
-      .select({
-        sessionId: schema.teacherSessions.id,
-        lastUsedAt: schema.teacherSessions.lastUsedAt,
-        teacherId: schema.teachers.id,
-        displayName: schema.teachers.displayName,
-        email: schema.teachers.email,
-        passwordHash: schema.teachers.passwordHash,
-        isSuspended: schema.teachers.isSuspended,
-        lastSeenAt: schema.teachers.lastSeenAt,
-      })
-      .from(schema.teacherSessions)
-      .innerJoin(schema.teachers, eq(schema.teachers.id, schema.teacherSessions.teacherId))
-      .where(and(eq(schema.teacherSessions.tokenHash, sha256(token)), gt(schema.teacherSessions.expiresAt, new Date())))
-      .limit(1);
+    const rows = await sessionByToken.execute({ tokenHash: sha256(token), now: new Date().toISOString() });
     const row = rows[0];
     if (row && !row.isSuspended) {
       c.set("teacher", {

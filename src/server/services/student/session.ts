@@ -55,26 +55,47 @@ export function cookieName(activityId: string): string {
   return `as_s_${activityId.replace(/-/g, "")}`;
 }
 
+// The two lookups of every student request are prepared statements (built once by Drizzle,
+// parsed once per connection by Postgres). Dates go as ISO strings.
+const linkByToken = db
+  .select({
+    activity: schema.activities,
+    classroom: {
+      id: schema.classrooms.id,
+      name: schema.classrooms.name,
+      grade: schema.classrooms.grade,
+      division: schema.classrooms.division,
+      school: schema.classrooms.school,
+      isArchived: schema.classrooms.isArchived,
+    },
+    teacher: { displayName: schema.teachers.displayName, isSuspended: schema.teachers.isSuspended },
+  })
+  .from(schema.activities)
+  .innerJoin(schema.classrooms, eq(schema.classrooms.id, schema.activities.classroomId))
+  .innerJoin(schema.teachers, eq(schema.teachers.id, schema.activities.teacherId))
+  .where(eq(schema.activities.linkToken, sql.placeholder("token")))
+  .limit(1)
+  .prepare("student_link_by_token");
+
+const sessionByDeviceToken = db
+  .select({ session: schema.learningSessions, student: schema.students })
+  .from(schema.studentTokens)
+  .innerJoin(schema.learningSessions, eq(schema.learningSessions.id, schema.studentTokens.sessionId))
+  .innerJoin(schema.students, eq(schema.students.id, schema.learningSessions.studentId))
+  .where(
+    and(
+      eq(schema.studentTokens.tokenHash, sql.placeholder("tokenHash")),
+      isNull(schema.studentTokens.revokedAt),
+      gt(schema.studentTokens.expiresAt, sql`${sql.placeholder("now")}::timestamptz`),
+      eq(schema.learningSessions.activityId, sql.placeholder("activityId")),
+    ),
+  )
+  .limit(1)
+  .prepare("student_session_by_device_token");
+
 export async function loadLink(token: string): Promise<LinkCtx> {
   if (!LINK_TOKEN_RE.test(token)) throw linkNotFound();
-  const [row] = await db
-    .select({
-      activity: schema.activities,
-      classroom: {
-        id: schema.classrooms.id,
-        name: schema.classrooms.name,
-        grade: schema.classrooms.grade,
-        division: schema.classrooms.division,
-        school: schema.classrooms.school,
-        isArchived: schema.classrooms.isArchived,
-      },
-      teacher: { displayName: schema.teachers.displayName, isSuspended: schema.teachers.isSuspended },
-    })
-    .from(schema.activities)
-    .innerJoin(schema.classrooms, eq(schema.classrooms.id, schema.activities.classroomId))
-    .innerJoin(schema.teachers, eq(schema.teachers.id, schema.activities.teacherId))
-    .where(eq(schema.activities.linkToken, token))
-    .limit(1);
+  const [row] = await linkByToken.execute({ token });
   if (!row) throw linkNotFound();
   return row;
 }
@@ -97,20 +118,11 @@ export function ensureAvailable(link: LinkCtx): void {
 export async function deviceSession(c: Context, link: LinkCtx): Promise<StudentCtx | null> {
   const token = getCookie(c, cookieName(link.activity.id));
   if (!token || token.length < 20 || token.length > 100) return null;
-  const [row] = await db
-    .select({ session: schema.learningSessions, student: schema.students })
-    .from(schema.studentTokens)
-    .innerJoin(schema.learningSessions, eq(schema.learningSessions.id, schema.studentTokens.sessionId))
-    .innerJoin(schema.students, eq(schema.students.id, schema.learningSessions.studentId))
-    .where(
-      and(
-        eq(schema.studentTokens.tokenHash, sha256(token)),
-        isNull(schema.studentTokens.revokedAt),
-        gt(schema.studentTokens.expiresAt, new Date()),
-        eq(schema.learningSessions.activityId, link.activity.id),
-      ),
-    )
-    .limit(1);
+  const [row] = await sessionByDeviceToken.execute({
+    tokenHash: sha256(token),
+    now: new Date().toISOString(),
+    activityId: link.activity.id,
+  });
   return row ? { ...link, ...row } : null;
 }
 

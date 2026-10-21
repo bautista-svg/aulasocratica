@@ -26,6 +26,50 @@ type CountsRow = {
   has_session: boolean;
 };
 
+/**
+ * The open alerts to show first (immediate attention, then the most recent). The top ALERTS are
+ * picked among the workspace's open alerts (partial index student_alerts_open_idx) BEFORE joining
+ * the student's name, so the cost does not grow with every session of the database.
+ */
+async function latestOpenAlerts(teacherId: string) {
+  const sa = schema.studentAlerts;
+  const top = db
+    .select({
+      id: sa.id,
+      sessionId: sa.sessionId,
+      activityId: sa.activityId,
+      activityTitle: schema.activities.title,
+      name: sa.name,
+      category: sa.category,
+      severity: sa.severity,
+      createdAt: sa.createdAt,
+      rank: sql<number>`case when ${sa.severity} = 'immediate' then 0 else 1 end`.as("rank"),
+    })
+    .from(sa)
+    .innerJoin(schema.activities, eq(schema.activities.id, sa.activityId))
+    .where(and(eq(schema.activities.teacherId, teacherId), eq(sa.status, "open")))
+    // Immediate-attention alerts first, then the most recent.
+    .orderBy(sql`case when ${sa.severity} = 'immediate' then 0 else 1 end`, desc(sa.createdAt))
+    .limit(ALERTS)
+    .as("top_alerts");
+  return db
+    .select({
+      id: top.id,
+      sessionId: top.sessionId,
+      activityId: top.activityId,
+      activityTitle: top.activityTitle,
+      studentName: schema.students.fullName,
+      name: top.name,
+      category: top.category,
+      severity: top.severity,
+      createdAt: top.createdAt,
+    })
+    .from(top)
+    .innerJoin(schema.learningSessions, eq(schema.learningSessions.id, top.sessionId))
+    .innerJoin(schema.students, eq(schema.students.id, schema.learningSessions.studentId))
+    .orderBy(top.rank, desc(top.createdAt));
+}
+
 export const dashboardRoutes = new Hono<AppEnv>()
   .use("*", requireTeacher)
 
@@ -59,26 +103,7 @@ export const dashboardRoutes = new Hono<AppEnv>()
         .from(schema.classrooms)
         .where(eq(schema.classrooms.teacherId, t.id))
         .orderBy(desc(schema.classrooms.updatedAt)),
-      db
-        .select({
-          id: schema.studentAlerts.id,
-          sessionId: schema.studentAlerts.sessionId,
-          activityId: schema.studentAlerts.activityId,
-          activityTitle: schema.activities.title,
-          studentName: schema.students.fullName,
-          name: schema.studentAlerts.name,
-          category: schema.studentAlerts.category,
-          severity: schema.studentAlerts.severity,
-          createdAt: schema.studentAlerts.createdAt,
-        })
-        .from(schema.studentAlerts)
-        .innerJoin(schema.activities, eq(schema.activities.id, schema.studentAlerts.activityId))
-        .innerJoin(schema.learningSessions, eq(schema.learningSessions.id, schema.studentAlerts.sessionId))
-        .innerJoin(schema.students, eq(schema.students.id, schema.learningSessions.studentId))
-        .where(and(eq(schema.activities.teacherId, t.id), eq(schema.studentAlerts.status, "open")))
-        // Immediate-attention alerts first, then the most recent.
-        .orderBy(sql`case when ${schema.studentAlerts.severity} = 'immediate' then 0 else 1 end`, desc(schema.studentAlerts.createdAt))
-        .limit(ALERTS),
+      latestOpenAlerts(t.id),
     ]);
 
     const counts = Array.from(countsRows)[0]!;

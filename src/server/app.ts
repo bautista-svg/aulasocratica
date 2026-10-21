@@ -1,15 +1,18 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
+import { getCookie } from "hono/cookie";
 import { bodyLimit } from "hono/body-limit";
 import { compress } from "hono/compress";
+import { compressBuffered } from "./lib/compress";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { randomUUID } from "node:crypto";
 import type { AppEnv } from "./types";
 import { onError, HttpError } from "./lib/errors";
 import { securityHeaders, sameOriginMutations } from "./lib/security";
-import { loadTeacher } from "./auth/teacher";
+import { loadTeacher, TEACHER_COOKIE } from "./auth/teacher";
+import { hintsFor, loadRoutePreloads, withHints } from "./lib/html-hints";
 import { log } from "./lib/logger";
 import { healthRoutes } from "./routes/health";
 import { authRoutes } from "./routes/auth";
@@ -42,8 +45,11 @@ export function createApp(opts: { staticDir?: string | null } = {}) {
     c.header("Server-Timing", `app;dur=${ms}`);
   });
   app.use("*", securityHeaders);
-  // gzip for JSON/HTML (SSE is excluded by Hono's filter; static assets are precompressed).
+  // Compression (SSE is excluded; static assets are precompressed). JSON/HTML built in memory:
+  // compressBuffered (zlib off the event loop, Brotli when accepted, nothing under 1 KB); any
+  // other compressible body: hono/compress, which runs after it and skips what it encoded.
   app.use("*", compress());
+  app.use("*", compressBuffered);
   app.onError(onError);
 
   const api = new Hono<AppEnv>();
@@ -91,10 +97,13 @@ export function createApp(opts: { staticDir?: string | null } = {}) {
     const indexHtml = fs.readFileSync(path.join(staticDir, "index.html"), "utf8");
     const landingPath = path.join(staticDir, "landing.html");
     const landingHtml = fs.existsSync(landingPath) ? fs.readFileSync(landingPath, "utf8") : indexHtml;
+    const routeFiles = loadRoutePreloads(path.resolve(staticDir, "..", "route-preloads.json"));
+    // Preload hints for the route's JS and its first API calls (see lib/html-hints.ts).
+    const page = (c: Context, html: string) => withHints(html, hintsFor(c.req.path, Boolean(getCookie(c, TEACHER_COOKIE)), routeFiles));
     // The public landing is prerendered at build time (fast first paint without JS).
     app.get("/", (c) => {
       c.header("Cache-Control", "no-cache");
-      return c.html(landingHtml);
+      return c.html(page(c, landingHtml));
     });
     app.use(
       "/assets/*",
@@ -119,7 +128,7 @@ export function createApp(opts: { staticDir?: string | null } = {}) {
     // SPA fallback: client-side routes get the app shell.
     app.get("*", (c) => {
       c.header("Cache-Control", "no-cache");
-      return c.html(indexHtml);
+      return c.html(page(c, indexHtml));
     });
   }
   return app;

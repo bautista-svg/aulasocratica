@@ -1,0 +1,2 @@
+CREATE INDEX "learning_sessions_activity_status_idx" ON "learning_sessions" USING btree ("activity_id","status","last_activity_at");--> statement-breakpoint
+CREATE INDEX "student_alerts_open_idx" ON "student_alerts" USING btree ("activity_id","created_at") WHERE "student_alerts"."status" = 'open';

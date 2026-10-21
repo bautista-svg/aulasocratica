@@ -1,28 +1,48 @@
 // Authorization helpers. Every teacher endpoint resolves the resource through one of these:
 // a resource that exists but belongs to another workspace is reported as "not found", so
 // ids from other workspaces cannot even be probed.
-import { and, eq } from "drizzle-orm";
+// They run on almost every request, so they are prepared statements: Drizzle builds the SQL once
+// and Postgres reuses the parsed statement on each connection.
+import { and, eq, sql } from "drizzle-orm";
 import { db, schema } from "../db/client";
 import { notFound } from "../lib/errors";
 
+const pId = sql.placeholder("id");
+const pTeacher = sql.placeholder("teacherId");
+
+const classroomQuery = db
+  .select()
+  .from(schema.classrooms)
+  .where(and(eq(schema.classrooms.id, pId), eq(schema.classrooms.teacherId, pTeacher)))
+  .limit(1)
+  .prepare("owned_classroom");
+
+const activityQuery = db
+  .select()
+  .from(schema.activities)
+  .where(and(eq(schema.activities.id, pId), eq(schema.activities.teacherId, pTeacher)))
+  .limit(1)
+  .prepare("owned_activity");
+
+const sessionQuery = db
+  .select({ session: schema.learningSessions, activity: schema.activities, student: schema.students })
+  .from(schema.learningSessions)
+  .innerJoin(schema.activities, eq(schema.activities.id, schema.learningSessions.activityId))
+  .innerJoin(schema.students, eq(schema.students.id, schema.learningSessions.studentId))
+  .where(and(eq(schema.learningSessions.id, pId), eq(schema.activities.teacherId, pTeacher)))
+  .limit(1)
+  .prepare("owned_session");
+
 export async function ownedClassroom(teacherId: string, classroomId: string) {
   if (!isUuid(classroomId)) throw notFound("El aula");
-  const [row] = await db
-    .select()
-    .from(schema.classrooms)
-    .where(and(eq(schema.classrooms.id, classroomId), eq(schema.classrooms.teacherId, teacherId)))
-    .limit(1);
+  const [row] = await classroomQuery.execute({ id: classroomId, teacherId });
   if (!row) throw notFound("El aula");
   return row;
 }
 
 export async function ownedActivity(teacherId: string, activityId: string) {
   if (!isUuid(activityId)) throw notFound("La actividad");
-  const [row] = await db
-    .select()
-    .from(schema.activities)
-    .where(and(eq(schema.activities.id, activityId), eq(schema.activities.teacherId, teacherId)))
-    .limit(1);
+  const [row] = await activityQuery.execute({ id: activityId, teacherId });
   if (!row) throw notFound("La actividad");
   return row;
 }
@@ -30,13 +50,7 @@ export async function ownedActivity(teacherId: string, activityId: string) {
 /** A student's session in one of the teacher's activities, with its activity and student. */
 export async function ownedSession(teacherId: string, sessionId: string) {
   if (!isUuid(sessionId)) throw notFound("El trabajo del alumno");
-  const [row] = await db
-    .select({ session: schema.learningSessions, activity: schema.activities, student: schema.students })
-    .from(schema.learningSessions)
-    .innerJoin(schema.activities, eq(schema.activities.id, schema.learningSessions.activityId))
-    .innerJoin(schema.students, eq(schema.students.id, schema.learningSessions.studentId))
-    .where(and(eq(schema.learningSessions.id, sessionId), eq(schema.activities.teacherId, teacherId)))
-    .limit(1);
+  const [row] = await sessionQuery.execute({ id: sessionId, teacherId });
   if (!row) throw notFound("El trabajo del alumno");
   return row;
 }

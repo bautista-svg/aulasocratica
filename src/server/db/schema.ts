@@ -259,6 +259,9 @@ export const learningSessions = pgTable(
   (t) => [
     uniqueIndex("learning_sessions_activity_student_unique").on(t.activityId, t.studentId),
     index("learning_sessions_student_idx").on(t.studentId),
+    // Covers the per-activity counts of every activity list (participants, completed, active now)
+    // with index-only scans.
+    index("learning_sessions_activity_status_idx").on(t.activityId, t.status, t.lastActivityAt),
     check("learning_sessions_status", sql`${t.status} in ('in_progress','completed')`),
   ],
 );
@@ -407,6 +410,8 @@ export const studentAlerts = pgTable(
   (t) => [
     index("student_alerts_activity_idx").on(t.activityId, t.createdAt),
     index("student_alerts_session_idx").on(t.sessionId, t.alertKey, t.createdAt),
+    // Open alerts are counted on every activity list, the dashboard and the live view.
+    index("student_alerts_open_idx").on(t.activityId, t.createdAt).where(sql`${t.status} = 'open'`),
     check("student_alerts_status", sql`${t.status} in ('open','reviewed','dismissed')`),
     check("student_alerts_severity", sql`${t.severity} in ('review','immediate')`),
   ],
