@@ -174,6 +174,9 @@ export interface StudentWorkspace {
     instructions: string;
     /** Every consigna in order (the first is `instructions`). */
     consignas: string[];
+    askFinalAnswer: boolean;
+    /** The closing question, already defaulted. */
+    finalQuestion: string;
     material: string;
     requireInitialAnswer: boolean;
     voiceLanguage: VoiceLanguage;

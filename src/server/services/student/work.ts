@@ -95,9 +95,11 @@ export async function finishActivity(
   }
   // Several consignas: one answer each; finalAnswer keeps them joined for everything that reads it.
   const consignas = consignasOf(ctx.activity);
-  let finalAnswer = input.finalAnswer.trim();
+  let finalAnswer: string | null = input.finalAnswer.trim();
   let finalAnswers: string[] = [];
-  if (consignas.length > 1) {
+  if (!ctx.activity.askFinalAnswer) {
+    finalAnswer = null;
+  } else if (consignas.length > 1) {
     const given = input.finalAnswers ?? [];
     const fields: Record<string, string> = {};
     consignas.forEach((_, i) => {
@@ -132,16 +134,18 @@ export async function finishActivity(
   }
 
   const answered = reflection.filter((r) => r.answer).length;
-  await recordEvent(ctx.session.id, "final_answer_saved", { length: finalAnswer.length, ...(finalAnswers.length ? { consignas: finalAnswers.length } : {}) });
+  if (finalAnswer !== null) {
+    await recordEvent(ctx.session.id, "final_answer_saved", { length: finalAnswer.length, ...(finalAnswers.length ? { consignas: finalAnswers.length } : {}) });
+  }
   const initial = ctx.session.initialAnswer;
-  if (initial && normalizeForMatch(initial) !== normalizeForMatch(finalAnswer)) {
+  if (initial && finalAnswer !== null && normalizeForMatch(initial) !== normalizeForMatch(finalAnswer)) {
     await recordEvent(ctx.session.id, "reformulated");
   }
   if (answered > 0) await recordEvent(ctx.session.id, "reflection_submitted", { answered, questions: reflection.length });
   await recordEvent(ctx.session.id, "activity_completed");
   publish(ctx.activity.id, "session", ctx.session.id);
 
-  const text = [finalAnswer, ...reflection.filter((r) => r.answer).map((r) => r.answer)].join("\n\n");
+  const text = [finalAnswer ?? "", ...reflection.filter((r) => r.answer).map((r) => r.answer)].filter(Boolean).join("\n\n");
   runInBackground("alerts_final", () =>
     detectAlerts({
       sessionId: ctx.session.id,

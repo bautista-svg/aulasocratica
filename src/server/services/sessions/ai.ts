@@ -59,7 +59,7 @@ export async function workOf(row: OwnedSessionRow) {
 ${row.activity.requireInitialAnswer || row.session.initialAnswer ? `Respuesta inicial: ${fence(row.session.initialAnswer ?? "(no la escribió)", 6000)}\n\n` : ""}Conversación con el tutor (${transcript.omitted ? `se omitieron ${transcript.omitted} mensajes intermedios` : "completa"}):
 ${fence(transcript.text || "(sin conversación)", 130_000)}
 
-Respuesta final: ${fence(row.session.finalAnswer ?? "(todavía no la escribió)", 6000)}
+Respuesta final: ${fence(row.session.finalAnswer ?? (row.activity.askFinalAnswer ? "(todavía no la escribió)" : "(esta actividad no pide respuesta final)"), 6000)}
 
 Reflexión:
 ${fence(reflectionText || "(sin reflexión)", 6000)}${file.text}

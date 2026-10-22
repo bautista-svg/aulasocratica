@@ -309,6 +309,7 @@ export async function loadSessionDetail(row: OwnedSessionRow): Promise<SessionDe
       consignas: consignasOf(a),
       objectives: a.objectives,
       requireInitialAnswer: a.requireInitialAnswer,
+      askFinalAnswer: a.askFinalAnswer,
       status: a.status,
       rubric,
       reflectionQuestions: sanitizeReflectionQuestions(a.reflectionQuestions),

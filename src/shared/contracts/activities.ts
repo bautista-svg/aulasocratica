@@ -11,7 +11,7 @@ import type { VoiceLanguage } from "../domain/voice";
 import { DELIVERABLE_PROMPT_MAX, type DeliverableMode } from "../domain/deliverables";
 import type { FileKind, ProcessingStatus } from "../domain/files";
 import { MAX_TUTOR_TYPES, TUTOR_TYPES } from "../domain/pedagogy";
-import { MAX_CONSIGNAS } from "../domain/consignas";
+import { FINAL_QUESTION_MAX, MAX_CONSIGNAS } from "../domain/consignas";
 import { MAX_TUTOR_RULES } from "../domain/tutors";
 
 export type ActivityStatus = "draft" | "published" | "archived";
@@ -71,6 +71,10 @@ export interface ActivityDetail {
   tutorId: string | null;
   tutorName: string | null;
   requireInitialAnswer: boolean;
+  /** Ask for a final answer when closing (off: only reflection and delivery). */
+  askFinalAnswer: boolean;
+  /** The closing question ("" = «¿Qué pensás ahora?»). */
+  finalQuestion: string;
   voiceLanguage: VoiceLanguage;
   /** Whether students hand in a file when they finish. */
   deliverableMode: DeliverableMode;
@@ -183,6 +187,8 @@ export const activityPatch = z
     /** Only `null` is accepted here (unlink the saved tutor); to apply one use POST /:id/tutor. */
     tutorId: z.null(),
     requireInitialAnswer: z.boolean(),
+    askFinalAnswer: z.boolean(),
+    finalQuestion: text(FINAL_QUESTION_MAX),
     voiceLanguage: voiceSchema,
     deliverableMode: z.enum(["off", "optional", "required"], { message: "Elegí si pedís un archivo en la entrega." }),
     deliverablePrompt: text(DELIVERABLE_PROMPT_MAX),

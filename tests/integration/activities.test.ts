@@ -73,6 +73,16 @@ describe("create", () => {
     expect(applied.body.activity.tutorRules).toContain("Que tomen postura.");
   });
 
+  it("turns the final answer on or off and saves the closing question", async () => {
+    const t = await newTeacher();
+    const room = await newClassroom(t.cookie);
+    const a = await newActivity(t.cookie, room);
+    expect(a).toMatchObject({ askFinalAnswer: true, finalQuestion: "" });
+    const r = await call("PATCH", `/api/activities/${a.id}`, { cookie: t.cookie, body: { askFinalAnswer: false, finalQuestion: "¿Qué aprendiste?" } });
+    expect(r.body.activity).toMatchObject({ askFinalAnswer: false, finalQuestion: "¿Qué aprendiste?" });
+    expect((await call("PATCH", `/api/activities/${a.id}`, { cookie: t.cookie, body: { finalQuestion: "x".repeat(161) } })).status).toBe(400);
+  });
+
   it("saves extra consignas (trimmed, empty ones dropped, at most 8 in total)", async () => {
     const t = await newTeacher();
     const room = await newClassroom(t.cookie);

@@ -780,6 +780,25 @@ describe("several consignas", () => {
   });
 });
 
+describe("closing question", () => {
+  it("shows the teacher's question, or the default one", async () => {
+    const custom = await joined({ requireInitialAnswer: false, finalQuestion: "¿Qué aprendiste sobre Esparta?" });
+    expect(custom.workspace.activity).toMatchObject({ askFinalAnswer: true, finalQuestion: "¿Qué aprendiste sobre Esparta?" });
+    const plain = await joined({ requireInitialAnswer: false });
+    expect(plain.workspace.activity.finalQuestion).toBe("¿Qué pensás ahora?");
+  });
+
+  it("without a final answer, the student finishes with the reflection only", async () => {
+    const s = await joined({ requireInitialAnswer: false, askFinalAnswer: false });
+    const r = await call("POST", `/api/s/${s.token}/finish`, { cookie: s.cookie, body: { reflection: [] } });
+    expect(r.status).toBe(200);
+    expect(r.body.workspace.session).toMatchObject({ status: "completed", finalAnswer: null });
+    expect((await eventsOf(s.session.id)).map((e) => e.eventType)).not.toContain("final_answer_saved");
+    const detail = await call("GET", `/api/sessions/${s.session.id}`, { cookie: s.teacher.cookie });
+    expect(detail.body.activity.askFinalAnswer).toBe(false);
+  });
+});
+
 describe("integrity signals", () => {
   it("groups repeated signals into one open alert per kind and never counts them as work", async () => {
     const s = await joined({ requireInitialAnswer: false });

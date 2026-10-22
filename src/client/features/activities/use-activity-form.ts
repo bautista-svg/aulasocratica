@@ -20,6 +20,8 @@ export interface ActivityDraft {
   helpLevel: HelpLevel;
   tutorRules: string;
   requireInitialAnswer: boolean;
+  askFinalAnswer: boolean;
+  finalQuestion: string;
   voiceLanguage: VoiceLanguage;
   deliverableMode: DeliverableMode;
   deliverablePrompt: string;
@@ -38,6 +40,8 @@ export const DRAFT_KEYS = [
   "helpLevel",
   "tutorRules",
   "requireInitialAnswer",
+  "askFinalAnswer",
+  "finalQuestion",
   "voiceLanguage",
   "deliverableMode",
   "deliverablePrompt",
@@ -60,6 +64,8 @@ export function draftFrom(a: ActivityEditorData): ActivityDraft {
     helpLevel: a.helpLevel,
     tutorRules: a.tutorRules,
     requireInitialAnswer: a.requireInitialAnswer,
+    askFinalAnswer: a.askFinalAnswer,
+    finalQuestion: a.finalQuestion,
     voiceLanguage: a.voiceLanguage,
     deliverableMode: a.deliverableMode,
     deliverablePrompt: a.deliverablePrompt,

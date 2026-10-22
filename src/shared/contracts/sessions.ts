@@ -224,6 +224,7 @@ export interface SessionDetail {
     instructions: string;
     /** Every consigna in order (the first is `instructions`). */
     consignas: string[];
+    askFinalAnswer: boolean;
     objectives: string;
     requireInitialAnswer: boolean;
     status: string;

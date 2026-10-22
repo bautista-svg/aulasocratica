@@ -161,6 +161,9 @@ export const activities = pgTable(
     tutorRules: text("tutor_rules").notNull().default(""),
     tutorId: uuid("tutor_id").references(() => tutors.id, { onDelete: "set null" }),
     requireInitialAnswer: boolean("require_initial_answer").notNull().default(true),
+    /** Whether the closing step asks for a final answer, and with which question ("" = the default one). */
+    askFinalAnswer: boolean("ask_final_answer").notNull().default(true),
+    finalQuestion: text("final_question").notNull().default(""),
     voiceLanguage: text("voice_language").notNull().default("off"),
     /**
      * Whether students hand in a file or link when they finish: off, optional or required. New

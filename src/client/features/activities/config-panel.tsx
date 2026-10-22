@@ -12,7 +12,7 @@ import { ApiError, errorMessage } from "@client/lib/api";
 import { VOICE_LANGUAGE_LABELS, type VoiceLanguage } from "@shared/domain/voice";
 import { DELIVERABLE_MODES, DELIVERABLE_PROMPT_MAX, MAX_DELIVERABLE_LABEL, type DeliverableMode } from "@shared/domain/deliverables";
 import { ACTIVITY_LIMITS, type ActivityEditorData } from "@shared/contracts/activities";
-import { MAX_CONSIGNAS } from "@shared/domain/consignas";
+import { DEFAULT_FINAL_QUESTION, FINAL_QUESTION_MAX, MAX_CONSIGNAS } from "@shared/domain/consignas";
 import { useSaveActivity } from "./api";
 import { EditorSection, RadioCards } from "./parts";
 import { MaterialFiles } from "./material-files";
@@ -28,6 +28,7 @@ export const SECTIONS: { id: string; title: string; keys: DraftKey[] }[] = [
   { id: "material", title: "Material", keys: ["material"] },
   { id: "tutor", title: "Tutor", keys: ["tutorType", "extraTutorTypes", "helpLevel", "tutorRules"] },
   { id: "respuesta-inicial", title: "Respuesta inicial", keys: ["requireInitialAnswer"] },
+  { id: "respuesta-final", title: "Respuesta final", keys: ["askFinalAnswer", "finalQuestion"] },
   { id: "voz", title: "Voz", keys: ["voiceLanguage"] },
   { id: "rubrica", title: "Rúbrica", keys: ["rubric"] },
   { id: "reflexion", title: "Reflexión final", keys: ["reflectionQuestions"] },
@@ -215,6 +216,41 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
           <p className="mt-3 text-[13px] leading-5 text-text-3">
             Desactivala cuando no corresponda para esta actividad, por ejemplo en un repaso o en una charla con un personaje.
           </p>
+        </EditorSection>
+
+        <EditorSection id="respuesta-final" title="Respuesta final" {...meta("respuesta-final")}>
+          <Switch
+            checked={draft.askFinalAnswer}
+            onCheckedChange={(v) => set("askFinalAnswer", v)}
+            label="Pedir una respuesta final al terminar"
+            description={
+              draft.askFinalAnswer
+                ? "Al terminar, cada alumno responde la pregunta de cierre con sus palabras (con varias consignas, una respuesta por consigna)."
+                : "Al terminar, los alumnos pasan directo a la reflexión y la entrega, sin escribir una respuesta final."
+            }
+          />
+          {draft.askFinalAnswer ? (
+            <Field
+              className="mt-4"
+              label="Pregunta de cierre"
+              optional
+              hint={`Es lo que leen al terminar. Si la dejás vacía, dice «${DEFAULT_FINAL_QUESTION}».`}
+              error={errors.finalQuestion}
+              counter={draft.finalQuestion.length > FINAL_QUESTION_MAX - 40 ? { value: draft.finalQuestion.length, max: FINAL_QUESTION_MAX } : undefined}
+            >
+              {(p) => (
+                <Input
+                  id={p.id}
+                  aria-describedby={p.describedBy}
+                  invalid={p.invalid}
+                  value={draft.finalQuestion}
+                  maxLength={FINAL_QUESTION_MAX}
+                  onChange={(e) => set("finalQuestion", e.target.value)}
+                  placeholder={DEFAULT_FINAL_QUESTION}
+                />
+              )}
+            </Field>
+          ) : null}
         </EditorSection>
 
         <EditorSection

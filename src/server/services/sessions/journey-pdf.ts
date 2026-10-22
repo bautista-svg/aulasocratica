@@ -112,14 +112,17 @@ export async function buildJourneyPdf(d: SessionDetail): Promise<Buffer> {
     w.paragraph("El tutor estaba escribiendo una respuesta cuando se generó este PDF.", { italic: true, color: "#646c88", size: 10 });
   }
 
-  w.section(d.session.finalAnswers.length > 1 ? "Respuestas finales" : "Respuesta final");
-  if (d.session.finalAnswers.length > 1) d.session.finalAnswers.forEach((a, i) => w.labelled(`Consigna ${i + 1}`, a.trim() || "(sin respuesta)"));
-  else if (d.session.finalAnswer?.trim()) w.paragraph(d.session.finalAnswer);
-  else
-    w.paragraph(d.session.endedByTeacher ? "No la escribió: el docente terminó la actividad antes." : "Todavía no la escribió.", {
-      italic: true,
-      color: "#646c88",
-    });
+  // Activities that do not ask for a final answer leave the section out.
+  if (d.activity.askFinalAnswer || d.session.finalAnswer?.trim()) {
+    w.section(d.session.finalAnswers.length > 1 ? "Respuestas finales" : "Respuesta final");
+    if (d.session.finalAnswers.length > 1) d.session.finalAnswers.forEach((a, i) => w.labelled(`Consigna ${i + 1}`, a.trim() || "(sin respuesta)"));
+    else if (d.session.finalAnswer?.trim()) w.paragraph(d.session.finalAnswer);
+    else
+      w.paragraph(d.session.endedByTeacher ? "No la escribió: el docente terminó la actividad antes." : "Todavía no la escribió.", {
+        italic: true,
+        color: "#646c88",
+      });
+  }
 
   if (d.session.reflection.length) {
     w.section("Reflexión");

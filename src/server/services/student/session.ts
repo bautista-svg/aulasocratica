@@ -32,7 +32,7 @@ import {
 } from "@shared/contracts/student";
 import type { FileKind } from "@shared/domain/files";
 import { isStreaming } from "./streams";
-import { consignasOf, readFinalAnswers } from "@shared/domain/consignas";
+import { DEFAULT_FINAL_QUESTION, consignasOf, readFinalAnswers } from "@shared/domain/consignas";
 
 const DAY = 86_400_000;
 export const DEVICE_TOKEN_DAYS = 30;
@@ -541,6 +541,8 @@ export async function buildWorkspace(ctx: StudentCtx, opts: { files?: boolean } 
       consignas: consignasOf(activity),
       material: activity.material,
       requireInitialAnswer: activity.requireInitialAnswer,
+      askFinalAnswer: activity.askFinalAnswer,
+      finalQuestion: activity.finalQuestion.trim() || DEFAULT_FINAL_QUESTION,
       voiceLanguage: isVoiceLanguage(activity.voiceLanguage) ? activity.voiceLanguage : "off",
       reflectionQuestions: questions,
       deliverableMode: isDeliverableMode(activity.deliverableMode) ? activity.deliverableMode : "off",

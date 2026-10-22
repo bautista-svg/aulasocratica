@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CheckCircle2, KeyRound, Lock } from "lucide-react";
 import { Button } from "@client/components/ui/button";
+import { cn } from "@client/lib/cn";
 import { Field, FormError, Textarea } from "@client/components/ui/field";
 import { ApiError, errorMessage } from "@client/lib/api";
 import type { StudentWorkspace } from "@shared/contracts/student";
@@ -116,7 +117,8 @@ export function ClosingStep({
   const [finalAnswer, setFinal, clearFinal] = useDraft(draftKey(token, code, "final"));
   // Several consignas: one answer each (kept on this device as a list until it is sent).
   const consignas = workspace.activity.consignas;
-  const multi = consignas.length > 1;
+  const asks = workspace.activity.askFinalAnswer;
+  const multi = asks && consignas.length > 1;
   const [finalsRaw, setFinalsRaw, clearFinals] = useDraft(draftKey(token, code, "finals"));
   let finals: string[] = [];
   try {
@@ -152,7 +154,9 @@ export function ClosingStep({
   }, [token, onStale]);
 
   const length = finalAnswer.trim().length;
-  const answered = multi
+  const answered = !asks
+    ? true
+    : multi
     ? consignas.every((_, i) => {
         const n = (finals[i] ?? "").trim().length;
         return n >= MIN_ANSWER_CHARS && n <= MAX_ANSWER_CHARS;
@@ -166,7 +170,7 @@ export function ClosingStep({
     setFieldErrors({});
     try {
       const r = await studentApi.finish(token, {
-        finalAnswer: multi ? "" : finalAnswer.trim(),
+        finalAnswer: multi || !asks ? "" : finalAnswer.trim(),
         ...(multi ? { finalAnswers: consignas.map((_, i) => (finals[i] ?? "").trim()) } : {}),
         reflection: workspace.activity.reflectionQuestions.map((q) => ({ key: q.key, answer: (reflection[q.key] ?? "").trim() })),
       });
@@ -190,12 +194,13 @@ export function ClosingStep({
       </Button>
       <div className="rounded-xl border border-line bg-surface p-5 shadow-2 sm:p-7">
         <p className="text-sm font-semibold text-lilac-ink">Para terminar</p>
-        <h2 id="closing-title" ref={headingRef} tabIndex={-1} className="q-hang mt-2 text-[24px] leading-tight outline-none sm:text-[26px]">
-          ¿Qué pensás ahora?
+        <h2 id="closing-title" ref={headingRef} tabIndex={-1} className={cn("mt-2 text-[24px] leading-tight outline-none sm:text-[26px]", asks ? "q-hang" : "font-display font-semibold text-ink")}>
+          {asks ? workspace.activity.finalQuestion : "Antes de enviar tu trabajo"}
         </h2>
         <p className="mt-3 text-[15px] leading-6 text-text-2">
-          Escribí tu respuesta final con tus palabras y contá cómo lo pensaste. Cuando la envíes ya no vas a poder cambiarla, y tu docente
-          va a poder leerla.
+          {asks
+            ? "Escribí tu respuesta final con tus palabras y contá cómo lo pensaste. Cuando la envíes ya no vas a poder cambiarla, y tu docente va a poder leerla."
+            : "Completá lo que te pide tu docente y enviá tu trabajo. Cuando lo envíes ya no vas a poder cambiarlo."}
         </p>
 
         <form onSubmit={submit} className="mt-6 space-y-6">
@@ -206,7 +211,7 @@ export function ClosingStep({
             </div>
           ) : null}
 
-          {multi ? (
+          {!asks ? null : multi ? (
             <fieldset className="space-y-5">
               <legend className="text-[15px] font-semibold text-text">Tu respuesta a cada consigna</legend>
               <p className="-mt-3 text-[13px] text-text-3">Se guardan en este dispositivo mientras escribís, aunque cierres la página.</p>

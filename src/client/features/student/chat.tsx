@@ -292,9 +292,11 @@ export function ChatStep({
 
       <div className="mt-8 flex flex-col items-start gap-2 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-text-2">
-          {nothingYet
-            ? "Cuando quieras terminar, vas a escribir tu respuesta final y una reflexión."
-            : "¿Ya sabés qué responder? Cuando quieras, terminá y escribí tu respuesta final."}
+          {!workspace.activity.askFinalAnswer
+            ? "Cuando quieras terminar, tocá Terminar para completar el cierre."
+            : nothingYet
+              ? "Cuando quieras terminar, vas a escribir tu respuesta final y una reflexión."
+              : "¿Ya sabés qué responder? Cuando quieras, terminá y escribí tu respuesta final."}
         </p>
         <Button variant="secondary" className="h-11 shrink-0" icon={<Flag className="size-4" />} disabled={busy} onClick={onFinish}>
           Terminar

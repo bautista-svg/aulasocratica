@@ -55,7 +55,7 @@ export function buildSteps(d: SessionDetail): Step[] {
       steps.push({ kind: "reply", text: m.content, at: m.createdAt, voice });
     }
   }
-  steps.push({ kind: "final", text: d.session.finalAnswer, at: eventAt(d, "final_answer_saved") });
+  if (d.activity.askFinalAnswer || d.session.finalAnswer) steps.push({ kind: "final", text: d.session.finalAnswer, at: eventAt(d, "final_answer_saved") });
   if (d.session.reflection.length) steps.push({ kind: "reflection", items: d.session.reflection });
   return steps;
 }

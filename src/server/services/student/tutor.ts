@@ -152,6 +152,7 @@ export async function tutorChat(c: Context, ctx: StudentCtx, body: ChatBody): Pr
       objectives: activity.objectives,
       instructions: activity.instructions,
       moreInstructions: sanitizeMoreInstructions(activity.moreInstructions, ACTIVITY_LIMITS.instructions),
+      askFinalAnswer: activity.askFinalAnswer,
       material: activity.material,
       files,
       tutorType: activity.tutorType,
