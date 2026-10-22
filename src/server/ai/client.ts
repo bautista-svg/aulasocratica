@@ -73,6 +73,11 @@ export function aiError(err: unknown, ctx: UsageContext): HttpError {
     if (/workspace|api[ _-]?key|authentication|credential|permission/.test(detail)) {
       return new HttpError(503, "La IA no está disponible por un problema de configuración del servidor.", "ai_config");
     }
+    // The API blocks answers that would copy protected text word for word (a page of a published
+    // textbook). Transcription retries asking for notes in its own words (services/extract.ts).
+    if (/content filtering/.test(detail)) {
+      return new HttpError(502, "La IA no puede copiar este texto tal cual (parece de un libro publicado). Probá con otro material.", "ai_content_filtered");
+    }
     return new HttpError(502, "La IA no pudo procesar este pedido. Probá de nuevo; si vuelve a pasar, probá con otro material o avisanos.", "ai_rejected");
   }
   if (err instanceof Anthropic.APIConnectionError || err instanceof Anthropic.InternalServerError) {

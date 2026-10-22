@@ -1,6 +1,8 @@
 // Turns uploaded files into text the tutor and the AI helpers can read.
 // - PDF with a text layer: every page is extracted locally (no page limit, no AI cost).
-// - Scanned PDF (little or no text): pages are sent to Claude in chunks for transcription.
+// - Scanned PDF (little or no text): pages are sent to Claude in chunks for transcription. Pages of
+//   a published book cannot be copied word for word (the API blocks it): then Claude writes
+//   complete notes in its own words instead, which is what the tutor needs.
 // - Word (.docx): converted locally with mammoth.
 // - Images: Claude transcribes visible text and describes relevant diagrams.
 // - Audio: Claude cannot listen; the teacher can type a transcript (teacherNote).
@@ -30,6 +32,46 @@ const OCR_SYSTEM =
   "Marcá el comienzo de cada página con [Página N]. Si hay tablas, transcribilas en filas de texto. " +
   "Si hay imágenes, gráficos o diagramas con información importante para entender el contenido, describilos en una línea entre corchetes, por ejemplo [Imagen: ...]. " +
   "Si una página no tiene texto legible, escribí [Página N: sin texto legible].";
+
+/** When the API refuses a word-for-word copy (published textbooks): complete, faithful notes. */
+const NOTES_SYSTEM =
+  "Armás apuntes de material escolar para que un tutor pueda conversar sobre ese material con los alumnos. " +
+  "No copies el texto palabra por palabra: contalo con tus palabras, completo y fiel, en orden, sin dejar afuera ninguna idea, " +
+  "dato, fecha, número, nombre propio, término clave ni definición. Escribí en el mismo idioma que el material. " +
+  "Marcá el comienzo de cada página con [Página N]. Si hay imágenes, tablas o diagramas con información importante, describilos entre corchetes.";
+
+const IMAGE_NOTES_SYSTEM =
+  "Armás apuntes de material escolar a partir de una foto o imagen. No copies el texto palabra por palabra: contalo con tus palabras, " +
+  "completo y fiel, sin dejar afuera ninguna idea, dato, fecha, nombre propio ni término clave, en el mismo idioma que el material. " +
+  "Si hay dibujos, esquemas o gráficos importantes, describilos entre corchetes. No inventes contenido que no se vea.";
+
+const NOTES_FAILED =
+  "No pudimos leer este escaneo: parece de un libro publicado y la IA no lo puede copiar. Probá subir solo las páginas que necesitás o escribí un resumen en «Material».";
+
+/**
+ * Transcribes with the AI; if the API blocks the word-for-word copy (protected text), asks again
+ * for notes in its own words. `notes` says which one came back.
+ */
+async function transcribe(opts: {
+  ctx: UsageContext;
+  system: string;
+  notesSystem: string;
+  content: Anthropic.ContentBlockParam[];
+  maxTokens: number;
+}): Promise<{ text: string; notes: boolean }> {
+  const call = (system: string) => generateText({ ...opts.ctx, purpose: "file_extraction", system, content: opts.content, maxTokens: opts.maxTokens });
+  try {
+    return { text: await call(opts.system), notes: false };
+  } catch (err) {
+    if (!(err instanceof HttpError && err.code === "ai_content_filtered")) throw err;
+  }
+  try {
+    return { text: await call(opts.notesSystem), notes: true };
+  } catch (err) {
+    if (err instanceof HttpError && err.code === "ai_content_filtered") throw new HttpError(422, NOTES_FAILED, "ai_content_filtered");
+    throw err;
+  }
+}
 
 const IMAGE_SYSTEM =
   "Transcribís material escolar a partir de una foto o imagen. Devolvé primero todo el texto visible, en orden de lectura y sin corregirlo. " +
@@ -99,6 +141,7 @@ async function extractPdf(data: Uint8Array, ctx: UsageContext): Promise<ExtractR
   // Scanned PDF: transcribe with the AI in chunks of pages.
   const src = await PDFDocument.load(data, { ignoreEncryption: true });
   const parts: string[] = [];
+  let notes = false;
   for (let start = 0; start < totalPages; start += OCR_PAGES_PER_CHUNK) {
     const end = Math.min(totalPages, start + OCR_PAGES_PER_CHUNK);
     const chunk = await PDFDocument.create();
@@ -109,9 +152,17 @@ async function extractPdf(data: Uint8Array, ctx: UsageContext): Promise<ExtractR
       { type: "document", source: { type: "base64", media_type: "application/pdf", data: b64 } },
       { type: "text", text: `Estas son las páginas ${start + 1} a ${end} del documento. Numerá las páginas a partir de ${start + 1}.` },
     ];
-    parts.push(await generateText({ ...ctx, purpose: "file_extraction", system: OCR_SYSTEM, content, maxTokens: 32000 }));
+    const r = await transcribe({ ctx, system: OCR_SYSTEM, notesSystem: NOTES_SYSTEM, content, maxTokens: 32000 });
+    notes ||= r.notes;
+    parts.push(r.text);
   }
-  return { text: clean(parts.join("\n\n")), pageCount: totalPages, note: "PDF escaneado: el texto se transcribió con IA." };
+  return {
+    text: clean(parts.join("\n\n")),
+    pageCount: totalPages,
+    note: notes
+      ? "PDF escaneado de un libro: la IA no copia libros palabra por palabra, así que armó apuntes completos con sus palabras."
+      : "PDF escaneado: el texto se transcribió con IA.",
+  };
 }
 
 async function extractDocx(data: Uint8Array): Promise<ExtractResult> {
@@ -132,17 +183,21 @@ async function extractImage(data: Uint8Array, mime: string, ctx: UsageContext): 
     | "image/png"
     | "image/webp"
     | "image/gif";
-  const text = await generateText({
-    ...ctx,
-    purpose: "file_extraction",
+  const r = await transcribe({
+    ctx,
     system: IMAGE_SYSTEM,
+    notesSystem: IMAGE_NOTES_SYSTEM,
     content: [
       { type: "image", source: { type: "base64", media_type: media, data: Buffer.from(data).toString("base64") } },
-      { type: "text", text: "Transcribí esta imagen." },
+      { type: "text", text: "Leé esta imagen." },
     ],
     maxTokens: 8000,
   });
-  return { text: clean(text), pageCount: null, note: "Imagen leída con IA." };
+  return {
+    text: clean(r.text),
+    pageCount: null,
+    note: r.notes ? "Imagen de un libro: la IA armó apuntes completos con sus palabras (no copia libros textual)." : "Imagen leída con IA.",
+  };
 }
 
 export async function extractFile(input: { data: Uint8Array; kind: FileKind; mime: string; ctx: UsageContext }): Promise<ExtractResult> {

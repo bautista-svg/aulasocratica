@@ -6,6 +6,7 @@ import { db, schema } from "@server/db/client";
 import { waitForFile } from "@server/services/file-jobs";
 import { fileSize, readFile } from "@server/lib/storage";
 import { MAX_FILES_PER_ACTIVITY } from "@shared/domain/files";
+import { aiMock } from "./ai-mock";
 
 async function setup() {
   const t = await newTeacher();
@@ -244,5 +245,42 @@ describe("UI audit fixes: files that could not be read (D35)", () => {
     expect(r.body.rejected).toHaveLength(0);
     const extra = await upload(cookie, id, new File(["una más"], "extra.txt", { type: "text/plain" }));
     expect(extra.status).toBe(400);
+  });
+});
+
+/** A scan: pages with no text layer, so the AI has to read them. */
+async function scannedPdf(pages: number): Promise<Uint8Array> {
+  const doc = await PDFDocument.create();
+  for (let i = 0; i < pages; i++) doc.addPage([595, 842]).drawRectangle({ x: 40, y: 600, width: 300, height: 120 });
+  return doc.save();
+}
+
+const BLOCKED = "Output blocked by content filtering policy";
+
+describe("scanned pages of a published book (the API will not copy them word for word)", () => {
+  it("falls back to complete notes in the AI's own words, so the tutor can use the material", async () => {
+    const { cookie, id } = await setup();
+    aiMock.error(400, "invalid_request_error", BLOCKED);
+    aiMock.text("[Página 1]\nEsparta era una ciudad-estado del Peloponeso centrada en el ejército; los ilotas trabajaban la tierra.");
+    const fileId = await uploadReady(cookie, id, new File([new Uint8Array(await scannedPdf(3))], "Sparta and Athens.pdf", { type: "application/pdf" }));
+
+    const [row] = await db.select().from(schema.activityFiles).where(eq(schema.activityFiles.id, fileId));
+    expect(row!.processingStatus).toBe("ready");
+    expect(row!.extractedText).toContain("ilotas");
+    expect(row!.processingError).toContain("apuntes completos");
+    // The second request asked for notes, not a copy.
+    const system = JSON.stringify(aiMock.lastRequest()!.body.system);
+    expect(system).toContain("No copies el texto palabra por palabra");
+  });
+
+  it("explains what to do when even the notes are blocked", async () => {
+    const { cookie, id } = await setup();
+    aiMock.error(400, "invalid_request_error", BLOCKED);
+    aiMock.error(400, "invalid_request_error", BLOCKED);
+    const r = await upload(cookie, id, new File([new Uint8Array(await scannedPdf(1))], "Libro.pdf", { type: "application/pdf" }));
+    await waitForFile({ table: "activity_files", id: r.body.files[0].id });
+    const [row] = await db.select().from(schema.activityFiles).where(eq(schema.activityFiles.id, r.body.files[0].id));
+    expect(row!.processingStatus).toBe("failed");
+    expect(row!.processingError).toContain("libro publicado");
   });
 });
