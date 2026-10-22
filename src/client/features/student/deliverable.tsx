@@ -183,36 +183,38 @@ export function DeliverableField({
             ) : null}
           </div>
           {linkOpen ? (
-            <form
-              className="space-y-2 rounded-md border border-line bg-paper p-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void saveLink();
-              }}
-            >
+            // Not a <form>: this sits inside the form that sends the work, and Enter must only save the link.
+            <div className="space-y-2 rounded-md border border-line bg-paper p-3">
               <label htmlFor="entrega-enlace" className="text-sm font-semibold text-text">
                 Enlace a tu trabajo (Google Drive, Docs, Canva…)
               </label>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Input
                   id="entrega-enlace"
-                  type="url"
+                  type="text"
                   inputMode="url"
+                  spellCheck={false}
+                  autoCapitalize="none"
                   autoComplete="off"
                   placeholder="https://docs.google.com/…"
                   value={url}
                   maxLength={DELIVERABLE_URL_MAX}
                   onChange={(e) => setUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    e.preventDefault();
+                    void saveLink();
+                  }}
                   aria-describedby="entrega-enlace-ayuda"
                 />
-                <Button type="submit" className="shrink-0" loading={savingLink} disabled={busy || disabled || !url.trim()}>
+                <Button className="shrink-0" loading={savingLink} disabled={busy || disabled || !url.trim()} onClick={() => void saveLink()}>
                   Guardar enlace
                 </Button>
               </div>
               <p id="entrega-enlace-ayuda" className="text-[13px] leading-5 text-text-3">
                 Si es de Google Drive, compartilo como «Cualquier persona con el enlace» para que tu docente lo pueda abrir.
               </p>
-            </form>
+            </div>
           ) : null}
         </div>
       ) : null}
