@@ -36,6 +36,8 @@ export const teachers = pgTable(
     recoveryCodeHash: text("recovery_code_hash"),
     isSuspended: boolean("is_suspended").notNull().default(false),
     tutorsSeededAt: timestamp("tutors_seeded_at", { withTimezone: true }),
+    /** Id of the last "Novedades" notice shown (each one appears once, never again). */
+    newsSeen: text("news_seen").notNull().default(""),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),

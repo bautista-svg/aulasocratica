@@ -27,7 +27,14 @@ test.describe("@smoke público", () => {
     await page.goto("/");
     await page.getByRole("button", { name: "Empezar sin cuenta" }).click();
     await expect(page).toHaveURL(/\/app$/);
+    // "Nuevos cambios en la aplicación" shows once and never again (also after reloading).
+    const news = page.getByRole("dialog", { name: "Nuevos cambios en la aplicación" });
+    await expect(news).toBeVisible();
+    await news.getByRole("button", { name: "Entendido" }).click();
+    await expect(news).toBeHidden();
+    await page.reload();
     await expect(page.getByRole("navigation", { name: "Principal" }).first()).toBeVisible();
+    await expect(news).toBeHidden();
     const del = await page.request.delete("/api/auth/workspace", {
       data: { confirm: "BORRAR" },
       headers: { "x-aula-client": "1", origin: new URL(page.url()).origin },

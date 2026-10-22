@@ -16,6 +16,8 @@ export const displayNameSchema = z.string().trim().max(80, "Usá hasta 80 caract
 
 export const startWorkspaceBody = z.object({ displayName: displayNameSchema.optional() });
 export const updateMeBody = z.object({ displayName: displayNameSchema });
+/** The teacher saw the "Novedades" notice with this id. */
+export const newsSeenBody = z.object({ id: z.string().trim().min(1).max(40) });
 export const registerBody = z.object({ email, password, displayName: displayNameSchema.optional() });
 export const loginBody = z.object({ email, password: z.string().min(1, "Escribí tu contraseña.").max(200) });
 export const recoverBody = z.object({
@@ -32,6 +34,8 @@ export interface Me {
   email: string | null;
   hasAccount: boolean;
   createdAt: string;
+  /** Id of the last "Novedades" notice this teacher already saw. */
+  newsSeen: string;
 }
 
 export interface MeResponse {

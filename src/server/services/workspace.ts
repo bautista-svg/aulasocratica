@@ -12,6 +12,7 @@ export function toMe(t: typeof schema.teachers.$inferSelect): Me {
     email: t.email,
     hasAccount: Boolean(t.email && t.passwordHash),
     createdAt: t.createdAt.toISOString(),
+    newsSeen: t.newsSeen,
   };
 }
 

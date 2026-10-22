@@ -1,0 +1,1 @@
+ALTER TABLE "teachers" ADD COLUMN "news_seen" text DEFAULT '' NOT NULL;

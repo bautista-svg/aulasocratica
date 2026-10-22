@@ -4,6 +4,7 @@ import { LogIn } from "lucide-react";
 import { deviceHadAccount, sessionWasLost, useMe, useStartWorkspace } from "@client/lib/session";
 import { usePageTitle } from "@client/lib/page-title";
 import { AppShell } from "@client/components/app/shell";
+import { WhatsNew } from "@client/components/app/whats-new";
 import { PageSpinner } from "@client/components/ui/spinner";
 import { ErrorState, Notice } from "@client/components/ui/misc";
 import { Button, buttonClass } from "@client/components/ui/button";
@@ -30,6 +31,7 @@ function AppLayout() {
   return (
     <AppShell me={me.data.teacher}>
       <Outlet />
+      <WhatsNew me={me.data.teacher} />
     </AppShell>
   );
 }

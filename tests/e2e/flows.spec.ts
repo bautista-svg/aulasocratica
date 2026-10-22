@@ -19,6 +19,8 @@ async function startWorkspace(page: Page) {
   await page.goto("/");
   await page.getByRole("button", { name: "Empezar sin cuenta" }).click();
   await expect(page).toHaveURL(/\/app$/);
+  // The one-time "Nuevos cambios en la aplicación" notice.
+  await page.getByRole("dialog", { name: "Nuevos cambios en la aplicación" }).getByRole("button", { name: "Entendido" }).click();
 }
 
 async function studentJoins(page: Page, token: string, name: string) {

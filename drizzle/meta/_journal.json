@@ -29,6 +29,13 @@
       "when": 1792682698477,
       "tag": "0003_aspects",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792683196830,
+      "tag": "0004_news",
+      "breakpoints": true
     }
   ]
 }

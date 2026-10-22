@@ -12,6 +12,7 @@ import { audit } from "../services/audit";
 import {
   startWorkspaceBody,
   updateMeBody,
+  newsSeenBody,
   registerBody,
   loginBody,
   recoverBody,
@@ -59,6 +60,13 @@ export const authRoutes = new Hono<AppEnv>()
     await audit(c, row!.id, "workspace_created", "teacher", row!.id);
     if (isForm) return c.redirect("/app", 303);
     return c.json({ teacher: toMe(row!) }, 201);
+  })
+
+  // The "Novedades" notice was shown: it never appears again, on any device.
+  .post("/me/news", requireTeacher, async (c) => {
+    const body = await readJson(c, newsSeenBody);
+    const [row] = await db.update(schema.teachers).set({ newsSeen: body.id }).where(eq(schema.teachers.id, teacherOf(c).id)).returning();
+    return c.json({ teacher: toMe(row!) });
   })
 
   .patch("/me", requireTeacher, async (c) => {

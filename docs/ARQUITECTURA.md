@@ -62,6 +62,9 @@ docs/                Arquitectura, auditoría, informes
    `teacherId` y `activityId`. El resultado pasa por los sanitizadores de `shared/domain` antes de guardarse.
    Toda salida de IA se presenta como **sugerencia** y la confirma el docente. Las citas textuales de un alumno
    se verifican con `quoteAppears`. Si la IA no está disponible, el error 503 llega a la UI con su mensaje.
+   En los esquemas, **nada de `z.enum`**: `zodOutputFormat` pasa el enum a la descripción y la API no lo hace
+   cumplir, así que un valor inesperado rompería todo el pedido. Se pide `z.string()` y se normaliza al guardar
+   (ver `toAspectKey`).
 5. **Sin simulaciones**: nada de datos falsos, timeouts artificiales ni botones decorativos. Si algo no se puede
    hacer, no se muestra o se explica por qué.
 6. **Fechas**: la API devuelve ISO strings. **Ids**: uuid v4.
@@ -92,7 +95,11 @@ docs/                Arquitectura, auditoría, informes
 - `teachers` (espacio; cuenta opcional) → `classrooms` → `activities` → `learning_sessions` (una por alumno y
   actividad) → `messages`, `pedagogical_events`, `rubric_assessments`, `thinking_analyses`, `session_summaries`,
   `student_alerts`, `session_deliverables` (el archivo que entrega el alumno al terminar; se guarda en la carpeta de la
-  actividad, así que se borra con ella, y se borra del disco al eliminar el trabajo, al alumno o al reiniciar la actividad).
+  actividad, así que se borra con ella, y se borra del disco al eliminar el trabajo, al alumno o al reiniciar la actividad),
+  `aspect_analyses` (fortalezas y aspectos a reforzar de un trabajo: claves fijas de `shared/domain/aspects.ts` para
+  poder contarlas por actividad y por alumno; las que marca el docente sobreviven a un nuevo análisis).
+- `teachers.news_seen`: id del último aviso de «Novedades» mostrado (`shared/domain/news.ts`). Se marca apenas se abre,
+  así aparece una sola vez en cualquier dispositivo; un aviso nuevo es un id nuevo.
 - `students` pertenecen a un aula (`name_key` único por aula). Se crean solos al entrar a una actividad o los carga
   el docente. **Los participantes de una actividad son sus `learning_sessions`**, nunca "todos los del aula".
 - `tutors` (presets copiados a cada espacio con `preset_key` + tutores propios), `materials` (biblioteca),
