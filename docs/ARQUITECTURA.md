@@ -94,8 +94,11 @@ docs/                Arquitectura, auditoría, informes
 
 - `teachers` (espacio; cuenta opcional) → `classrooms` → `activities` → `learning_sessions` (una por alumno y
   actividad) → `messages`, `pedagogical_events`, `rubric_assessments`, `thinking_analyses`, `session_summaries`,
-  `student_alerts`, `session_deliverables` (el archivo que entrega el alumno al terminar; se guarda en la carpeta de la
-  actividad, así que se borra con ella, y se borra del disco al eliminar el trabajo, al alumno o al reiniciar la actividad),
+  `student_alerts`, `session_deliverables` (el archivo o enlace que entrega el alumno al terminar; el archivo se guarda en
+  la carpeta de la actividad, así que se borra con ella, y se borra del disco al eliminar el trabajo, al alumno o al
+  reiniciar la actividad; un enlace no guarda nada: `url` + `storage_key` nulo, y si es un documento público de Google
+  `services/link-reader.ts` lo lee **solo desde dominios de Google**, sin seguir redirecciones a otros, para no hacer
+  pedidos a direcciones arbitrarias o internas),
   `aspect_analyses` (fortalezas y aspectos a reforzar de un trabajo: claves fijas de `shared/domain/aspects.ts` para
   poder contarlas por actividad y por alumno; las que marca el docente sobreviven a un nuevo análisis).
 - `teachers.news_seen`: id del último aviso de «Novedades» mostrado (`shared/domain/news.ts`). Se marca apenas se abre,

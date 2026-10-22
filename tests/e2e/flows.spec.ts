@@ -133,3 +133,38 @@ test("entrega obligatoria: el alumno sube su archivo, envía, y el docente lo ve
 
   await api(page.request, base, "DELETE", "/api/auth/workspace", { confirm: "BORRAR" });
 });
+
+test("entrega con enlace: el alumno pega el enlace de su trabajo y el docente lo abre", async ({ page, browser, baseURL }) => {
+  const base = new URL(baseURL!).origin;
+  await startWorkspace(page);
+  const { classroom } = await api(page.request, base, "POST", "/api/classrooms", { name: "E2E 6.º C" });
+  const { activity } = await api(page.request, base, "POST", "/api/activities", { classroomId: classroom.id, title: "Mi presentación" });
+  await api(page.request, base, "PATCH", `/api/activities/${activity.id}`, {
+    instructions: "Contá qué aprendiste sobre Esparta.",
+    requireInitialAnswer: false,
+    deliverableMode: "required",
+  });
+  await api(page.request, base, "POST", `/api/activities/${activity.id}/publish`);
+  const token: string = (await api(page.request, base, "GET", `/api/activities/${activity.id}`)).activity.linkToken;
+
+  const ctx = await browser.newContext();
+  const s = await ctx.newPage();
+  await studentJoins(s, token, "Tomás Ruiz");
+  await s.getByRole("button", { name: "Terminar" }).click();
+  await s.getByLabel("Tu respuesta final").fill("Esparta era un estado militar y los ilotas trabajaban la tierra.");
+  await s.getByRole("button", { name: "Pegar un enlace" }).click();
+  await s.getByLabel(/Enlace a tu trabajo/).fill("www.canva.com/design/DAF123/view");
+  await s.getByRole("button", { name: "Guardar enlace" }).click();
+  await expect(s.getByRole("link", { name: "Diseño de Canva" })).toHaveAttribute("href", "https://www.canva.com/design/DAF123/view");
+  await s.getByRole("button", { name: "Enviar mi trabajo" }).click();
+  await expect(s.getByRole("heading", { name: "¡Terminaste la actividad!" })).toBeVisible();
+  await ctx.close();
+
+  const live = await api(page.request, base, "GET", `/api/live/${activity.id}`);
+  await page.goto(`/app/sesiones/${live.participants[0].sessionId}?tab=evaluacion`);
+  await expect(page.getByText("Diseño de Canva")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Abrir enlace" })).toHaveAttribute("href", "https://www.canva.com/design/DAF123/view");
+  await expect(page.getByRole("button", { name: "Analizar con la rúbrica" })).toBeDisabled();
+
+  await api(page.request, base, "DELETE", "/api/auth/workspace", { confirm: "BORRAR" });
+});

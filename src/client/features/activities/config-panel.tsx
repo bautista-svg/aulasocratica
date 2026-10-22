@@ -30,7 +30,7 @@ export const SECTIONS: { id: string; title: string; keys: DraftKey[] }[] = [
   { id: "voz", title: "Voz", keys: ["voiceLanguage"] },
   { id: "rubrica", title: "Rúbrica", keys: ["rubric"] },
   { id: "reflexion", title: "Reflexión final", keys: ["reflectionQuestions"] },
-  { id: "entrega", title: "Entrega de archivo", keys: ["deliverableMode", "deliverablePrompt"] },
+  { id: "entrega", title: "Entrega (archivo o enlace)", keys: ["deliverableMode", "deliverablePrompt"] },
 ];
 
 function sectionOfError(errors: FieldErrors): string | null {
@@ -250,19 +250,19 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
 
         <EditorSection
           id="entrega"
-          title="Entrega de archivo"
+          title="Entrega (archivo o enlace)"
           description={
             <span className="flex items-start gap-1.5">
               <Paperclip className="mt-1 size-3.5 shrink-0" aria-hidden="true" />
-              Al terminar, cada alumno puede subir un PDF, un Word, un texto o una foto (hasta {MAX_DELIVERABLE_LABEL}). Lo ves en su
-              trabajo y lo podés analizar con la rúbrica.
+              Al terminar, cada alumno puede subir un PDF, un Word, un texto o una foto (hasta {MAX_DELIVERABLE_LABEL}), o pegar un enlace
+              (Google Drive, Docs, Canva…). Lo ves en su trabajo y lo podés analizar con la rúbrica.
             </span>
           }
           {...meta("entrega")}
         >
           <RadioCards<DeliverableMode>
             name="deliverable-mode"
-            legend="Pedir un archivo al terminar"
+            legend="Pedir una entrega al terminar"
             value={draft.deliverableMode}
             onChange={(v) => set("deliverableMode", v)}
             options={(Object.keys(DELIVERABLE_MODES) as DeliverableMode[]).map((k) => ({
@@ -277,7 +277,7 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
               className="mt-4"
               label="Qué tienen que entregar"
               optional
-              hint="Lo leen los alumnos junto al botón para subir el archivo."
+              hint="Lo leen los alumnos junto a los botones para subir el archivo o pegar el enlace."
               error={errors.deliverablePrompt}
               counter={{ value: draft.deliverablePrompt.length, max: DELIVERABLE_PROMPT_MAX }}
             >

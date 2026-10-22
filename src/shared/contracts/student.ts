@@ -7,7 +7,7 @@ import type { LinkAvailability } from "../domain/access-rules";
 import type { ReflectionAnswer, ReflectionQuestion } from "../domain/activity-design";
 import type { VoiceLanguage } from "../domain/voice";
 import type { FileKind } from "../domain/files";
-import type { DeliverableMode } from "../domain/deliverables";
+import { DELIVERABLE_URL_MAX, type DeliverableKind, type DeliverableMode } from "../domain/deliverables";
 import { AWAY_MIN_MS, PASTE_MIN_CHARS } from "../domain/alerts";
 import { MAX_ANSWER_CHARS, MAX_CHAT_CHARS, MAX_REFLECTION_ANSWER_CHARS, MIN_ANSWER_CHARS } from "./student-limits";
 
@@ -130,14 +130,17 @@ export interface StudentFile {
   kind: FileKind;
   mimeType: string;
   sizeBytes: number;
-  /** Same-origin URL; only works with this device's session cookie. */
+  /** Same-origin URL (only works with this device's session cookie); for a link, its address. */
   url: string;
 }
 
+export const deliverableLinkBody = z.object({ url: z.string().max(DELIVERABLE_URL_MAX + 100) });
+
 /** The file the student handed in (or is about to) with the final answer. */
 export interface StudentDeliverable {
+  /** For a link: a label such as "Documento de Google". */
   name: string;
-  kind: FileKind;
+  kind: DeliverableKind;
   sizeBytes: number;
   uploadedAt: string;
   /** Same-origin URL; only works with this device's session cookie. */

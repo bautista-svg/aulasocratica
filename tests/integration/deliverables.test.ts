@@ -11,6 +11,8 @@ import { waitForFile } from "@server/services/file-jobs";
 import { cookieName } from "@server/services/student/session";
 import { collectWorkspaceFileKeys } from "@server/services/workspace";
 import { storageUsedBytes } from "@server/services/quota";
+import { LINK_NOT_PUBLIC, setLinkFetch } from "@server/services/link-reader";
+import { LINK_NOT_READ } from "@server/services/deliverables";
 
 type ActivityInsert = typeof schema.activities.$inferInsert;
 
@@ -81,14 +83,15 @@ async function rowOf(sessionId: string) {
   return row;
 }
 
-const exists = async (key: string) => (await fileSize(key)) !== null;
+const exists = async (key: string | null) => key !== null && (await fileSize(key)) !== null;
 
 describe("deliverable settings", () => {
   it("the teacher turns it on and describes what to hand in", async () => {
     const t = await newTeacher();
     const room = await newClassroom(t.cookie);
     const { activity } = (await call("POST", "/api/activities", { cookie: t.cookie, body: { classroomId: room, title: "Flotación" } })).body;
-    expect(activity.deliverableMode).toBe("off");
+    // New activities let students hand in a file or link if they want.
+    expect(activity.deliverableMode).toBe("optional");
     const r = await call("PATCH", `/api/activities/${activity.id}`, {
       cookie: t.cookie,
       body: { deliverableMode: "required", deliverablePrompt: "Una foto del barco que armaste." },
@@ -322,5 +325,103 @@ describe("files go away with the work", () => {
     const gone = await call("DELETE", "/api/auth/workspace", { cookie: s.teacher.cookie, body: { confirm: "BORRAR" } });
     expect(gone.status).toBe(200);
     expect(await exists(row.storageKey)).toBe(false);
+  });
+});
+
+describe("student hands in a link", () => {
+  const DOC = "https://docs.google.com/document/d/1AbCdEfGhIjKlMnOp/edit?usp=sharing";
+
+  it("keeps any link for the teacher to open (the AI does not open it) and it counts as the delivery", async () => {
+    const s = await setup({ deliverableMode: "required", rubric: RUBRIC });
+    const bad = await call("POST", `/api/s/${s.token}/deliverable/link`, { cookie: s.cookie, body: { url: "javascript:alert(1)" } });
+    expect(bad.status).toBe(400);
+    expect(bad.body.error.fields.url).toBeTruthy();
+
+    const r = await call("POST", `/api/s/${s.token}/deliverable/link`, { cookie: s.cookie, body: { url: "www.canva.com/design/DAF123/view" } });
+    expect(r.status).toBe(201);
+    expect(r.body.workspace.deliverable).toMatchObject({ kind: "link", name: "Diseño de Canva", url: "https://www.canva.com/design/DAF123/view" });
+
+    const d = await call("GET", `/api/sessions/${s.session.id}`, { cookie: s.teacher.cookie });
+    expect(d.body.deliverable).toMatchObject({ kind: "link", url: "https://www.canva.com/design/DAF123/view", processingStatus: "ready", processingError: LINK_NOT_READ });
+    const a = await call("POST", `/api/sessions/${s.session.id}/deliverable/analyze`, { cookie: s.teacher.cookie });
+    expect(a.status).toBe(400);
+    // There is no file to serve.
+    expect((await call("GET", `/api/sessions/${s.session.id}/deliverable/file`, { cookie: s.teacher.cookie })).status).toBe(404);
+
+    // A required delivery can be a link.
+    const done = await call("POST", `/api/s/${s.token}/finish`, { cookie: s.cookie, body: { finalAnswer: "El barco flota porque desplaza mucha agua con su forma." } });
+    expect(done.status).toBe(200);
+    const after = await call("POST", `/api/s/${s.token}/deliverable/link`, { cookie: s.cookie, body: { url: DOC } });
+    expect(after.status).toBe(409);
+  });
+
+  it("reads a public Google document so the AI can analyze it with the rubric", async () => {
+    const asked: string[] = [];
+    setLinkFetch(async (url) => {
+      asked.push(url);
+      if (url.includes("/export?format=txt")) return new Response(`Informe\n${FILE_LINE}.`, { headers: { "content-type": "text/plain; charset=utf-8" } });
+      return new Response("", { status: 404 });
+    });
+    try {
+      const s = await setup({ rubric: RUBRIC });
+      expect((await call("POST", `/api/s/${s.token}/deliverable/link`, { cookie: s.cookie, body: { url: DOC } })).status).toBe(201);
+      const row = (await rowOf(s.session.id))!;
+      expect(row).toMatchObject({ kind: "link", storageKey: null, fileName: "Documento de Google" });
+      await waitForFile({ table: "session_deliverables", id: row.id });
+      expect(asked).toEqual(["https://docs.google.com/document/d/1AbCdEfGhIjKlMnOp/export?format=txt"]);
+      const ready = (await rowOf(s.session.id))!;
+      expect(ready.processingStatus).toBe("ready");
+      expect(ready.extractedText).toContain("desplaza mucha agua");
+
+      aiMock.json({
+        criteria: [
+          { criterionIndex: 0, sufficientEvidence: true, levelIndex: 2, evidence: "su forma hueca desplaza mucha agua", rationale: "Relaciona forma y agua." },
+          { criterionIndex: 1, sufficientEvidence: false, levelIndex: 0, evidence: "", rationale: "No hay ejemplo." },
+        ],
+        overview: "Explica la flotación.",
+        strengths: "Clara.",
+        improvements: "Falta un ejemplo.",
+      });
+      const a = await call("POST", `/api/sessions/${s.session.id}/deliverable/analyze`, { cookie: s.teacher.cookie });
+      expect(a.status).toBe(200);
+      expect(a.body.deliverable.analysis.criteria[0]).toMatchObject({ levelIndex: 2, evidence: "su forma hueca desplaza mucha agua" });
+    } finally {
+      setLinkFetch(null);
+    }
+  });
+
+  it("explains how to share a private Google document", async () => {
+    // A private document redirects to the Google sign-in page, which is never followed.
+    setLinkFetch(async () => new Response(null, { status: 302, headers: { location: "https://accounts.google.com/ServiceLogin?continue=x" } }));
+    try {
+      const s = await setup();
+      await call("POST", `/api/s/${s.token}/deliverable/link`, { cookie: s.cookie, body: { url: DOC } });
+      await waitForFile({ table: "session_deliverables", id: (await rowOf(s.session.id))!.id });
+      expect((await rowOf(s.session.id))!).toMatchObject({ processingStatus: "failed", processingError: LINK_NOT_PUBLIC });
+    } finally {
+      setLinkFetch(null);
+    }
+  });
+
+  it("replacing a file with a link removes the stored file; the link can be removed too", async () => {
+    const s = await setup();
+    await uploadPdf(s.token, s.cookie);
+    const file = (await rowOf(s.session.id))!;
+    expect(await exists(file.storageKey)).toBe(true);
+    await call("POST", `/api/s/${s.token}/deliverable/link`, { cookie: s.cookie, body: { url: "https://padlet.com/ana/barcos" } });
+    const link = (await rowOf(s.session.id))!;
+    expect(link).toMatchObject({ id: file.id, kind: "link", storageKey: null, fileName: "padlet.com" });
+    expect(await exists(file.storageKey)).toBe(false);
+    expect(await storageUsedBytes(s.teacher.id)).toBe(0);
+
+    const removed = await call("DELETE", `/api/s/${s.token}/deliverable`, { cookie: s.cookie });
+    expect(removed.body.workspace.deliverable).toBeNull();
+    expect(await rowOf(s.session.id)).toBeUndefined();
+  });
+
+  it("is not possible when the activity does not ask for a delivery", async () => {
+    const s = await setup({ deliverableMode: "off" });
+    const r = await call("POST", `/api/s/${s.token}/deliverable/link`, { cookie: s.cookie, body: { url: DOC } });
+    expect(r.status).toBe(400);
   });
 });

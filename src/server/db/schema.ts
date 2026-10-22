@@ -155,8 +155,11 @@ export const activities = pgTable(
     tutorId: uuid("tutor_id").references(() => tutors.id, { onDelete: "set null" }),
     requireInitialAnswer: boolean("require_initial_answer").notNull().default(true),
     voiceLanguage: text("voice_language").notNull().default("off"),
-    /** Whether students hand in a file when they finish: off, optional or required. */
-    deliverableMode: text("deliverable_mode").notNull().default("off"),
+    /**
+     * Whether students hand in a file or link when they finish: off, optional or required. New
+     * activities start as optional (teachers expected students to be able to hand in their work).
+     */
+    deliverableMode: text("deliverable_mode").notNull().default("optional"),
     /** What the file should be ("Una foto del barco que armaste"). */
     deliverablePrompt: text("deliverable_prompt").notNull().default(""),
     rubric: jsonb("rubric").notNull().default(sql`'[]'::jsonb`),
@@ -355,7 +358,10 @@ export const sessionDeliverables = pgTable(
     id: id(),
     sessionId: uuid("session_id").notNull().references(() => learningSessions.id, { onDelete: "cascade" }),
     activityId: uuid("activity_id").notNull().references(() => activities.id, { onDelete: "cascade" }),
-    storageKey: text("storage_key").notNull(),
+    /** Null for a link (nothing is stored; a public Google link is read from Google). */
+    storageKey: text("storage_key"),
+    /** For kind "link": the address the student pasted. fileName holds a label ("Documento de Google"). */
+    url: text("url"),
     fileName: text("file_name").notNull(),
     mimeType: text("mime_type").notNull(),
     kind: text("kind").notNull(),
@@ -374,7 +380,8 @@ export const sessionDeliverables = pgTable(
     uniqueIndex("session_deliverables_session_unique").on(t.sessionId),
     uniqueIndex("session_deliverables_storage_unique").on(t.storageKey),
     index("session_deliverables_activity_idx").on(t.activityId),
-    check("session_deliverables_kind", sql`${t.kind} in ('pdf','image','docx','text')`),
+    check("session_deliverables_kind", sql`${t.kind} in ('pdf','image','docx','text','link')`),
+    check("session_deliverables_link", sql`(${t.kind} = 'link') = (${t.url} is not null and ${t.storageKey} is null)`),
     check("session_deliverables_status", sql`${t.processingStatus} in ('pending','processing','ready','failed')`),
   ],
 );

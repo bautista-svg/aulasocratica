@@ -122,12 +122,18 @@ export async function buildJourneyPdf(d: SessionDetail): Promise<Buffer> {
 
   if (d.deliverable) {
     const f = d.deliverable;
-    w.section("Archivo entregado");
-    w.paragraph(`${f.fileName} · ${KIND_LABEL[f.kind]} · ${formatBytes(f.sizeBytes)}${f.pageCount ? ` · ${f.pageCount} páginas` : ""} · subido el ${fmt(f.uploadedAt)}`);
-    w.paragraph("El archivo no va dentro de este PDF: se abre o se descarga desde el trabajo del alumno.", { italic: true, color: "#646c88", size: 10 });
+    if (f.kind === "link") {
+      w.section("Entrega");
+      w.paragraph(`${f.fileName} · entregado el ${fmt(f.uploadedAt)}`);
+      w.paragraph(f.url, { color: "#646c88", size: 10 });
+    } else {
+      w.section("Archivo entregado");
+      w.paragraph(`${f.fileName} · ${KIND_LABEL[f.kind]} · ${formatBytes(f.sizeBytes)}${f.pageCount ? ` · ${f.pageCount} páginas` : ""} · subido el ${fmt(f.uploadedAt)}`);
+      w.paragraph("El archivo no va dentro de este PDF: se abre o se descarga desde el trabajo del alumno.", { italic: true, color: "#646c88", size: 10 });
+    }
   } else if (d.activity.deliverableMode !== "off") {
-    w.section("Archivo entregado");
-    w.paragraph("No subió ningún archivo.", { italic: true, color: "#646c88" });
+    w.section("Entrega");
+    w.paragraph("No entregó ningún archivo ni enlace.", { italic: true, color: "#646c88" });
   }
 
   const ev = d.rubric;

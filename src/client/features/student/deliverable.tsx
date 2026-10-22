@@ -1,32 +1,49 @@
-// "Tu entrega": the file a student hands in with the final answer, when the activity asks for one.
-// The file is uploaded as soon as it is picked (big photos are shrunk first) and can be changed or
-// removed until the work is sent.
+// "Tu entrega": the file or link a student hands in with the final answer, when the activity asks
+// for one. A file is uploaded as soon as it is picked (big photos are shrunk first); a link
+// (Google Drive, Docs, Canva…) is saved when pasted. Either can be changed or removed until the
+// work is sent.
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { FileText, ImageIcon, Paperclip, Trash2, Upload } from "lucide-react";
+import { FileText, ImageIcon, Link2, Paperclip, Trash2, Upload } from "lucide-react";
 import { Button } from "@client/components/ui/button";
+import { Input } from "@client/components/ui/field";
 import { ApiError, errorMessage } from "@client/lib/api";
 import { prepareImage } from "@client/features/activities/prepare-image";
-import { DELIVERABLE_ACCEPT, MAX_DELIVERABLE_LABEL, validateDeliverable } from "@shared/domain/deliverables";
-import { KIND_LABEL, formatBytes } from "@shared/domain/files";
+import {
+  DELIVERABLE_ACCEPT,
+  DELIVERABLE_URL_MAX,
+  MAX_DELIVERABLE_LABEL,
+  deliverableKindLabel,
+  validateDeliverable,
+  validateDeliverableLink,
+} from "@shared/domain/deliverables";
+import { formatBytes } from "@shared/domain/files";
 import type { StudentDeliverable, StudentWorkspace } from "@shared/contracts/student";
 import { setWorkspace, studentApi } from "./api";
 
+const shortUrl = (url: string) => url.replace(/^https?:\/\/(www\.)?/, "");
+
 export function DeliverableFileLine({ file, link = true }: { file: StudentDeliverable; link?: boolean }) {
-  const Icon = file.kind === "image" ? ImageIcon : FileText;
+  const isLink = file.kind === "link";
+  const Icon = isLink ? Link2 : file.kind === "image" ? ImageIcon : FileText;
   return (
     <span className="flex min-w-0 items-center gap-3">
       <Icon className="size-5 shrink-0 text-lilac-ink" aria-hidden="true" />
       <span className="min-w-0">
         {link ? (
-          <a href={file.url} target="_blank" rel="noopener" className="block truncate font-semibold text-ink underline decoration-ink/35 underline-offset-4 hover:decoration-ink">
+          <a
+            href={file.url}
+            target="_blank"
+            rel={isLink ? "noopener noreferrer" : "noopener"}
+            className="block truncate font-semibold text-ink underline decoration-ink/35 underline-offset-4 hover:decoration-ink"
+          >
             {file.name}
           </a>
         ) : (
           <span className="block truncate font-semibold text-text">{file.name}</span>
         )}
-        <span className="block text-sm text-text-3">
-          {KIND_LABEL[file.kind]} · {formatBytes(file.sizeBytes)}
+        <span className="block truncate text-sm text-text-3">
+          {isLink ? shortUrl(file.url) : `${deliverableKindLabel(file.kind)} · ${formatBytes(file.sizeBytes)}`}
         </span>
       </span>
     </span>
@@ -50,10 +67,32 @@ export function DeliverableField({
   const input = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [removing, setRemoving] = useState(false);
+  const [savingLink, setSavingLink] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Choosing (again): the two ways to hand in are shown while there is nothing or while changing it.
+  const [changing, setChanging] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [url, setUrl] = useState("");
   const required = workspace.activity.deliverableMode === "required";
   const file = workspace.deliverable;
-  const busy = progress !== null || removing;
+  const busy = progress !== null || removing || savingLink;
+  const choosing = !file || changing;
+
+  async function run(work: () => Promise<{ workspace: StudentWorkspace }>, fallback: string, onError?: (err: unknown) => string | null) {
+    onBusyChange(true);
+    try {
+      const r = await work();
+      setWorkspace(qc, token, r.workspace);
+      setChanging(false);
+      setLinkOpen(false);
+      setUrl("");
+    } catch (err) {
+      onStale(err);
+      setError(onError?.(err) ?? (errorMessage(err) || fallback));
+    } finally {
+      onBusyChange(false);
+    }
+  }
 
   async function upload(picked: File) {
     setError(null);
@@ -64,33 +103,35 @@ export function DeliverableField({
       return;
     }
     setProgress(0);
-    onBusyChange(true);
-    try {
-      const r = await studentApi.uploadDeliverable(token, prepared, (f) => setProgress(f));
-      setWorkspace(qc, token, r.workspace);
-    } catch (err) {
-      onStale(err);
-      setError(err instanceof ApiError ? (err.fields.file ?? err.message) : errorMessage(err) || "No se pudo subir el archivo. Probá de nuevo.");
-    } finally {
-      setProgress(null);
-      onBusyChange(false);
+    await run(
+      () => studentApi.uploadDeliverable(token, prepared, (f) => setProgress(f)),
+      "No se pudo subir el archivo. Probá de nuevo.",
+      (err) => (err instanceof ApiError ? (err.fields.file ?? err.message) : null),
+    );
+    setProgress(null);
+  }
+
+  async function saveLink() {
+    setError(null);
+    const check = validateDeliverableLink(url);
+    if (!check.ok) {
+      setError(check.error);
+      return;
     }
+    setSavingLink(true);
+    await run(
+      () => studentApi.saveDeliverableLink(token, check.url),
+      "No se pudo guardar el enlace. Probá de nuevo.",
+      (err) => (err instanceof ApiError ? (err.fields.url ?? err.message) : null),
+    );
+    setSavingLink(false);
   }
 
   async function remove() {
     setError(null);
     setRemoving(true);
-    onBusyChange(true);
-    try {
-      const r = await studentApi.removeDeliverable(token);
-      setWorkspace(qc, token, r.workspace);
-    } catch (err) {
-      onStale(err);
-      setError(errorMessage(err) || "No se pudo quitar el archivo.");
-    } finally {
-      setRemoving(false);
-      onBusyChange(false);
-    }
+    await run(() => studentApi.removeDeliverable(token), "No se pudo quitar la entrega.");
+    setRemoving(false);
   }
 
   return (
@@ -101,14 +142,14 @@ export function DeliverableField({
         <span className="font-sans text-sm font-normal text-text-3">{required ? "obligatoria" : "opcional"}</span>
       </legend>
       <p className="clear-left pt-1 text-[15px] leading-6 whitespace-pre-wrap text-text-2">
-        {workspace.activity.deliverablePrompt || "Subí el archivo con tu trabajo."}
+        {workspace.activity.deliverablePrompt || "Subí el archivo con tu trabajo o pegá el enlace."}
       </p>
 
-      {file ? (
+      {file && !changing ? (
         <div className="flex flex-col gap-3 rounded-md border border-line bg-paper px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <DeliverableFileLine file={file} />
           <div className="flex shrink-0 gap-2">
-            <Button variant="secondary" size="sm" icon={<Upload className="size-4" />} disabled={busy || disabled} onClick={() => input.current?.click()}>
+            <Button variant="secondary" size="sm" icon={<Upload className="size-4" />} disabled={busy || disabled} onClick={() => setChanging(true)}>
               Cambiar
             </Button>
             <Button variant="ghost" size="sm" icon={<Trash2 className="size-4" />} loading={removing} disabled={busy || disabled} onClick={() => void remove()}>
@@ -116,11 +157,65 @@ export function DeliverableField({
             </Button>
           </div>
         </div>
-      ) : (
-        <Button variant="secondary" size="lg" className="w-full sm:w-auto" icon={<Upload className="size-4" />} disabled={busy || disabled} onClick={() => input.current?.click()}>
-          Elegir un archivo o sacar una foto
-        </Button>
-      )}
+      ) : null}
+
+      {choosing ? (
+        <div className="space-y-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <Button variant="secondary" size="lg" className="w-full sm:w-auto" icon={<Upload className="size-4" />} disabled={busy || disabled} onClick={() => input.current?.click()}>
+              Elegir un archivo o sacar una foto
+            </Button>
+            <Button
+              variant={linkOpen ? "lilac" : "ghost"}
+              size="lg"
+              className="w-full sm:w-auto"
+              icon={<Link2 className="size-4" />}
+              aria-expanded={linkOpen}
+              disabled={busy || disabled}
+              onClick={() => setLinkOpen((v) => !v)}
+            >
+              Pegar un enlace
+            </Button>
+            {changing ? (
+              <Button variant="ghost" size="lg" className="w-full sm:w-auto" disabled={busy} onClick={() => (setChanging(false), setLinkOpen(false), setError(null))}>
+                Cancelar
+              </Button>
+            ) : null}
+          </div>
+          {linkOpen ? (
+            <form
+              className="space-y-2 rounded-md border border-line bg-paper p-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void saveLink();
+              }}
+            >
+              <label htmlFor="entrega-enlace" className="text-sm font-semibold text-text">
+                Enlace a tu trabajo (Google Drive, Docs, Canva…)
+              </label>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                  id="entrega-enlace"
+                  type="url"
+                  inputMode="url"
+                  autoComplete="off"
+                  placeholder="https://docs.google.com/…"
+                  value={url}
+                  maxLength={DELIVERABLE_URL_MAX}
+                  onChange={(e) => setUrl(e.target.value)}
+                  aria-describedby="entrega-enlace-ayuda"
+                />
+                <Button type="submit" className="shrink-0" loading={savingLink} disabled={busy || disabled || !url.trim()}>
+                  Guardar enlace
+                </Button>
+              </div>
+              <p id="entrega-enlace-ayuda" className="text-[13px] leading-5 text-text-3">
+                Si es de Google Drive, compartilo como «Cualquier persona con el enlace» para que tu docente lo pueda abrir.
+              </p>
+            </form>
+          ) : null}
+        </div>
+      ) : null}
       <input
         ref={input}
         type="file"
@@ -144,7 +239,7 @@ export function DeliverableField({
         </div>
       ) : null}
       <p id="entrega-ayuda" className="text-sm text-text-3">
-        PDF, Word, texto o una foto (JPG, PNG, WEBP), hasta {MAX_DELIVERABLE_LABEL}. Lo ve tu docente junto con tu respuesta.
+        PDF, Word, texto o una foto (JPG, PNG, WEBP), hasta {MAX_DELIVERABLE_LABEL}, o un enlace. Lo ve tu docente junto con tu respuesta.
       </p>
       {error ? (
         <p role="alert" className="text-sm font-medium text-rose">

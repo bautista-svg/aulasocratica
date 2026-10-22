@@ -9,6 +9,7 @@ import { readJson } from "../lib/errors";
 import { LINK_AVAILABILITY_MESSAGE } from "@shared/domain/access-rules";
 import {
   chatBody,
+  deliverableLinkBody,
   finishBody,
   initialAnswerBody,
   joinBody,
@@ -32,7 +33,7 @@ import {
 import { finishActivity, reportSignal, saveInitialAnswer, startClosing } from "../services/student/work";
 import { tutorChat } from "../services/student/tutor";
 import { serveActivityFile } from "../services/student/files";
-import { removeDeliverable, saveDeliverable, serveStudentDeliverable } from "../services/deliverables";
+import { removeDeliverable, saveDeliverable, saveDeliverableLink, serveStudentDeliverable } from "../services/deliverables";
 import { readFileParts } from "../services/activities/files";
 
 export const publicStudentRoutes = new Hono<AppEnv>()
@@ -113,6 +114,14 @@ export const publicStudentRoutes = new Hono<AppEnv>()
     const ctx = await loadStudentContext(c, c.req.param("token"));
     const [file] = await readFileParts(c);
     await saveDeliverable(ctx, file);
+    return c.json({ workspace: await buildWorkspace(ctx) } satisfies WorkspaceResponse, 201);
+  })
+
+  // A link instead of a file (Google Drive, Docs, Canva...).
+  .post("/:token/deliverable/link", async (c) => {
+    const ctx = await loadStudentContext(c, c.req.param("token"));
+    const body = await readJson(c, deliverableLinkBody);
+    await saveDeliverableLink(ctx, body.url);
     return c.json({ workspace: await buildWorkspace(ctx) } satisfies WorkspaceResponse, 201);
   })
 

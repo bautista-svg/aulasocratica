@@ -241,7 +241,7 @@ export function ClosingStep({
           <FormError message={error} />
           {missingFile ? (
             <p id="falta-entrega" className="text-sm font-medium text-text-2 sm:text-right">
-              Subí tu archivo para poder enviar tu trabajo.
+              Subí tu archivo o pegá el enlace para poder enviar tu trabajo.
             </p>
           ) : null}
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">

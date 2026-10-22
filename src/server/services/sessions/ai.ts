@@ -29,6 +29,12 @@ Las líneas "ALUMNO [tocó el botón …]" son botones de ayuda predefinidos: no
 function deliverableBlock(d: Awaited<ReturnType<typeof deliverableOf>>): { text: string; quotable: string } {
   if (!d) return { text: "", quotable: "" };
   const read = d.processingStatus === "ready" ? d.extractedText.trim() : "";
+  if (d.kind === "link") {
+    return {
+      text: `\n\nEntregó un enlace («${fence(d.fileName, 200)}»):\n${read ? fence(read, 40_000) : "(la IA no pudo abrir el enlace: no se sabe qué contiene)"}`,
+      quotable: read,
+    };
+  }
   if (d.kind === "image") {
     return {
       text: `\n\nArchivo entregado (foto «${fence(d.fileName, 200)}»; transcripción hecha por IA, no se puede citar):\n${read ? fence(read, 20_000) : "(todavía no se pudo leer)"}`,
@@ -214,7 +220,7 @@ export async function analyzeDeliverable(row: OwnedSessionRow, teacherId: string
   if (d.processingStatus === "pending" || d.processingStatus === "processing") {
     throw conflict("Todavía estamos leyendo el archivo. Probá de nuevo en unos segundos.");
   }
-  const isImage = d.kind === "image" && IMAGE_MEDIA.includes(d.mimeType as ImageMedia) && d.sizeBytes <= MAX_IMAGE_BYTES;
+  const isImage = d.kind === "image" && Boolean(d.storageKey) && IMAGE_MEDIA.includes(d.mimeType as ImageMedia) && d.sizeBytes <= MAX_IMAGE_BYTES;
   const text = d.processingStatus === "ready" ? d.extractedText.trim() : "";
   if (!isImage && !text) {
     throw badRequest(d.processingError ?? "No se pudo leer el contenido del archivo, así que no se puede analizar.");
@@ -264,7 +270,7 @@ Además:
     ? [
         {
           type: "image" as const,
-          source: { type: "base64" as const, media_type: d.mimeType as ImageMedia, data: Buffer.from(await readFile(d.storageKey)).toString("base64") },
+          source: { type: "base64" as const, media_type: d.mimeType as ImageMedia, data: Buffer.from(await readFile(d.storageKey!)).toString("base64") },
         },
         { type: "text" as const, text: prompt },
       ]

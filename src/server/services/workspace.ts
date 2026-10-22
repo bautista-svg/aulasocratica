@@ -94,5 +94,6 @@ export async function collectWorkspaceFileKeys(teacherId: string): Promise<strin
         .from(schema.sessionDeliverables)
         .where(inArray(schema.sessionDeliverables.activityId, acts.map((a) => a.id)))
     : [];
-  return [...lib.map((r) => r.key!), ...files.map((r) => r.key), ...handedIn.map((r) => r.key)];
+  // Links handed in have nothing stored.
+  return [...lib.map((r) => r.key!), ...files.map((r) => r.key), ...handedIn.flatMap((r) => (r.key ? [r.key] : []))];
 }

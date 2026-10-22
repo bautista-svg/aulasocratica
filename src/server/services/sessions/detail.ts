@@ -33,7 +33,7 @@ import type {
 } from "@shared/contracts/sessions";
 import type { AlertStatus } from "@shared/contracts/live";
 import type { FileKind, ProcessingStatus } from "@shared/domain/files";
-import { isDeliverableMode } from "@shared/domain/deliverables";
+import { isDeliverableMode, type DeliverableKind } from "@shared/domain/deliverables";
 import { alertOrigin, progressFor, stepsFor } from "./live-rules";
 import { readXrayItems, visibleXray } from "./xray-store";
 
@@ -221,7 +221,7 @@ export function deliverableView(row: typeof schema.sessionDeliverables.$inferSel
   const a = row.analysis as Omit<DeliverableAnalysis, "generatedAt"> | null;
   return {
     fileName: row.fileName,
-    kind: row.kind as FileKind,
+    kind: row.kind as DeliverableKind,
     mimeType: row.mimeType,
     sizeBytes: row.sizeBytes,
     pageCount: row.pageCount,
@@ -229,7 +229,7 @@ export function deliverableView(row: typeof schema.sessionDeliverables.$inferSel
     processingStatus: row.processingStatus as ProcessingStatus,
     processingError: row.processingError,
     textChars: row.extractedText.length,
-    url: `/api/sessions/${row.sessionId}/deliverable/file`,
+    url: row.kind === "link" && row.url ? row.url : `/api/sessions/${row.sessionId}/deliverable/file`,
     analysis:
       a && Array.isArray(a.criteria) && row.analyzedAt
         ? {

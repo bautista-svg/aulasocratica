@@ -6,6 +6,7 @@ import { and, eq, lt } from "drizzle-orm";
 import { db, schema } from "../db/client";
 import { readFile } from "../lib/storage";
 import { extractFile } from "./extract";
+import { readLinkForJob } from "./link-reader";
 import { HttpError } from "../lib/errors";
 import { log, errorFields } from "../lib/logger";
 import { registerJob } from "../jobs";
@@ -88,26 +89,29 @@ async function processTarget(t: Target) {
       .where(eq(sd.id, t.id))
       .limit(1);
     if (!row || row.file.processingStatus === "ready") return;
+    const f = row.file;
+    // Replaced meanwhile (the student handed in something else): this reading is for the old one.
+    const unchanged = and(eq(sd.id, t.id), f.storageKey ? eq(sd.storageKey, f.storageKey) : eq(sd.url, f.url ?? ""));
     await db.update(sd).set({ processingStatus: "processing", processingError: null }).where(eq(sd.id, t.id));
     try {
-      const data = await readFile(row.file.storageKey);
+      // A link is read from Google (only public Google links get here); a file from storage.
+      const file =
+        f.kind === "link"
+          ? await readLinkForJob(f.url ?? "")
+          : { data: await readFile(f.storageKey ?? ""), kind: f.kind as FileKind, mime: f.mimeType };
       const r = await extractFile({
-        data,
-        kind: row.file.kind as FileKind,
-        mime: row.file.mimeType,
-        ctx: { purpose: "file_extraction", teacherId: row.teacherId, activityId: row.file.activityId },
+        data: file.data,
+        kind: file.kind,
+        mime: file.mime,
+        ctx: { purpose: "file_extraction", teacherId: row.teacherId, activityId: f.activityId },
       });
-      // Replaced meanwhile (the student uploaded another file): this reading is for the old one.
       await db
         .update(sd)
         .set({ processingStatus: "ready", extractedText: r.text, pageCount: r.pageCount, processingError: r.note })
-        .where(and(eq(sd.id, t.id), eq(sd.storageKey, row.file.storageKey)));
+        .where(unchanged);
     } catch (err) {
       log.warn("file_processing_failed", { table: t.table, id: t.id, ...errorFields(err) });
-      await db
-        .update(sd)
-        .set({ processingStatus: "failed", processingError: failureMessage(err) })
-        .where(and(eq(sd.id, t.id), eq(sd.storageKey, row.file.storageKey)));
+      await db.update(sd).set({ processingStatus: "failed", processingError: failureMessage(err) }).where(unchanged);
     }
     return;
   }

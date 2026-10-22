@@ -1,16 +1,17 @@
-// "Entrega del alumno" (Evaluación tab): the file the student handed in, how it was read, and the
+// "Entrega del alumno" (Evaluación tab): the file or link the student handed in, how it was read, and the
 // AI's rubric-based reading of it (only when the teacher asks; the levels are a suggestion the
 // teacher can bring into the evaluation and then change).
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Download, ExternalLink, FileText, ImageIcon, Paperclip, RefreshCw, Sparkles, Wand2 } from "lucide-react";
+import { Download, ExternalLink, FileText, ImageIcon, Link2, Paperclip, RefreshCw, Sparkles, Wand2 } from "lucide-react";
 import { Badge } from "@client/components/ui/misc";
 import { Button, buttonClass } from "@client/components/ui/button";
 import { Spinner } from "@client/components/ui/spinner";
 import { FormError } from "@client/components/ui/field";
 import { errorMessage } from "@client/lib/api";
 import { fmtDateTime, plural } from "@client/lib/format";
-import { KIND_LABEL, formatBytes } from "@shared/domain/files";
+import { formatBytes } from "@shared/domain/files";
+import { deliverableKindLabel } from "@shared/domain/deliverables";
 import type { SessionDetail } from "@shared/contracts/sessions";
 import { useState } from "react";
 import { useSessionMutations } from "./api";
@@ -21,6 +22,9 @@ export function DeliverableCard({ detail, onUseLevels }: { detail: SessionDetail
   const [error, setError] = useState<string | null>(null);
   const required = detail.activity.deliverableMode === "required";
   const hasRubric = detail.activity.rubric.length > 0;
+  const isLink = d?.kind === "link";
+  // A link the AI could not open (not a public Google document): only the teacher can look at it.
+  const unreadLink = isLink && d.processingStatus === "ready" && d.textChars === 0;
 
   return (
     <section aria-labelledby="entrega-title" className="rounded-lg border border-line bg-surface p-5 shadow-1 sm:p-6 xl:col-span-2">
@@ -39,40 +43,53 @@ export function DeliverableCard({ detail, onUseLevels }: { detail: SessionDetail
 
       {!d ? (
         <p className="rounded-md border border-dashed border-line-strong bg-paper px-4 py-3 text-[15px] text-text-2">
-          {detail.session.status === "completed" ? "No subió ningún archivo." : "Todavía no subió ningún archivo."}
+          {detail.session.status === "completed" ? "No entregó ningún archivo ni enlace." : "Todavía no entregó ningún archivo ni enlace."}
         </p>
       ) : (
         <>
           <div className="flex flex-col gap-3 rounded-md border border-line bg-paper px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <span className="flex min-w-0 items-center gap-3">
-              {d.kind === "image" ? (
+              {isLink ? (
+                <Link2 className="size-5 shrink-0 text-lilac-ink" aria-hidden="true" />
+              ) : d.kind === "image" ? (
                 <ImageIcon className="size-5 shrink-0 text-lilac-ink" aria-hidden="true" />
               ) : (
                 <FileText className="size-5 shrink-0 text-lilac-ink" aria-hidden="true" />
               )}
               <span className="min-w-0">
                 <span className="block truncate font-semibold text-text">{d.fileName}</span>
-                <span className="block text-sm text-text-3">
-                  {KIND_LABEL[d.kind]} · {formatBytes(d.sizeBytes)}
-                  {d.pageCount ? ` · ${plural(d.pageCount, "página", "páginas")}` : ""} · subido el {fmtDateTime(d.uploadedAt)}
+                <span className="block truncate text-sm text-text-3">
+                  {isLink ? (
+                    <>
+                      {d.url.replace(/^https?:\/\/(www\.)?/, "")} · entregado el {fmtDateTime(d.uploadedAt)}
+                    </>
+                  ) : (
+                    <>
+                      {deliverableKindLabel(d.kind)} · {formatBytes(d.sizeBytes)}
+                      {d.pageCount ? ` · ${plural(d.pageCount, "página", "páginas")}` : ""} · subido el {fmtDateTime(d.uploadedAt)}
+                    </>
+                  )}
                 </span>
               </span>
             </span>
             <span className="flex shrink-0 gap-2">
-              <a href={d.url} target="_blank" rel="noopener" className={buttonClass("secondary", "sm")}>
+              <a href={d.url} target="_blank" rel={isLink ? "noopener noreferrer" : "noopener"} className={buttonClass("secondary", "sm")}>
                 <ExternalLink className="size-4" aria-hidden="true" />
-                Abrir
+                {isLink ? "Abrir enlace" : "Abrir"}
               </a>
-              <a href={`${d.url}?download=1`} className={buttonClass("ghost", "sm")}>
-                <Download className="size-4" aria-hidden="true" />
-                Descargar
-              </a>
+              {isLink ? null : (
+                <a href={`${d.url}?download=1`} className={buttonClass("ghost", "sm")}>
+                  <Download className="size-4" aria-hidden="true" />
+                  Descargar
+                </a>
+              )}
             </span>
           </div>
 
           {d.processingStatus === "pending" || d.processingStatus === "processing" ? (
             <p role="status" className="mt-3 flex items-center gap-2 text-sm text-text-2">
-              <Spinner className="size-4" /> Leyendo el archivo… Cuando termine lo podés analizar con la rúbrica.
+              <Spinner className="size-4" /> {isLink ? "Leyendo el documento de Google…" : "Leyendo el archivo…"} Cuando termine lo podés analizar con la
+              rúbrica.
             </p>
           ) : d.processingStatus === "failed" ? (
             <div className="mt-3 flex flex-col gap-2 rounded-md bg-rose-soft px-4 py-3 text-sm text-rose sm:flex-row sm:items-center sm:justify-between">
@@ -87,6 +104,11 @@ export function DeliverableCard({ detail, onUseLevels }: { detail: SessionDetail
                 Reintentar la lectura
               </Button>
             </div>
+          ) : unreadLink ? (
+            <p className="mt-3 rounded-md bg-sunken px-4 py-3 text-sm text-text-2">
+              {d.processingError ?? "La IA no puede abrir este enlace."} Para analizarlo con la rúbrica, pedí el archivo o un enlace de Google Drive compartido
+              como «Cualquier persona con el enlace».
+            </p>
           ) : d.processingError ? (
             <p className="mt-2 text-xs text-text-3">{d.processingError}</p>
           ) : null}
@@ -112,7 +134,7 @@ export function DeliverableCard({ detail, onUseLevels }: { detail: SessionDetail
                 variant="lilac"
                 icon={d.analysis ? <RefreshCw className="size-4" /> : <Sparkles className="size-4" />}
                 loading={m.analyzeDeliverable.isPending}
-                disabled={!hasRubric || d.processingStatus !== "ready"}
+                disabled={!hasRubric || d.processingStatus !== "ready" || unreadLink}
                 onClick={() => {
                   setError(null);
                   m.analyzeDeliverable.mutate(undefined, {

@@ -7,7 +7,7 @@ import type { XrayItem } from "../domain/thinking-xray";
 import { ASPECT_KEYS, ASPECT_NOTE_MAX, type AspectItem, type AspectKey, type AspectTally } from "../domain/aspects";
 import type { AlertStatus } from "./live";
 import type { FileKind, ProcessingStatus } from "../domain/files";
-import type { DeliverableMode } from "../domain/deliverables";
+import type { DeliverableKind, DeliverableMode } from "../domain/deliverables";
 
 export { confirmBody } from "./live";
 
@@ -115,8 +115,9 @@ export interface DeliverableAnalysis {
 
 /** The file the student handed in, for the teacher. */
 export interface SessionDeliverableView {
+  /** For a link: a label such as "Documento de Google". */
   fileName: string;
-  kind: FileKind;
+  kind: DeliverableKind;
   mimeType: string;
   sizeBytes: number;
   pageCount: number | null;
@@ -126,7 +127,7 @@ export interface SessionDeliverableView {
   processingError: string | null;
   /** Characters of text read from the file. */
   textChars: number;
-  /** Same-origin URL (teacher session). */
+  /** Same-origin URL (teacher session); for a link, the address the student pasted. */
   url: string;
   analysis: DeliverableAnalysis | null;
 }

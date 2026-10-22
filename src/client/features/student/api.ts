@@ -58,6 +58,7 @@ export const studentApi = {
     form.append("file", file);
     return uploadWithProgress<WorkspaceResponse>(`${base(token)}/deliverable/upload`, form, onProgress);
   },
+  saveDeliverableLink: (token: string, url: string) => api.post<WorkspaceResponse>(`${base(token)}/deliverable/link`, { url }),
   removeDeliverable: (token: string) => api.del<WorkspaceResponse>(`${base(token)}/deliverable`),
 };
 

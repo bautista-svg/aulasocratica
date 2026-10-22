@@ -20,7 +20,7 @@ import { LINK_AVAILABILITY_MESSAGE, linkAvailability, type LinkAvailability } fr
 import { validateStudentName } from "@shared/domain/names";
 import { readReflection, sanitizeReflectionQuestions, type ReflectionQuestion } from "@shared/domain/activity-design";
 import { isVoiceLanguage } from "@shared/domain/voice";
-import { isDeliverableMode } from "@shared/domain/deliverables";
+import { isDeliverableMode, type DeliverableKind } from "@shared/domain/deliverables";
 import {
   normalizeResumeCode,
   studentMetaLine,
@@ -507,6 +507,7 @@ export async function buildWorkspace(ctx: StudentCtx, opts: { files?: boolean } 
       .select({
         fileName: schema.sessionDeliverables.fileName,
         kind: schema.sessionDeliverables.kind,
+        url: schema.sessionDeliverables.url,
         sizeBytes: schema.sessionDeliverables.sizeBytes,
         updatedAt: schema.sessionDeliverables.updatedAt,
       })
@@ -545,10 +546,13 @@ export async function buildWorkspace(ctx: StudentCtx, opts: { files?: boolean } 
     deliverable: deliverable
       ? {
           name: deliverable.fileName,
-          kind: deliverable.kind as FileKind,
+          kind: deliverable.kind as DeliverableKind,
           sizeBytes: deliverable.sizeBytes,
           uploadedAt: deliverable.updatedAt.toISOString(),
-          url: `/api/s/${encodeURIComponent(activity.linkToken)}/deliverable/file`,
+          url:
+            deliverable.kind === "link" && deliverable.url
+              ? deliverable.url
+              : `/api/s/${encodeURIComponent(activity.linkToken)}/deliverable/file`,
         }
       : null,
     files: files.map(
