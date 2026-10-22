@@ -3,6 +3,9 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { api, ApiError } from "@client/lib/api";
 import type {
+  AspectAddInput,
+  AspectsAnalyzeResult,
+  AspectsView,
   DeliverableAnalyzeResult,
   RubricAssessmentView,
   RubricSaveInput,
@@ -41,6 +44,12 @@ export function useSession(id: string) {
 export function useSessionMutations(id: string) {
   const qc = useQueryClient();
   const patch = (fn: (d: SessionDetail) => SessionDetail) => qc.setQueryData<SessionDetail>(sessionKeys.one(id), (d) => (d ? fn(d) : d));
+  // The group view of the activity and the student's page count these aspects.
+  const setAspects = (r: AspectsView) => {
+    patch((d) => ({ ...d, aspects: { items: r.items, aiGeneratedAt: r.aiGeneratedAt } }));
+    void qc.invalidateQueries({ queryKey: ["activity-aspects"] });
+    void qc.invalidateQueries({ queryKey: ["students"] });
+  };
   const refreshLive = (activityId?: string) => {
     void qc.invalidateQueries({ queryKey: sessionKeys.one(id) });
     if (activityId) void qc.invalidateQueries({ queryKey: ["live", activityId] });
@@ -98,6 +107,18 @@ export function useSessionMutations(id: string) {
         patch((d) => ({ ...d, xray: r.xray }));
         void qc.invalidateQueries({ queryKey: ["sessions", "xray-list"] });
       },
+    }),
+    analyzeAspects: useMutation({
+      mutationFn: () => api.post<AspectsAnalyzeResult>(`/api/sessions/${id}/aspects/analyze`),
+      onSuccess: (r) => setAspects(r),
+    }),
+    addAspect: useMutation({
+      mutationFn: (body: AspectAddInput) => api.post<AspectsView>(`/api/sessions/${id}/aspects`, body),
+      onSuccess: (r) => setAspects(r),
+    }),
+    removeAspect: useMutation({
+      mutationFn: (itemId: string) => api.del<AspectsView>(`/api/sessions/${id}/aspects/${itemId}`),
+      onSuccess: (r) => setAspects(r),
     }),
     patchXray: useMutation({
       mutationFn: ({ itemId, ...body }: { itemId: string; status?: XrayStatus; interpretation?: string }) =>

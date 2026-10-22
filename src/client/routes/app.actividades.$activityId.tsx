@@ -10,6 +10,7 @@ import { ApiError, errorMessage } from "@client/lib/api";
 import { plural } from "@client/lib/format";
 import { usePageTitle } from "@client/lib/page-title";
 import { LivePanel } from "@client/features/live/live-panel";
+import { AspectsPanel } from "@client/features/aspects/group-panel";
 import { useActivity, useActivityAction, useSaveActivity } from "@client/features/activities/api";
 import { useActivityForm } from "@client/features/activities/use-activity-form";
 import { ConfigPanel, scrollToSection, useSaveDraft } from "@client/features/activities/config-panel";
@@ -20,9 +21,9 @@ import { UnsavedGuard } from "@client/features/activities/unsaved-guard";
 import { activityState } from "@shared/domain/activity-state";
 import type { ActivityEditorData } from "@shared/contracts/activities";
 
-const TABS = ["configuracion", "compartir", "en-vivo"] as const;
+const TABS = ["configuracion", "compartir", "en-vivo", "fortalezas"] as const;
 type Tab = (typeof TABS)[number];
-const TAB_LABELS: Record<Tab, string> = { configuracion: "Configuración", compartir: "Compartir", "en-vivo": "En vivo" };
+const TAB_LABELS: Record<Tab, string> = { configuracion: "Configuración", compartir: "Compartir", "en-vivo": "En vivo", fortalezas: "Fortalezas" };
 
 export const Route = createFileRoute("/app/actividades/$activityId")({
   validateSearch: searchParams({ tab: optionalEnum(TABS) }),
@@ -225,8 +226,10 @@ function ActivityTabs({
   const current: Tab = tab ?? (activity.status === "published" ? "en-vivo" : "configuracion");
   // The live view (SSE + polling) starts the first time its tab is opened, then stays mounted.
   const [liveOpened, setLiveOpened] = useState(current === "en-vivo");
+  const [aspectsOpened, setAspectsOpened] = useState(current === "fortalezas");
   useEffect(() => {
     if (current === "en-vivo") setLiveOpened(true);
+    if (current === "fortalezas") setAspectsOpened(true);
   }, [current]);
   return (
     <Tabs
@@ -249,6 +252,7 @@ function ActivityTabs({
             ) : undefined,
           content: liveOpened ? <LivePanel activityId={activity.id} /> : null,
         },
+        { value: "fortalezas", label: "Fortalezas", content: aspectsOpened ? <AspectsPanel activityId={activity.id} /> : null },
       ]}
     />
   );

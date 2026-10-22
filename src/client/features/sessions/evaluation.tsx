@@ -1,5 +1,6 @@
 // "Evaluación" tab: the rubric (the AI only suggests when asked; the teacher picks the
-// levels and confirms) and the AI summary based on the rubric and/or the objectives.
+// levels and confirms), the AI summary based on the rubric and/or the objectives, and the
+// strengths and areas to reinforce.
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -15,6 +16,7 @@ import { SUMMARY_BASIS_LABELS, type SummaryBasis } from "@shared/domain/session-
 import type { SessionDetail } from "@shared/contracts/sessions";
 import { useSessionMutations } from "./api";
 import { DeliverableCard } from "./deliverable-card";
+import { AspectsCard } from "./aspects-card";
 
 export function EvaluationTab({ detail }: { detail: SessionDetail }) {
   // Levels from the analysis of the delivered file, brought into the rubric (the teacher reviews them).
@@ -34,6 +36,7 @@ export function EvaluationTab({ detail }: { detail: SessionDetail }) {
       ) : null}
       <RubricCard detail={detail} incoming={incoming} />
       <SummaryCard detail={detail} />
+      <AspectsCard detail={detail} />
     </div>
   );
 }

@@ -390,6 +390,20 @@ export const thinkingAnalyses = pgTable(
   (t) => [uniqueIndex("thinking_analyses_session_unique").on(t.sessionId)],
 );
 
+/** Strengths and areas to reinforce of a work (AI suggestions and the teacher's own). */
+export const aspectAnalyses = pgTable(
+  "aspect_analyses",
+  {
+    id: id(),
+    sessionId: uuid("session_id").notNull().references(() => learningSessions.id, { onDelete: "cascade" }),
+    items: jsonb("items").notNull().default(sql`'[]'::jsonb`),
+    aiGeneratedAt: timestamp("ai_generated_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex("aspect_analyses_session_unique").on(t.sessionId)],
+);
+
 export const sessionSummaries = pgTable(
   "session_summaries",
   {

@@ -70,6 +70,8 @@ Estados: **Funciona** (de punta a punta, persistido y probado) · **Parcial** ·
 | **PDF del recorrido completo** | Inexistente | Pedido WhatsApp | PDF real (no imprimir pantalla) desde En vivo y desde el trabajo | Alta (WhatsApp) | I: sessions; E2E: flows; UI | Funciona |
 | Radiografía del pensamiento (lista y por trabajo) | Funcionaba; descartadas reaparecían | — | Validar/editar/descartar; no reaparecen; analiza toda la conversación | Media | I: sessions | Funciona |
 | Página del alumno (todas sus actividades) | Funcionaba | — | Trabajos y actividades pendientes | Baja | I: students | Funciona |
+| **Fortalezas y aspectos a reforzar** | Inexistente | Pedido del cliente (22-10) | Sobre una lista fija de aspectos (redacción, argumentación, uso de los materiales, ejemplos, pensamiento crítico, diálogo, autonomía…), para poder sumarlos. Por trabajo (Evaluación): la IA propone a pedido en qué se destacó y qué reforzar, con citas verificadas y calibrada para la edad del curso; el docente quita lo que no comparte y marca aspectos a mano (se conservan al volver a analizar). Por actividad (pestaña «Fortalezas»): lo más destacado del grupo, lo que conviene reforzar en clase y un gráfico por aspecto con los alumnos de cada lado; analiza de a uno los trabajos terminados pendientes. En la página del alumno, lo mismo a través de sus actividades | Alta | I: aspects; E2E; UI (axe 375/1440) | Funciona |
+| Resumen: objetivo cortado | Los objetivos largos se cortaban a 200 caracteres | Reporte del cliente (22-10) | Se guarda completo; los resúmenes ya hechos muestran el objetivo completo de la actividad | Media | U: session-summary | Funciona |
 
 ## Biblioteca, tutores y "Crear con IA"
 

@@ -38,7 +38,7 @@ function deliverableBlock(d: Awaited<ReturnType<typeof deliverableOf>>): { text:
   return { text: `\n\nArchivo entregado («${fence(d.fileName, 200)}»):\n${read ? fence(read, 40_000) : "(todavía no se pudo leer)"}`, quotable: read };
 }
 
-async function workOf(row: OwnedSessionRow) {
+export async function workOf(row: OwnedSessionRow) {
   const [messages, deliverable] = await Promise.all([loadMessages(row.session.id), deliverableOf(row.session.id)]);
   const reflection = reflectionOf(row.session, row.activity.reflectionQuestions);
   const texts = studentTexts({ initialAnswer: row.session.initialAnswer, finalAnswer: row.session.finalAnswer, reflection, messages });
@@ -65,7 +65,7 @@ ${fence(reflectionText || "(sin reflexión)", 6000)}${file.text}
  * (it lowered levels for short or informal answers), so it evaluates like the teacher of that
  * grade would and gives the benefit of the doubt.
  */
-const CALIBRATION = `CÓMO CALIBRAR EL NIVEL (importante):
+export const CALIBRATION = `CÓMO CALIBRAR EL NIVEL (importante):
 - Evaluá como lo haría la docente de este curso, con lo que se espera de un alumno de esa edad: no de un adulto ni de un especialista.
 - Elegí el nivel MÁS ALTO cuya descripción el trabajo cumple en lo esencial. No hace falta que lo cumpla de forma perfecta, completa ni con vocabulario técnico.
 - Si dudás entre dos niveles, elegí el más alto.
@@ -73,7 +73,7 @@ const CALIBRATION = `CÓMO CALIBRAR EL NIVEL (importante):
 - Contá todo lo que el alumno logró en el trabajo, también lo que alcanzó durante la conversación con ayuda de las preguntas del tutor.`;
 
 /** "5.º B · 5.º grado": the course, so the AI knows what to expect from the student. */
-async function courseOf(a: OwnedSessionRow["activity"]): Promise<string> {
+export async function courseOf(a: OwnedSessionRow["activity"]): Promise<string> {
   const [room] = await db
     .select({ name: schema.classrooms.name, grade: schema.classrooms.grade, division: schema.classrooms.division })
     .from(schema.classrooms)
@@ -83,7 +83,7 @@ async function courseOf(a: OwnedSessionRow["activity"]): Promise<string> {
   return fence([room.name, [room.grade, room.division].filter(Boolean).join(" ")].filter(Boolean).join(" · "), 200) || "(no indicado)";
 }
 
-function activityHeader(a: OwnedSessionRow["activity"]) {
+export function activityHeader(a: OwnedSessionRow["activity"]) {
   return `Actividad: ${fence(a.title, 200)}
 Consigna:
 <<<

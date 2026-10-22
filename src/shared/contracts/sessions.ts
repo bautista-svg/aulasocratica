@@ -4,6 +4,7 @@ import type { RubricCriterion, ReflectionAnswer, ReflectionQuestion } from "../d
 import type { LiveStatus, Stage } from "../domain/live-monitor";
 import type { SessionSummaryContent, SummaryBasis } from "../domain/session-summary";
 import type { XrayItem } from "../domain/thinking-xray";
+import { ASPECT_KEYS, ASPECT_NOTE_MAX, type AspectItem, type AspectKey, type AspectTally } from "../domain/aspects";
 import type { AlertStatus } from "./live";
 import type { FileKind, ProcessingStatus } from "../domain/files";
 import type { DeliverableMode } from "../domain/deliverables";
@@ -24,6 +25,14 @@ export const summaryBody = z.object({
     .min(1, "Elegí en qué basar el resumen.")
     .max(2),
 });
+
+/** The teacher marks an aspect of the work by hand. */
+export const aspectAddBody = z.object({
+  aspect: z.enum(ASPECT_KEYS as [AspectKey, ...AspectKey[]], { error: "Elegí un aspecto." }),
+  kind: z.enum(["strength", "reinforce"], { error: "Elegí si se destacó o si tiene que reforzarlo." }),
+  note: z.string().trim().max(ASPECT_NOTE_MAX, `Usá hasta ${ASPECT_NOTE_MAX} caracteres.`).default(""),
+});
+export type AspectAddInput = z.input<typeof aspectAddBody>;
 
 export const xrayItemPatch = z
   .object({
@@ -149,6 +158,26 @@ export interface SummaryView {
   omittedMessages: number;
 }
 
+export interface AspectsView {
+  items: AspectItem[];
+  aiGeneratedAt: string | null;
+}
+
+export interface AspectsAnalyzeResult extends AspectsView {
+  droppedQuotes: number;
+}
+
+/** "Fortalezas y aspectos a reforzar" of an activity's group. */
+export interface ActivityAspects {
+  totalWorks: number;
+  completedWorks: number;
+  /** Works with an analysis or with aspects the teacher marked. */
+  analyzedWorks: number;
+  /** Finished works not analyzed yet (the page can analyze them one by one). */
+  pending: { sessionId: string; studentName: string }[];
+  aspects: AspectTally[];
+}
+
 export interface XrayView {
   /** Interpretations the teacher has not discarded. */
   items: XrayItem[];
@@ -206,6 +235,7 @@ export interface SessionDetail {
   summary: SummaryView | null;
   summaryAvailable: { rubric: boolean; objectives: boolean };
   xray: XrayView;
+  aspects: AspectsView;
   flow: { tutorQuestions: string[]; reformulations: { text: string; at: string; intent: string }[]; hints: number };
   signals: ObservedSignals;
 }

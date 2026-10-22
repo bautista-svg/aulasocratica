@@ -39,7 +39,7 @@ const EMPTY_REPLY = "Perdón, no me salió una respuesta. ¿Me contás de nuevo 
 
 type ChatBody = z.infer<typeof chatBody>;
 
-async function materialSources(activityId: string): Promise<MaterialSource[]> {
+export async function materialSources(activityId: string): Promise<MaterialSource[]> {
   const files = await db
     .select({
       fileName: schema.activityFiles.fileName,

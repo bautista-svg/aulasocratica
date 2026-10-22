@@ -36,6 +36,7 @@ import {
   TEXT_PAGE_MAX,
 } from "../services/activities/files";
 import { importRubric, proposeReflection, proposeRubric } from "../services/activities/ai";
+import { activityAspects } from "../services/sessions/aspects";
 import {
   activityPatch,
   aiReflectionBody,
@@ -97,6 +98,12 @@ export const activityRoutes = new Hono<AppEnv>()
   .get("/:id", async (c) => {
     const { t, activity } = await owned(c);
     return c.json({ activity: await loadActivity(t.id, activity.id), files: await listFiles(activity.id) });
+  })
+
+  // "Fortalezas y aspectos a reforzar" of the group (counted from each work's analysis).
+  .get("/:id/aspects", async (c) => {
+    const { activity } = await owned(c);
+    return c.json(await activityAspects(activity.id));
   })
 
   // ── Edit ──

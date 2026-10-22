@@ -3,7 +3,7 @@ import * as RC from "@radix-ui/react-checkbox";
 import * as RT from "@radix-ui/react-tabs";
 import * as RM from "@radix-ui/react-dropdown-menu";
 import { Check, Copy } from "lucide-react";
-import { startTransition, useEffect, useState, type ReactNode } from "react";
+import { startTransition, useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { cn } from "@client/lib/cn";
 import { Button } from "./button";
@@ -86,9 +86,20 @@ export function Tabs({
 }) {
   const [mountAll, setMountAll] = useState(false);
   useEffect(() => startTransition(() => setMountAll(true)), []);
+  // On phones the tab row scrolls sideways: keep the selected tab in view (only horizontally).
+  const list = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = list.current;
+    const tab = el?.querySelector<HTMLElement>('[data-state="active"]');
+    if (!el || !tab) return;
+    const left = tab.offsetLeft - el.offsetLeft;
+    if (left < el.scrollLeft) el.scrollLeft = left - 16;
+    else if (left + tab.offsetWidth > el.scrollLeft + el.clientWidth) el.scrollLeft = left + tab.offsetWidth - el.clientWidth + 16;
+  }, [value]);
   return (
     <RT.Root value={value} onValueChange={onValueChange} className={className}>
       <RT.List
+        ref={list}
         className={cn(
           "-mx-4 mb-5 flex gap-1 overflow-x-auto border-b border-line px-4 [scrollbar-width:none] sm:mx-0 sm:px-0",
           listClassName,

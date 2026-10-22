@@ -19,6 +19,7 @@ const PURPOSE_LABELS: Record<string, string> = {
   rubric_import: "Importar rúbrica",
   rubric_assessment: "Sugerencia de rúbrica",
   deliverable_analysis: "Análisis de entregas",
+  aspect_analysis: "Fortalezas y a reforzar",
   reflection_questions: "Preguntas de reflexión",
   session_summary: "Resumen de un trabajo",
   thinking_xray: "Radiografía",

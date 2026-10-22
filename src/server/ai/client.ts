@@ -43,6 +43,7 @@ export type AiPurpose =
   | "rubric_import"
   | "rubric_assessment"
   | "deliverable_analysis"
+  | "aspect_analysis"
   | "reflection_questions"
   | "session_summary"
   | "thinking_xray"

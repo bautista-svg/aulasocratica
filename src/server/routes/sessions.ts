@@ -10,7 +10,7 @@ import { ownedSession, isUuid } from "../services/access";
 import { audit } from "../services/audit";
 import { hit } from "../lib/rate-limit";
 import { log } from "../lib/logger";
-import { confirmBody, rubricSaveBody, summaryBody, xrayItemPatch } from "@shared/contracts/sessions";
+import { aspectAddBody, confirmBody, rubricSaveBody, summaryBody, xrayItemPatch } from "@shared/contracts/sessions";
 import { splitObjectives } from "@shared/domain/session-summary";
 import { loadSessionDetail, summaryView } from "../services/sessions/detail";
 import { buildJourneyPdf, journeyDisposition } from "../services/sessions/journey-pdf";
@@ -19,6 +19,12 @@ import { deliverableKeys, deliverableOf, deleteStoredKeys, retryDeliverable, ser
 import { deliverableView } from "../services/sessions/detail";
 import { deleteSession, endSession, reopenSession } from "../services/sessions/actions";
 import { xrayList } from "../services/sessions/lists";
+import { addAspect, analyzeAspects, removeAspect } from "../services/sessions/aspects";
+
+/** The group view analyzes many works in a row, so aspects have their own, larger budget. */
+function aspectsLimit(c: Context<AppEnv>) {
+  if (!hit(`aspects-ai:${teacherOf(c).id}`, 60, 60_000)) throw tooMany("Pediste muchos análisis seguidos. Esperá un minuto y volvé a probar.");
+}
 
 /** AI calls on students' work: generous for real use, bounded against accidental loops. */
 function aiLimit(c: Context<AppEnv>) {
@@ -121,6 +127,26 @@ export const sessionRoutes = new Hono<AppEnv>()
     const row = await ownedSession(t.id, c.req.param("id"));
     aiLimit(c);
     return c.json(await suggestRubric(row, t.id));
+  })
+
+  // Strengths and areas to reinforce: the AI suggests them; the teacher removes or adds their own.
+  .post("/:id/aspects/analyze", async (c) => {
+    const t = teacherOf(c);
+    const row = await ownedSession(t.id, c.req.param("id"));
+    aspectsLimit(c);
+    return c.json(await analyzeAspects(row, t.id));
+  })
+
+  .post("/:id/aspects", async (c) => {
+    const row = await ownedSession(teacherOf(c).id, c.req.param("id"));
+    return c.json(await addAspect(row, await readJson(c, aspectAddBody)));
+  })
+
+  .delete("/:id/aspects/:itemId", async (c) => {
+    const row = await ownedSession(teacherOf(c).id, c.req.param("id"));
+    const itemId = c.req.param("itemId");
+    if (itemId.length > 40) throw badRequest("Aspecto inválido.");
+    return c.json(await removeAspect(row, itemId));
   })
 
   // The teacher disagrees with the AI: remove its suggestion (all, or ?criterionId=… for one criterion).

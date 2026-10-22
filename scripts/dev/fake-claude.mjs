@@ -33,11 +33,42 @@ function sample(schema, defs, depth = 0, key = "") {
   }
 }
 
+// "Fortalezas y aspectos a reforzar": varied, realistic items (the generic sample would repeat
+// the first aspect), picked from the request so different students get different ones.
+const ASPECT_TEXT = {
+  redaccion: ["Escribe oraciones claras y ordenadas que se entienden sin releer.", "Algunas ideas quedan sueltas; le ayudaría ordenar la respuesta en pasos."],
+  argumentacion: ["Da razones para su idea y las conecta con un ejemplo.", "Afirma sin explicar por qué; conviene pedirle que justifique."],
+  comprension: ["Explica con sus palabras la idea central de la actividad.", "Confunde algunos conceptos centrales del tema."],
+  materiales: ["Usa datos del material para apoyar lo que dice.", "No usa los datos del material, aunque tenía lo necesario."],
+  ejemplos: ["Apoya sus ideas con ejemplos concretos y propios.", "Le faltan ejemplos o datos que muestren lo que afirma."],
+  pensamiento_critico: ["Compara alternativas y reconoce los límites de su idea.", "Acepta la primera idea sin compararla con otras."],
+  revision: ["Corrige su respuesta a partir de las preguntas del tutor.", "Mantiene su idea inicial sin revisarla."],
+  dialogo: ["Responde cada pregunta del tutor y sostiene la conversación.", "Deja varias preguntas del tutor sin responder."],
+  autonomia: ["Avanza con ideas propias, sin pedir pistas.", "Depende de las pistas para avanzar."],
+  vocabulario: ["Usa con sentido los términos propios del tema.", "Usa poco el vocabulario específico del tema."],
+  creatividad: ["Propone una solución original para el problema.", "Repite ideas del texto sin proponer las suyas."],
+  reflexion: ["Puede decir qué aprendió y qué le costó.", "La reflexión final es breve y no dice qué aprendió."],
+};
+
+function aspects(keys, body) {
+  const text = JSON.stringify(body.messages ?? "");
+  let h = 0;
+  for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) >>> 0;
+  const base = h % 4;
+  const at = (o) => keys[(base + o) % keys.length];
+  const item = (aspect, kind) => ({ aspect, kind, observation: ASPECT_TEXT[aspect]?.[kind === "strength" ? 0 : 1] ?? "Observación de prueba.", evidence: "" });
+  return { items: [item(at(0), "strength"), item(at(1), "strength"), item(at(4), "strength"), item(at(3), "reinforce"), item(at(6), "reinforce")] };
+}
+
 function reply(body) {
   const format = body.output_config?.format;
   if (format?.schema) {
     const s = format.schema;
-    return JSON.stringify(sample(s, s.$defs ?? s.definitions ?? {}));
+    const defs = s.$defs ?? s.definitions ?? {};
+    // The aspects request: its keys are listed in the prompt, the schema only has strings.
+    const keys = s.properties?.items?.items?.properties?.aspect ? Object.keys(ASPECT_TEXT) : null;
+    if (keys) return JSON.stringify(aspects(keys, body));
+    return JSON.stringify(sample(s, defs));
   }
   const last = [...(body.messages ?? [])].reverse().find((m) => m.role === "user");
   const text = typeof last?.content === "string" ? last.content : (last?.content ?? []).find?.((b) => b.type === "text")?.text ?? "";
