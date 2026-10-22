@@ -174,6 +174,42 @@ describe("journey PDF", () => {
 });
 
 describe("rubric assessment", () => {
+  it("lets the teacher delete the AI suggestion (one criterion or all) without touching their own levels", async () => {
+    const { t, activity, student } = await setup();
+    const session = await insertFullWork(activity.id, student.id);
+    const suggest = () => {
+      aiMock.json({
+        criteria: [
+          { criterionIndex: 0, sufficientEvidence: true, levelIndex: 2, evidence: "", rationale: "Da varias razones." },
+          { criterionIndex: 1, sufficientEvidence: true, levelIndex: 1, evidence: "", rationale: "Usa datos." },
+        ],
+      });
+      return call("POST", `/api/sessions/${session.id}/rubric/suggest`, { cookie: t.cookie });
+    };
+    const url = `/api/sessions/${session.id}/rubric/suggestion`;
+
+    // Only the AI had written: deleting all of it leaves the work "not evaluated".
+    expect((await suggest()).status).toBe(200);
+    const all = await call("DELETE", url, { cookie: t.cookie });
+    expect(all.status).toBe(200);
+    expect(all.body.rubric).toMatchObject({ suggestion: null, aiGeneratedAt: null, status: "none" });
+
+    // One criterion at a time; the teacher's own level and comment stay.
+    await suggest();
+    await call("PUT", `/api/sessions/${session.id}/rubric`, { cookie: t.cookie, body: { levels: { arg: 0 }, comment: "Lo charlamos.", confirm: false } });
+    const one = await call("DELETE", `${url}?criterionId=arg`, { cookie: t.cookie });
+    expect(one.body.rubric.suggestion.map((s: { criterionId: string }) => s.criterionId)).toEqual(["evid"]);
+    expect(one.body.rubric.aiGeneratedAt).toBeTruthy();
+    const rest = await call("DELETE", `${url}?criterionId=evid`, { cookie: t.cookie });
+    expect(rest.body.rubric).toMatchObject({ suggestion: null, aiGeneratedAt: null, teacherLevels: { arg: 0 }, comment: "Lo charlamos.", status: "draft" });
+
+    // Nothing to delete is fine; other workspaces cannot touch it; bad ids are refused.
+    expect((await call("DELETE", url, { cookie: t.cookie })).status).toBe(200);
+    const other = await newTeacher();
+    expect((await call("DELETE", url, { cookie: other.cookie })).status).toBe(404);
+    expect((await call("DELETE", `${url}?criterionId=${"x".repeat(41)}`, { cookie: t.cookie })).status).toBe(400);
+  });
+
   it("stores the AI suggestion, drops quotes the student did not write and keeps the teacher's levels", async () => {
     const { t, activity, student } = await setup();
     const session = await insertFullWork(activity.id, student.id);
@@ -197,6 +233,9 @@ describe("rubric assessment", () => {
     const req = aiMock.lastRequest()!;
     const content = JSON.stringify(req.body.messages);
     expect(content).toContain("<<<");
+    // Calibrated like the teacher of the course: the course is given and the highest level met is chosen.
+    expect(content).toContain("Curso: ");
+    expect(content).toContain("Elegí el nivel MÁS ALTO");
     expect(content).toContain("Se pondría amarilla porque no puede hacer la fotosíntesis.");
     const [usage] = await db.select().from(schema.aiUsage).where(eq(schema.aiUsage.purpose, "rubric_assessment"));
     expect(usage).toBeTruthy();

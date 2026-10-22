@@ -13,7 +13,7 @@ import { log } from "../lib/logger";
 import { confirmBody, rubricSaveBody, summaryBody, xrayItemPatch } from "@shared/contracts/sessions";
 import { loadSessionDetail, summaryView } from "../services/sessions/detail";
 import { buildJourneyPdf, journeyDisposition } from "../services/sessions/journey-pdf";
-import { analyzeXray, patchXrayItem, saveRubric, suggestRubric, summarize } from "../services/sessions/ai";
+import { analyzeXray, clearRubricSuggestion, patchXrayItem, saveRubric, suggestRubric, summarize } from "../services/sessions/ai";
 import { deleteSession, endSession, reopenSession } from "../services/sessions/actions";
 import { xrayList } from "../services/sessions/lists";
 
@@ -95,6 +95,14 @@ export const sessionRoutes = new Hono<AppEnv>()
     const row = await ownedSession(t.id, c.req.param("id"));
     aiLimit(c);
     return c.json(await suggestRubric(row, t.id));
+  })
+
+  // The teacher disagrees with the AI: remove its suggestion (all, or ?criterionId=… for one criterion).
+  .delete("/:id/rubric/suggestion", async (c) => {
+    const row = await ownedSession(teacherOf(c).id, c.req.param("id"));
+    const criterionId = c.req.query("criterionId");
+    if (criterionId !== undefined && (criterionId.length === 0 || criterionId.length > 40)) throw badRequest("Criterio inválido.");
+    return c.json(await clearRubricSuggestion(row, criterionId));
   })
 
   .put("/:id/rubric", async (c) => {

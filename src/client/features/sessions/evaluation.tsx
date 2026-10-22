@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { CheckCircle2, Pencil, RefreshCw, Sparkles, Wand2 } from "lucide-react";
+import { CheckCircle2, Pencil, RefreshCw, Sparkles, Trash2, Wand2, X } from "lucide-react";
 import { cn } from "@client/lib/cn";
 import { Badge } from "@client/components/ui/misc";
 import { Button } from "@client/components/ui/button";
@@ -120,7 +120,7 @@ function RubricCard({ detail }: { detail: SessionDetail }) {
       <div className="mb-4 rounded-md bg-lilac-soft/60 px-4 py-3 text-sm text-text-2">
         <p>
           La IA puede sugerir un nivel por criterio con una cita de lo que escribió el alumno. Solo corre cuando la pedís y nunca cambia los niveles que
-          elegiste.
+          elegiste. Si no estás de acuerdo, borrala y evaluá vos.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <Button
@@ -140,6 +140,24 @@ function RubricCard({ detail }: { detail: SessionDetail }) {
           >
             {a.suggestion ? "Volver a pedir sugerencia" : "Pedir sugerencia a la IA"}
           </Button>
+          {a.suggestion ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              icon={<Trash2 className="size-4" />}
+              loading={m.clearSuggestion.isPending && m.clearSuggestion.variables === undefined}
+              disabled={m.suggestRubric.isPending || m.clearSuggestion.isPending}
+              onClick={() => {
+                setError(null);
+                m.clearSuggestion.mutate(undefined, {
+                  onSuccess: () => toast.success("Sugerencia borrada. Elegí vos los niveles."),
+                  onError: (e) => setError(errorMessage(e)),
+                });
+              }}
+            >
+              Borrar sugerencia
+            </Button>
+          ) : null}
           {a.aiGeneratedAt ? <span className="text-xs text-text-3">Última sugerencia: {fmtDateTime(a.aiGeneratedAt)}</span> : null}
         </div>
         {m.suggestRubric.isPending ? (
@@ -186,9 +204,26 @@ function RubricCard({ detail }: { detail: SessionDetail }) {
               {fieldErrors[`levels.${c.id}`] ? <p className="mt-1 text-[13px] font-medium text-rose">{fieldErrors[`levels.${c.id}`]}</p> : null}
               {s ? (
                 <div className="mt-2 rounded-md border border-lilac/40 bg-lilac-soft/50 px-3 py-2 text-sm">
-                  <p className="font-semibold text-lilac-ink">
-                    Sugerencia de la IA: {s.levelIndex != null ? `«${c.levels[s.levelIndex]?.label ?? "—"}»` : "sin evidencia suficiente para elegir un nivel"}
-                  </p>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-semibold text-lilac-ink">
+                      Sugerencia de la IA: {s.levelIndex != null ? `«${c.levels[s.levelIndex]?.label ?? "—"}»` : "sin evidencia suficiente para elegir un nivel"}
+                    </p>
+                    <button
+                      type="button"
+                      aria-label={`Descartar la sugerencia para «${c.name}»`}
+                      title="Descartar esta sugerencia"
+                      disabled={m.clearSuggestion.isPending}
+                      onClick={() =>
+                        m.clearSuggestion.mutate(c.id, {
+                          onSuccess: () => toast.success(`Sugerencia descartada para «${c.name}»`),
+                          onError: (e) => setError(errorMessage(e)),
+                        })
+                      }
+                      className="-my-1 -mr-1.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md text-lilac-ink hover:bg-lilac-soft disabled:opacity-50 max-sm:size-11"
+                    >
+                      <X className="size-4" aria-hidden="true" />
+                    </button>
+                  </div>
                   {s.evidence ? <blockquote className="mt-1 border-l-2 border-lilac pl-2 text-text-2 italic">«{s.evidence}»</blockquote> : null}
                   {s.rationale ? <p className="mt-1 text-text-2">{s.rationale}</p> : null}
                   {s.evidenceDropped ? <p className="mt-1 text-xs text-text-3">La IA citó un texto que el alumno no escribió; lo quitamos.</p> : null}

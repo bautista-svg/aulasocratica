@@ -41,6 +41,29 @@ ${fence(reflectionText || "(sin reflexión)", 6000)}
   return { messages, reflection, texts, transcript, work };
 }
 
+/**
+ * How demanding a suggested level should be. Teachers found the AI stricter than they are
+ * (it lowered levels for short or informal answers), so it evaluates like the teacher of that
+ * grade would and gives the benefit of the doubt.
+ */
+const CALIBRATION = `CÓMO CALIBRAR EL NIVEL (importante):
+- Evaluá como lo haría la docente de este curso, con lo que se espera de un alumno de esa edad: no de un adulto ni de un especialista.
+- Elegí el nivel MÁS ALTO cuya descripción el trabajo cumple en lo esencial. No hace falta que lo cumpla de forma perfecta, completa ni con vocabulario técnico.
+- Si dudás entre dos niveles, elegí el más alto.
+- No bajes el nivel porque la respuesta sea breve, informal o tenga errores de ortografía o redacción, salvo que el criterio evalúe justamente eso.
+- Contá todo lo que el alumno logró en el trabajo, también lo que alcanzó durante la conversación con ayuda de las preguntas del tutor.`;
+
+/** "5.º B · 5.º grado": the course, so the AI knows what to expect from the student. */
+async function courseOf(a: OwnedSessionRow["activity"]): Promise<string> {
+  const [room] = await db
+    .select({ name: schema.classrooms.name, grade: schema.classrooms.grade, division: schema.classrooms.division })
+    .from(schema.classrooms)
+    .where(eq(schema.classrooms.id, a.classroomId))
+    .limit(1);
+  if (!room) return "(no indicado)";
+  return fence([room.name, [room.grade, room.division].filter(Boolean).join(" ")].filter(Boolean).join(" · "), 200) || "(no indicado)";
+}
+
 function activityHeader(a: OwnedSessionRow["activity"]) {
   return `Actividad: ${fence(a.title, 200)}
 Consigna:
@@ -68,7 +91,7 @@ export async function suggestRubric(row: OwnedSessionRow, teacherId: string) {
   if (rubric.length === 0) throw badRequest("Esta actividad todavía no tiene rúbrica. Creala en la pestaña Rúbrica de la actividad.");
   const [existing] = await db.select().from(schema.rubricAssessments).where(eq(schema.rubricAssessments.sessionId, row.session.id)).limit(1);
   if (existing?.status === "confirmed") throw conflict("Ya confirmaste esta evaluación. Tocá «Editar evaluación» si querés cambiarla.");
-  const { texts, work } = await workOf(row);
+  const [{ texts, work }, course] = await Promise.all([workOf(row), courseOf(row.activity)]);
 
   const rubricText = rubric
     .map((c, i) => `Criterio ${i}: ${c.name}${c.description ? ` — ${c.description}` : ""}\n${c.levels.map((l, j) => `  Nivel ${j} (${l.label}): ${l.description || "sin descripción"}`).join("\n")}`)
@@ -84,6 +107,7 @@ export async function suggestRubric(row: OwnedSessionRow, teacherId: string) {
 ${STYLE}
 Tu tarea es SUGERIR (no decidir) un nivel por criterio. La docente decide.`,
     content: `${activityHeader(row.activity)}
+Curso: ${course}
 Objetivos: ${fence(row.activity.objectives || "(sin objetivos)", 3000)}
 
 RÚBRICA (usá los índices)
@@ -91,12 +115,14 @@ ${rubricText}
 
 ${work}
 
+${CALIBRATION}
+
 Para CADA criterio devolvé:
 - criterionIndex: el índice del criterio.
 - sufficientEvidence: false si lo que escribió el alumno no alcanza para ubicarlo en un nivel. En ese caso no inventes un nivel (poné levelIndex 0 y explicá qué falta en rationale).
 - levelIndex: el índice del nivel que mejor describe lo que muestra el trabajo.
 - evidence: una cita TEXTUAL y exacta de lo que escribió el ALUMNO (no del tutor ni de los botones), de 4 a 25 palabras, copiada sin cambios. Vacío si no hay.
-- rationale: una oración que explique por qué ese nivel, en relación con la descripción del nivel.`,
+- rationale: una oración que explique por qué ese nivel, en relación con la descripción del nivel. Nombrá los niveles por su nombre (por ejemplo «Logrado»), nunca por su índice.`,
     schema: rubricSchema,
   });
 
@@ -132,6 +158,33 @@ Para CADA criterio devolvé:
         .onConflictDoUpdate({ target: schema.rubricAssessments.sessionId, set: values })
         .returning();
   return { rubric: rubricView(saved, rubric), droppedQuotes };
+}
+
+/**
+ * Removes the AI's suggestion (all of it, or the one for a criterion) so the teacher can evaluate
+ * by hand. The levels and the comment the teacher chose are never touched. When nothing of the
+ * teacher's is left either, the assessment goes back to "not evaluated".
+ */
+export async function clearRubricSuggestion(row: OwnedSessionRow, criterionId?: string) {
+  const activityRubric = sanitizeRubric(row.activity.rubric);
+  const [existing] = await db.select().from(schema.rubricAssessments).where(eq(schema.rubricAssessments.sessionId, row.session.id)).limit(1);
+  if (!existing) return { rubric: rubricView(undefined, activityRubric) };
+  const snapshot = sanitizeRubric(existing.rubricSnapshot);
+  const rubric = snapshot.length ? snapshot : activityRubric;
+  const current = (existing.aiSuggestion as { criteria?: RubricSuggestionItem[] } | null)?.criteria ?? [];
+  const kept = criterionId ? current.filter((c) => c.criterionId !== criterionId) : [];
+  const teacherWork =
+    existing.status === "confirmed" || Object.keys(readLevels(existing.teacherLevels, rubric)).length > 0 || existing.teacherComment.trim() !== "";
+  if (kept.length === 0 && !teacherWork) {
+    await db.delete(schema.rubricAssessments).where(eq(schema.rubricAssessments.id, existing.id));
+    return { rubric: rubricView(undefined, activityRubric) };
+  }
+  const [saved] = await db
+    .update(schema.rubricAssessments)
+    .set({ aiSuggestion: kept.length ? { criteria: kept } : null, aiGeneratedAt: kept.length ? existing.aiGeneratedAt : null })
+    .where(eq(schema.rubricAssessments.id, existing.id))
+    .returning();
+  return { rubric: rubricView(saved, activityRubric) };
 }
 
 export async function saveRubric(row: OwnedSessionRow, body: { levels: Record<string, number>; comment: string; confirm: boolean }) {
