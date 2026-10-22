@@ -1,17 +1,18 @@
-// "Nuevos cambios en la aplicación": shown once per teacher (the server remembers it as soon as
-// it opens, so closing the tab or reloading never brings it back). An ink header where the
+// "Nuevos cambios en la aplicación": shown once per teacher and release (the server remembers it as
+// soon as it opens, so closing the tab or reloading never brings it back); it lists only what is
+// new to that teacher. An ink header where the
 // logo's lilac "?" and leaf float on the same navy as its bubble, then the changes, one by one.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as RD from "@radix-ui/react-dialog";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Bell, FileUp, Scale, Sprout, X, type LucideIcon } from "lucide-react";
+import { ArrowRight, Bell, Bot, FileUp, Link2, ScanText, Scale, Sprout, X, type LucideIcon } from "lucide-react";
 import { cn } from "@client/lib/cn";
 import { api } from "@client/lib/api";
 import { meKey } from "@client/lib/session";
 import { Button } from "@client/components/ui/button";
 import { LogoMark } from "@client/components/brand/logo";
-import { NEWS, type NewsKey } from "@shared/domain/news";
+import { NEWS, unseenNews, type NewsKey } from "@shared/domain/news";
 import type { Me } from "@shared/contracts/auth";
 
 const ICONS: Record<NewsKey, { icon: LucideIcon; tile: string }> = {
@@ -19,10 +20,15 @@ const ICONS: Record<NewsKey, { icon: LucideIcon; tile: string }> = {
   deliverables: { icon: FileUp, tile: "bg-ink-soft text-ink" },
   aspects: { icon: Sprout, tile: "bg-leaf-soft text-leaf" },
   rubric: { icon: Scale, tile: "bg-lilac-soft text-lilac-ink" },
+  tutors: { icon: Bot, tile: "bg-lilac-soft text-lilac-ink" },
+  links: { icon: Link2, tile: "bg-amber-soft text-amber" },
+  scans: { icon: ScanText, tile: "bg-ink-soft text-ink" },
 };
 
 export function WhatsNew({ me }: { me: Me }) {
-  const [open, setOpen] = useState(me.newsSeen !== NEWS.id);
+  // Read once: what this teacher had not seen when the app opened.
+  const items = useMemo(() => unseenNews(me.newsSeen), []);
+  const [open, setOpen] = useState(items.length > 0);
   const qc = useQueryClient();
   const navigate = useNavigate();
   const marked = useRef(false);
@@ -47,6 +53,11 @@ export function WhatsNew({ me }: { me: Me }) {
             "inset-x-0 bottom-0 rounded-t-[22px] sm:inset-auto sm:top-1/2 sm:left-1/2 sm:w-[min(540px,calc(100vw-32px))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-[22px]",
             "data-[state=open]:animate-rise",
           )}
+          // Focus the panel, not the close button: the title is read first and no ring shows on open.
+          onOpenAutoFocus={(e) => {
+            e.preventDefault();
+            (e.currentTarget as HTMLElement).focus();
+          }}
         >
           <header className="relative shrink-0 overflow-hidden bg-ink px-6 pt-5 pb-6 text-white sm:px-7 sm:pt-6 sm:pb-7">
             {/* The logo's "?" and leaf, cropped at the corner: its navy bubble disappears into the header. */}
@@ -82,8 +93,9 @@ export function WhatsNew({ me }: { me: Me }) {
 
           {/* On short phones the list scrolls: the fading edge says there is more below. */}
           <ul className="min-h-0 flex-1 overflow-y-auto px-3 py-2 max-sm:[mask-image:linear-gradient(to_bottom,black_calc(100%-28px),transparent)] max-sm:pb-6 sm:space-y-1 sm:px-4 sm:py-3">
-            {NEWS.items.map((item, i) => {
+            {items.map((item, i) => {
               const { icon: Icon, tile } = ICONS[item.key];
+              const link = item.link;
               return (
                 <li key={item.key} className="flex gap-4 rounded-[14px] px-3 py-2.5 animate-rise sm:py-3" style={{ animationDelay: `${120 + i * 70}ms` }}>
                   <span className={cn("inline-flex size-11 shrink-0 items-center justify-center rounded-[12px]", tile)} aria-hidden="true">
@@ -92,16 +104,16 @@ export function WhatsNew({ me }: { me: Me }) {
                   <div className="min-w-0 pt-0.5">
                     <p className="text-[16px] leading-6 font-semibold text-text">{item.title}</p>
                     <p className="mt-0.5 text-[14.5px] leading-[1.45] text-text-2">{item.text}</p>
-                    {"link" in item && item.link ? (
+                    {link ? (
                       <button
                         type="button"
                         onClick={() => {
                           setOpen(false);
-                          void navigate({ to: item.link.to });
+                          void navigate({ to: link.to });
                         }}
                         className="-mx-1 mt-1.5 inline-flex min-h-8 items-center gap-1 rounded-md px-1 text-sm font-semibold text-ink underline-offset-4 hover:underline max-sm:min-h-11"
                       >
-                        {item.link.label}
+                        {link.label}
                         <ArrowRight className="size-4" aria-hidden="true" />
                       </button>
                     ) : null}
