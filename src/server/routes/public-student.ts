@@ -7,6 +7,7 @@ import { Hono } from "hono";
 import type { AppEnv } from "../types";
 import { readJson } from "../lib/errors";
 import { LINK_AVAILABILITY_MESSAGE } from "@shared/domain/access-rules";
+import { LINK_AVAILABILITY_MESSAGE_EN, languageOf } from "@shared/domain/language";
 import {
   chatBody,
   deliverableLinkBody,
@@ -42,7 +43,12 @@ export const publicStudentRoutes = new Hono<AppEnv>()
     const availability = availabilityOf(link);
     const info: StudentLinkInfo = {
       availability,
-      message: availability === "available" ? null : LINK_AVAILABILITY_MESSAGE[availability],
+      message:
+        availability === "available"
+          ? null
+          : languageOf(link.activity.language) === "en"
+            ? LINK_AVAILABILITY_MESSAGE_EN[availability]
+            : LINK_AVAILABILITY_MESSAGE[availability],
       startsAt: link.activity.startsAt?.toISOString() ?? null,
       expiresAt: link.activity.expiresAt?.toISOString() ?? null,
       activity: publicActivity(link),

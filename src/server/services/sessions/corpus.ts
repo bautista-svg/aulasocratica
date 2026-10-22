@@ -1,6 +1,7 @@
 // What the student actually wrote (the only valid source of quotes) and a transcript of
 // the whole conversation for the AI, shortened only when it is extremely long.
-import { STUDENT_INTENTS } from "@shared/domain/pedagogy";
+import { STUDENT_INTENTS, type StudentIntent } from "@shared/domain/pedagogy";
+import { intentMessages } from "@shared/domain/language";
 import { normalizeForMatch, quoteAppears, tutorQuestion } from "@shared/domain/thinking-xray";
 import type { ReflectionAnswer } from "@shared/domain/activity-design";
 
@@ -11,7 +12,7 @@ export interface CorpusMessage {
   isPartial?: boolean;
 }
 
-const CANNED = Object.values(STUDENT_INTENTS).map((i) => i.message);
+const CANNED = (Object.keys(STUDENT_INTENTS) as StudentIntent[]).flatMap((k) => intentMessages(k));
 const CANNED_NORMALIZED = new Set(CANNED.map(normalizeForMatch));
 
 /**
@@ -20,8 +21,9 @@ const CANNED_NORMALIZED = new Set(CANNED.map(normalizeForMatch));
  */
 export function ownWords(m: CorpusMessage): string {
   let text = m.content.trim();
-  const intent = m.intent && m.intent in STUDENT_INTENTS ? STUDENT_INTENTS[m.intent as keyof typeof STUDENT_INTENTS] : null;
-  if (intent && text.startsWith(intent.message)) text = text.slice(intent.message.length).trim();
+  const key = m.intent && m.intent in STUDENT_INTENTS ? (m.intent as StudentIntent) : null;
+  const prefix = key ? intentMessages(key).find((msg) => text.startsWith(msg)) : undefined;
+  if (prefix) text = text.slice(prefix.length).trim();
   if (CANNED_NORMALIZED.has(normalizeForMatch(text))) return "";
   return text;
 }

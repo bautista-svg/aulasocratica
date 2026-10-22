@@ -55,6 +55,7 @@ export async function createActivityFromProposal(teacherId: string, input: Creat
       status,
       publishedAt: input.publish ? new Date() : null,
       linkToken: randomToken(16),
+      language: input.language ?? "es",
     })
     .returning({ id: schema.activities.id });
   const activityId = activity!.id;

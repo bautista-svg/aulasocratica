@@ -92,7 +92,7 @@ export const activityRoutes = new Hono<AppEnv>()
     const activity = await once("activity", t.id, requestId, body, async () => {
       const room = await ownedClassroom(t.id, body.classroomId);
       const tutor = body.tutorId ? await ownedTutor(t.id, body.tutorId) : null;
-      const id = await createActivity({ teacherId: t.id, classroom: room, title: body.title, tutor });
+      const id = await createActivity({ teacherId: t.id, classroom: room, title: body.title, tutor, language: body.language });
       return loadActivity(t.id, id);
     });
     return c.json({ activity }, 201);

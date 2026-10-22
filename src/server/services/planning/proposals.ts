@@ -94,6 +94,9 @@ export function buildPrompt(input: ProposalsInput, material: { text: string; mod
     `Tipos de actividad pedidos: ${input.activityTypes.join(", ") || "(sin preferencia)"}`,
     `Dificultad: ${PLANNING_DIFFICULTIES[input.difficulty]}`,
     input.request.trim() ? `Pedido adicional del docente: ${fence(input.request)}` : "",
+    input.language === "en"
+      ? "IDIOMA DE LA ACTIVIDAD: inglés. Escribí title, instructions, objectives y reflectionQuestions EN INGLÉS (los leen los estudiantes); teacherNotes, tutorGuidance y materialRefs en castellano (los lee la docente)."
+      : "",
   ]
     .filter(Boolean)
     .join("\n");

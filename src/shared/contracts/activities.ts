@@ -12,6 +12,7 @@ import { DELIVERABLE_PROMPT_MAX, type DeliverableMode } from "../domain/delivera
 import type { FileKind, ProcessingStatus } from "../domain/files";
 import { MAX_TUTOR_TYPES, TUTOR_TYPES } from "../domain/pedagogy";
 import { FINAL_QUESTION_MAX, MAX_CONSIGNAS } from "../domain/consignas";
+import type { ActivityLanguage } from "../domain/language";
 import { MAX_TUTOR_RULES } from "../domain/tutors";
 
 export type ActivityStatus = "draft" | "published" | "archived";
@@ -49,6 +50,8 @@ export const createActivityBody = z.object({
   title: z.string().trim().min(1, "Poné un título.").max(160, "Usá hasta 160 caracteres."),
   /** Optional saved tutor to start from. */
   tutorId: z.string().uuid().nullable().optional(),
+  /** Language of the student's screens and the tutor. */
+  language: z.enum(["es", "en"]).default("es"),
   requestId: requestIdField,
 });
 
@@ -75,6 +78,8 @@ export interface ActivityDetail {
   askFinalAnswer: boolean;
   /** The closing question ("" = «¿Qué pensás ahora?»). */
   finalQuestion: string;
+  /** Language of the student's screens and the tutor. */
+  language: ActivityLanguage;
   voiceLanguage: VoiceLanguage;
   /** Whether students hand in a file when they finish. */
   deliverableMode: DeliverableMode;
@@ -188,6 +193,7 @@ export const activityPatch = z
     tutorId: z.null(),
     requireInitialAnswer: z.boolean(),
     askFinalAnswer: z.boolean(),
+    language: z.enum(["es", "en"], { message: "Elegí el idioma de la actividad." }),
     finalQuestion: text(FINAL_QUESTION_MAX),
     voiceLanguage: voiceSchema,
     deliverableMode: z.enum(["off", "optional", "required"], { message: "Elegí si pedís un archivo en la entrega." }),

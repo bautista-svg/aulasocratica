@@ -120,6 +120,7 @@ export function CreateWizard({ teacherId, aula }: { teacherId: string; aula?: st
         materialIds: s.materialIds,
         extraText: s.extraText,
         publish,
+        language: s.language ?? "es",
       },
       {
         onSuccess: (r) => {

@@ -14,12 +14,14 @@ import { useIntegritySignals } from "./integrity";
 import { ChatStep } from "./chat";
 import { ClosingStep, DoneStep, InitialAnswerStep } from "./steps";
 import { canDictate, stopSpeaking } from "./voice-support";
+import { useT } from "./i18n";
 
 type View = "initial" | "tutor" | "closing" | "done";
 
 const firstName = (name: string) => name.split(" ")[0] ?? name;
 
 export function Workspace({ token, info }: { token: string; info: StudentLinkInfo & { workspace: StudentWorkspace } }) {
+  const t = useT();
   const w = info.workspace;
   const qc = useQueryClient();
   useKeyboardInset();
@@ -33,7 +35,7 @@ export function Workspace({ token, info }: { token: string; info: StudentLinkInf
   const view: View =
     w.stage === "initial" ? "initial" : w.stage === "tutor" ? (closing ? "closing" : "tutor") : "done";
   /** The link is closed but this finished work stays readable on this device. */
-  const closedMessage = info.availability !== "available" ? info.message : null;
+  const closedMessage = info.availability !== "available" ? t.availability(info.availability, info.message) : null;
 
   // Focus the new step's heading after a transition (not on the first render).
   const prevView = useRef<View>(view);
@@ -67,7 +69,7 @@ export function Workspace({ token, info }: { token: string; info: StudentLinkInf
     insideTexts: () => [
       ...w.messages.map((m) => m.content),
       w.session.initialAnswer ?? "",
-      ...Array.from(document.querySelectorAll("textarea")).map((t) => t.value),
+      ...Array.from(document.querySelectorAll("textarea")).map((el) => el.value),
     ],
   });
 
@@ -108,7 +110,7 @@ export function Workspace({ token, info }: { token: string; info: StudentLinkInf
             <p role="status" className="mb-5 flex items-start gap-2.5 rounded-lg border border-line bg-surface px-4 py-3 text-[15px] leading-6 text-text shadow-1">
               <Lock className="mt-1 size-4 shrink-0 text-lilac-ink" aria-hidden="true" />
               <span>
-                <strong className="font-semibold">{closedMessage}</strong> Igual podés ver tu trabajo en este dispositivo.
+                <strong className="font-semibold">{closedMessage}</strong> {t.ws.closedStill}
               </span>
             </p>
           ) : null}
@@ -126,6 +128,7 @@ export function Workspace({ token, info }: { token: string; info: StudentLinkInf
 }
 
 function Header({ token, workspace, onLeft }: { token: string; workspace: StudentWorkspace; onLeft: () => void }) {
+  const t = useT();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -157,7 +160,7 @@ function Header({ token, workspace, onLeft }: { token: string; workspace: Studen
       onLeft();
       void qc.invalidateQueries({ queryKey: studentKey(token) });
     } catch {
-      setError("No pudimos cerrar la sesión. Revisá tu conexión y probá de nuevo.");
+      setError(t.ws.leaveFailed);
       setBusy(false);
     }
   }
@@ -169,7 +172,7 @@ function Header({ token, workspace, onLeft }: { token: string; workspace: Studen
         <div className="min-w-0 flex-1 leading-tight">
           <h1 className="truncate font-display text-[16px] font-semibold text-ink">{workspace.activity.title}</h1>
           <p className="truncate text-[13px] text-text-3">
-            <span className="sr-only">Trabajando como </span>
+            <span className="sr-only">{t.ws.workingAs}</span>
             {workspace.studentName}
           </p>
         </div>
@@ -181,15 +184,14 @@ function Header({ token, workspace, onLeft }: { token: string; workspace: Studen
           aria-controls="leave-panel"
           onClick={() => setOpen((o) => !o)}
         >
-          <span className="truncate">No soy {name}</span>
+          <span className="truncate">{t.ws.notMe(name)}</span>
         </Button>
       </div>
       {open ? (
-        <div id="leave-panel" role="region" aria-label="Salir de este dispositivo" className="border-t border-line bg-amber-soft/60">
+        <div id="leave-panel" role="region" aria-label={t.ws.leaveLabel} className="border-t border-line bg-amber-soft/60">
           <div className="mx-auto max-w-6xl px-4 py-4">
             <p className="text-[15px] leading-6 text-text">
-              ¿No sos <strong className="font-semibold">{workspace.studentName}</strong>? Vamos a cerrar su sesión en este dispositivo para que
-              entres con tu nombre. Su trabajo queda guardado; para volver a entrar como {name} hace falta su código.
+              {t.ws.leaveBody((s) => <strong className="font-semibold">{s}</strong>, workspace.studentName, name)}
             </p>
             {error ? (
               <p role="alert" className="mt-2 text-sm font-medium text-rose">
@@ -198,7 +200,7 @@ function Header({ token, workspace, onLeft }: { token: string; workspace: Studen
             ) : null}
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
               <Button ref={confirmRef} loading={busy} onClick={() => void leave()}>
-                Salir de este dispositivo
+                {t.ws.leaveConfirm}
               </Button>
               <Button
                 variant="secondary"
@@ -208,7 +210,7 @@ function Header({ token, workspace, onLeft }: { token: string; workspace: Studen
                   triggerRef.current?.focus();
                 }}
               >
-                Cancelar
+                {t.ws.cancel}
               </Button>
             </div>
           </div>
@@ -219,10 +221,11 @@ function Header({ token, workspace, onLeft }: { token: string; workspace: Studen
 }
 
 function Progress({ workspace, view }: { workspace: StudentWorkspace; view: View }) {
+  const t = useT();
   const steps = workspace.activity.requireInitialAnswer || workspace.session.initialAnswer
     ? (["initial", "tutor", "closing"] as const)
     : (["tutor", "closing"] as const);
-  const labels: Record<string, string> = { initial: "Tu idea", tutor: "Conversación", closing: "Cierre" };
+  const labels = t.ws.steps;
   const currentIdx = view === "done" ? -1 : steps.indexOf(view as never);
   // Finished steps; a session closed by the teacher may lack the final answer.
   const isDone = (s: (typeof steps)[number], i: number) =>
@@ -234,7 +237,7 @@ function Progress({ workspace, view }: { workspace: StudentWorkspace; view: View
           : Boolean(workspace.session.finalAnswer)
       : i < currentIdx;
   return (
-    <nav aria-label="Progreso de la actividad" className="rounded-lg border border-line bg-surface px-4 pt-3 pb-2.5 shadow-1">
+    <nav aria-label={t.ws.progressLabel} className="rounded-lg border border-line bg-surface px-4 pt-3 pb-2.5 shadow-1">
       <ol className="flex gap-2">
         {steps.map((s, i) => {
           const done = isDone(s, i);
@@ -252,10 +255,7 @@ function Progress({ workspace, view }: { workspace: StudentWorkspace; view: View
                 )}
               >
                 {done ? <Check className="size-3.5 shrink-0 text-leaf" strokeWidth={3} aria-hidden="true" /> : null}
-                <span className="sr-only">
-                  Paso {i + 1} de {steps.length}
-                  {done ? " (hecho)" : current ? " (actual)" : ""}:{" "}
-                </span>
+                <span className="sr-only">{t.ws.stepSr(i + 1, steps.length, done ? "done" : current ? "current" : null)}</span>
                 {labels[s]}
               </span>
             </li>
@@ -267,19 +267,20 @@ function Progress({ workspace, view }: { workspace: StudentWorkspace; view: View
 }
 
 function InstructionsCard({ workspace, defaultOpen, footer }: { workspace: StudentWorkspace; defaultOpen: boolean; footer?: ReactNode }) {
+  const t = useT();
   const a = workspace.activity;
   const [desktop] = useState(() => typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches);
   const [open, setOpen] = useState(defaultOpen || desktop);
   const [materialOpen, setMaterialOpen] = useState(false);
   const multi = a.consignas.length > 1;
   const hasMore = Boolean(a.objectives || a.material || footer || multi || a.instructions.length > 180);
-  const instructions = a.instructions.trim() || "Tu docente no escribió una consigna: conversá con el tutor sobre el tema de la actividad.";
+  const instructions = a.instructions.trim() || t.ws.noInstructions;
 
   return (
     <section aria-labelledby="consigna-title" className="rounded-lg border border-line bg-surface shadow-1">
       <div className="px-4 pt-4 pb-3">
         <h2 id="consigna-title" className="text-xs font-bold tracking-wide text-lilac-ink uppercase">
-          {multi ? `Consignas (${a.consignas.length})` : "Consigna"}
+          {multi ? t.ws.tasksTitle(a.consignas.length) : t.ws.taskTitle}
         </h2>
         {multi ? (
           <ol className={cn("mt-2 space-y-3", !open && "max-h-24 overflow-hidden")}>
@@ -289,7 +290,7 @@ function InstructionsCard({ workspace, defaultOpen, footer }: { workspace: Stude
                   {i + 1}
                 </span>
                 <p className="min-w-0 text-[15px] leading-6 whitespace-pre-wrap text-text">
-                  <span className="sr-only">Consigna {i + 1}: </span>
+                  <span className="sr-only">{`${t.ws.taskN(i + 1)}: `}</span>
                   {c}
                 </p>
               </li>
@@ -300,7 +301,7 @@ function InstructionsCard({ workspace, defaultOpen, footer }: { workspace: Stude
         )}
         {open && a.objectives ? (
           <div className="mt-3">
-            <h3 className="text-xs font-bold tracking-wide text-text-3 uppercase">Lo que vas a aprender</h3>
+            <h3 className="text-xs font-bold tracking-wide text-text-3 uppercase">{t.ws.objectives}</h3>
             <p className="mt-1 text-sm leading-6 whitespace-pre-wrap text-text-2">{a.objectives}</p>
           </div>
         ) : null}
@@ -312,7 +313,7 @@ function InstructionsCard({ workspace, defaultOpen, footer }: { workspace: Stude
               aria-expanded={materialOpen}
               onClick={() => setMaterialOpen((o) => !o)}
             >
-              Material para leer
+              {t.ws.material}
               <ChevronDown className={cn("size-4 text-text-3 transition-transform", materialOpen && "rotate-180")} aria-hidden="true" />
             </button>
             {materialOpen ? (
@@ -329,7 +330,7 @@ function InstructionsCard({ workspace, defaultOpen, footer }: { workspace: Stude
           aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
         >
-          {open ? "Mostrar menos" : multi ? "Ver todas las consignas" : "Ver la consigna completa"}
+          {open ? t.ws.showLess : multi ? t.ws.showAllTasks : t.ws.showFullTask}
           <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} aria-hidden="true" />
         </button>
       ) : null}
@@ -337,16 +338,15 @@ function InstructionsCard({ workspace, defaultOpen, footer }: { workspace: Stude
   );
 }
 
-const sizeLabel = (b: number) => (b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} KB` : `${(b / 1024 / 1024).toFixed(1).replace(".", ",")} MB`);
-
 /** Files of the activity. On phones they start folded (one row) so the answer comes first. */
 function FilesCard({ files }: { files: StudentFile[] }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
-  const title = `Archivos de la actividad (${files.length})`;
+  const title = t.ws.filesTitleCount(files.length);
   return (
     <section aria-labelledby="files-title" className="rounded-lg border border-line bg-surface shadow-1" data-activity-material>
       <h2 id="files-title" className="hidden px-4 pt-4 text-xs font-bold tracking-wide text-lilac-ink uppercase lg:block">
-        Archivos de la actividad
+        {t.ws.filesTitle}
       </h2>
       <h2 className="lg:hidden">
         <button
@@ -369,7 +369,7 @@ function FilesCard({ files }: { files: StudentFile[] }) {
                 <Icon className="size-4 shrink-0 text-text-3" aria-hidden="true" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-text">{f.name}</p>
-                  <p className="text-xs text-text-3">{sizeLabel(f.sizeBytes)}</p>
+                  <p className="text-xs text-text-3">{t.ws.size(f.sizeBytes)}</p>
                 </div>
                 {f.kind !== "audio" ? (
                   <a
@@ -377,7 +377,7 @@ function FilesCard({ files }: { files: StudentFile[] }) {
                     target="_blank"
                     rel="noopener"
                     className="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-ink hover:bg-sunken"
-                    aria-label={`Abrir ${f.name} (se abre en otra pestaña)`}
+                    aria-label={t.ws.openFile(f.name)}
                   >
                     <ExternalLink className="size-4" aria-hidden="true" />
                   </a>
@@ -385,14 +385,14 @@ function FilesCard({ files }: { files: StudentFile[] }) {
                 <a
                   href={`${f.url}?download=1`}
                   className="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-ink hover:bg-sunken"
-                  aria-label={`Descargar ${f.name}`}
+                  aria-label={t.ws.downloadFile(f.name)}
                 >
                   <Download className="size-4" aria-hidden="true" />
                 </a>
               </div>
               {f.kind === "audio" ? (
                 <audio controls preload="none" src={f.url} className="mt-2 w-full">
-                  Tu navegador no puede reproducir este audio. Descargalo con el botón de al lado.
+                  {t.ws.audioUnsupported}
                 </audio>
               ) : null}
             </li>
@@ -404,36 +404,39 @@ function FilesCard({ files }: { files: StudentFile[] }) {
 }
 
 function CodeCard({ code, className }: { code: string; className?: string }) {
+  const t = useT();
   const [shown, setShown] = useState(false);
   return (
     <div className={cn("flex items-center gap-3 rounded-lg border border-line bg-surface px-4 py-2 shadow-1", className)}>
       <KeyRound className="size-4 shrink-0 text-lilac-ink" aria-hidden="true" />
       <p className="min-w-0 flex-1 text-sm text-text-2">
-        Tu código para seguir en otro dispositivo:{" "}
+        {t.ws.codeCard}{" "}
         {shown ? <strong className="font-mono text-[15px] tracking-[0.15em] text-ink">{code}</strong> : null}
       </p>
       <Button variant="ghost" size="sm" className="h-11 shrink-0" onClick={() => setShown((s) => !s)} aria-pressed={shown}>
-        {shown ? "Ocultar" : "Ver"}
+        {shown ? t.ws.hide : t.ws.show}
       </Button>
     </div>
   );
 }
 
 function NewCodeNotice({ code, onDismiss, className }: { code: string; onDismiss: () => void; className?: string }) {
+  const t = useT();
   return (
     <div role="status" className={cn("mb-5 flex items-start gap-3 rounded-lg border border-lilac/40 bg-lilac-soft px-4 py-3.5", className)}>
       <KeyRound className="mt-0.5 size-5 shrink-0 text-lilac-ink" aria-hidden="true" />
       <div className="min-w-0 flex-1 text-[15px] leading-6 text-lilac-ink">
         <p>
-          Tu código es <strong className="font-mono text-[17px] tracking-[0.18em]">{code}</strong>
+          {t.ws.yourCodeIs}
+          <strong className="font-mono text-[17px] tracking-[0.18em]">{code}</strong>
         </p>
-        <p className="text-sm">Anotalo: lo vas a necesitar si querés seguir en otro dispositivo. Tu docente también lo tiene.</p>
+        <p className="text-sm">{t.ws.writeItDown}</p>
       </div>
       <button
         type="button"
         onClick={onDismiss}
         className="-mt-1.5 -mr-2 inline-flex size-11 shrink-0 items-center justify-center rounded-md text-lilac-ink hover:bg-white/50"
-        aria-label="Ya lo anoté, cerrar aviso"
+        aria-label={t.ws.dismissCode}
       >
         <X className="size-4" aria-hidden="true" />
       </button>
@@ -442,15 +445,11 @@ function NewCodeNotice({ code, onDismiss, className }: { code: string; onDismiss
 }
 
 function IntegrityNote({ voice }: { voice: boolean }) {
+  const t = useT();
   return (
     <div className="space-y-2 text-[13px] leading-5 text-text-3">
-      <p>Mientras trabajás se registra si pegás texto copiado de afuera o si salís de esta página por un rato, y tu docente lo puede ver.</p>
-      {voice ? (
-        <p>
-          El dictado lo hace tu navegador: el audio puede procesarse en servidores de Google o Apple para pasarlo a texto. Aula Socrática no
-          guarda audio, solo el texto que enviás.
-        </p>
-      ) : null}
+      <p>{t.ws.integrity}</p>
+      {voice ? <p>{t.ws.voicePrivacy}</p> : null}
     </div>
   );
 }

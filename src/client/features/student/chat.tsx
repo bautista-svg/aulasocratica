@@ -11,13 +11,15 @@ import { ApiError } from "@client/lib/api";
 import { cn } from "@client/lib/cn";
 import type { ChatInput, StudentMessage, StudentWorkspace } from "@shared/contracts/student";
 import { MAX_CHAT_CHARS } from "@shared/contracts/student-limits";
-import { STUDENT_INTENTS, type StudentIntent } from "@shared/domain/pedagogy";
+import type { StudentIntent } from "@shared/domain/pedagogy";
+import { intentText } from "@shared/domain/language";
 import { MAX_VOICE_SECONDS, speakableText } from "@shared/domain/voice";
 import { appendMessages, streamChat, studentKey } from "./api";
 import { draftKey, useDraft } from "./hooks";
 import { StudentMessageBubble, TutorMessage } from "./thread";
 import { canDictate, canSpeak, speechLang, stopSpeaking } from "./voice-support";
 import type { DictationStatus } from "./voice";
+import { useStudentLang, useT } from "./i18n";
 
 const DictationButton = lazy(() => import("./voice").then((m) => ({ default: m.DictationButton })));
 
@@ -46,6 +48,8 @@ export function ChatStep({
   focusHeading?: boolean;
 }) {
   const qc = useQueryClient();
+  const t = useT();
+  const uiLang = useStudentLang();
   const voice = workspace.activity.voiceLanguage;
   const lang = speechLang(voice);
   const [dictationOk] = useState(() => voice !== "off" && canDictate());
@@ -128,12 +132,12 @@ export function ChatStep({
               { id: messageId, role: "assistant", content: text, intent: null, inputMode: "text", createdAt: new Date().toISOString() },
             ]);
             setOverlay(null);
-            setAnnounce(`El tutor respondió: ${speakableText(text)}`);
+            setAnnounce(t.chat.tutorReplied(speakableText(text)));
           },
-          onError: ({ message }) => {
+          onError: (e) => {
             appendMessages(qc, token, userMessage());
             setOverlay(null);
-            setChatError(message);
+            setChatError(t.streamError(e));
           },
         });
       } catch (err) {
@@ -148,25 +152,27 @@ export function ChatStep({
           if (err instanceof ApiError && ["unavailable", "no_session", "read_only", "initial_required"].includes(err.code)) {
             void qc.invalidateQueries({ queryKey: studentKey(token) });
           }
-          setSendError(err instanceof ApiError ? (err.fields.text ?? err.message) : "No pudimos enviar tu mensaje. Probá de nuevo.");
+          setSendError(
+            err instanceof ApiError ? (err.fields.text ? t.fieldError("text", err.fields.text) : t.error(err)) : t.chat.sendFailed,
+          );
         } else {
           // The message was saved; the reply was cut. The retry button asks again.
           appendMessages(qc, token, userMessage());
-          setChatError("Se cortó la conexión mientras el tutor respondía.");
+          setChatError(t.chat.replyCut);
         }
       } finally {
         inFlight.current = false;
         void qc.invalidateQueries({ queryKey: studentKey(token) });
       }
     },
-    [qc, setDraft, token],
+    [qc, setDraft, token, t],
   );
 
   function send(text: string, intent: StudentIntent | null, mode: "text" | "voice", fromComposer: boolean) {
-    const t = text.trim();
-    if (!t || busy || inFlight.current) return false;
-    if (t.length > MAX_CHAT_CHARS) {
-      setSendError(`Tu mensaje puede tener hasta ${MAX_CHAT_CHARS} caracteres. Acortalo un poco.`);
+    const clean = text.trim();
+    if (!clean || busy || inFlight.current) return false;
+    if (clean.length > MAX_CHAT_CHARS) {
+      setSendError(t.chat.tooLong(MAX_CHAT_CHARS));
       return false;
     }
     stopSpeaking();
@@ -175,14 +181,14 @@ export function ChatStep({
     setChatError(null);
     nearBottom.current = true;
     inFlight.current = true;
-    setOverlay({ userText: t, userMessageId: null, inputMode: mode, intent, reply: "", phase: "sending" });
-    void run({ text: t, intent, inputMode: mode }, fromComposer ? { text, intent, mode } : null);
+    setOverlay({ userText: clean, userMessageId: null, inputMode: mode, intent, reply: "", phase: "sending" });
+    void run({ text: clean, intent, inputMode: mode }, fromComposer ? { text, intent, mode } : null);
     return true;
   }
 
   function submitComposer() {
     if (busy || !draft.trim()) return;
-    const prefix = pendingIntent ? STUDENT_INTENTS[pendingIntent].message : null;
+    const prefix = pendingIntent ? intentText(pendingIntent, uiLang).message : null;
     const intent = pendingIntent && prefix && draft.trim().startsWith(prefix) ? pendingIntent : null;
     if (send(draft, intent, inputMode, true)) {
       clearDraft();
@@ -203,7 +209,7 @@ export function ChatStep({
   }
 
   function pickIntent(k: StudentIntent) {
-    const def = STUDENT_INTENTS[k];
+    const def = intentText(k, uiLang);
     if (PREFILL.includes(k)) {
       setDraft((prev) => (prev.trim().startsWith(def.message) ? prev : `${def.message} ${prev.trim()}`.trimEnd() + " "));
       setPendingIntent(k);
@@ -218,35 +224,28 @@ export function ChatStep({
     send(def.message, k, "text", false);
   }
 
-  const emptyText = workspace.session.initialAnswer
-    ? "Ya guardaste tu primera idea. Contale al tutor cómo llegaste a ella, o pedile que la revise con vos."
-    : "Contale al tutor qué pensás de la consigna o qué duda tenés. Te va a responder con preguntas para ayudarte a pensar.";
-  const subtitle =
-    voice === "en" && dictationOk
-      ? "Practicá inglés: podés escribir o dictar tus mensajes."
-      : dictationOk
-        ? "Podés escribirle o dictarle con el micrófono."
-        : "Te ayuda a pensar con preguntas, sin darte la respuesta.";
+  const emptyText = workspace.session.initialAnswer ? t.chat.emptyWithIdea : t.chat.emptyNoIdea;
+  const subtitle = voice === "en" && dictationOk ? t.chat.subtitlePractice : dictationOk ? t.chat.subtitleDictation : t.chat.subtitle;
   const nothingYet = serverMessages.length === 0 && !overlay;
 
   return (
     <section aria-labelledby="chat-title" className="flex min-h-full flex-col">
       <header className="mb-5">
         <h2 id="chat-title" ref={headingRef} tabIndex={-1} className="font-display text-xl font-semibold text-ink outline-none">
-          Conversación con el tutor
+          {t.chat.title}
         </h2>
         <p className="mt-0.5 text-sm text-text-2">{subtitle}</p>
       </header>
 
-      <ol className="flex-1 space-y-6" aria-label="Mensajes">
+      <ol className="flex-1 space-y-6" aria-label={t.chat.messagesLabel}>
         {workspace.session.initialAnswer ? (
           <li>
-            <StudentMessageBubble text={workspace.session.initialAnswer} label="Tu primera idea" />
+            <StudentMessageBubble text={workspace.session.initialAnswer} label={t.thread.firstIdea} />
           </li>
         ) : null}
         {nothingYet ? (
           <li className="rounded-lg border border-dashed border-line-strong bg-surface/70 px-5 py-5 text-[15px] leading-6 text-text-2">
-            {emptyText} Si te trabás, usá los botones de ayuda de abajo.
+            {emptyText} {t.chat.stuck}
           </li>
         ) : null}
         {serverMessages.map((m) => (
@@ -276,13 +275,13 @@ export function ChatStep({
           <li>
             {workspace.replyPending ? (
               <p className="flex items-center gap-2 pl-10 text-[15px] text-text-2">
-                <Spinner className="size-4 text-lilac-ink" /> El tutor está terminando de responder…
+                <Spinner className="size-4 text-lilac-ink" /> {t.chat.finishing}
               </p>
             ) : (
               <div role="alert" className="ml-10 rounded-lg border border-rose/20 bg-rose-soft/60 px-4 py-3">
-                <p className="text-[15px] leading-6 text-text">{chatError ?? "El tutor no llegó a responder tu último mensaje."}</p>
+                <p className="text-[15px] leading-6 text-text">{chatError ?? t.chat.noReply}</p>
                 <Button variant="secondary" size="sm" className="mt-2.5 h-11" icon={<RotateCcw className="size-4" />} onClick={retry}>
-                  Reintentar
+                  {t.chat.retry}
                 </Button>
               </div>
             )}
@@ -292,14 +291,10 @@ export function ChatStep({
 
       <div className="mt-8 flex flex-col items-start gap-2 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-text-2">
-          {!workspace.activity.askFinalAnswer
-            ? "Cuando quieras terminar, tocá Terminar para completar el cierre."
-            : nothingYet
-              ? "Cuando quieras terminar, vas a escribir tu respuesta final y una reflexión."
-              : "¿Ya sabés qué responder? Cuando quieras, terminá y escribí tu respuesta final."}
+          {!workspace.activity.askFinalAnswer ? t.chat.finishHintNoAnswer : nothingYet ? t.chat.finishHintEmpty : t.chat.finishHint}
         </p>
         <Button variant="secondary" className="h-11 shrink-0" icon={<Flag className="size-4" />} disabled={busy} onClick={onFinish}>
-          Terminar
+          {t.chat.finish}
         </Button>
       </div>
 
@@ -311,7 +306,7 @@ export function ChatStep({
         className="sticky z-20 -mx-4 mt-4 bg-gradient-to-t from-paper from-75% to-paper/0 px-4 pt-5 pb-[max(env(safe-area-inset-bottom),12px)] lg:mx-0 lg:px-0"
         style={{ bottom: "var(--kb, 0px)" }}
       >
-        <div role="group" aria-label="Pedile ayuda al tutor" className="relative -mx-4 mb-2 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:px-0">
+        <div role="group" aria-label={t.chat.helpLabel} className="relative -mx-4 mb-2 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:px-0">
           {INTENT_ORDER.map((k) => (
             <button
               key={k}
@@ -320,7 +315,7 @@ export function ChatStep({
               onClick={() => pickIntent(k)}
               className="inline-flex h-11 shrink-0 items-center rounded-full border border-line-strong bg-surface px-4 text-sm font-medium whitespace-nowrap text-ink shadow-1 transition-colors hover:border-lilac-ink/50 hover:bg-lilac-soft disabled:opacity-50"
             >
-              {STUDENT_INTENTS[k].label}
+              {intentText(k, uiLang).label}
             </button>
           ))}
         </div>
@@ -333,7 +328,7 @@ export function ChatStep({
           className="flex items-end gap-1.5 rounded-xl border border-line-strong bg-surface p-1.5 shadow-2 transition-[border-color,box-shadow] focus-within:border-lilac-ink focus-within:ring-4 focus-within:ring-lilac/20"
         >
           <label htmlFor="composer" className="sr-only">
-            Tu mensaje para el tutor
+            {t.chat.composerLabel}
           </label>
           <Textarea
             id="composer"
@@ -342,13 +337,13 @@ export function ChatStep({
             minRows={1}
             maxRows={6}
             enterKeyHint="send"
-            placeholder={busy ? "Podés ir escribiendo…" : "Escribí tu respuesta o tu duda…"}
+            placeholder={busy ? t.chat.placeholderBusy : t.chat.placeholder}
             aria-describedby="composer-help"
             onChange={(e) => {
               const v = e.target.value;
               setDraft(v);
               if (dictation.listening) setStopKey((k) => k + 1);
-              if (pendingIntent && !v.trim().startsWith(STUDENT_INTENTS[pendingIntent].message)) setPendingIntent(null);
+              if (pendingIntent && !v.trim().startsWith(intentText(pendingIntent, uiLang).message)) setPendingIntent(null);
               if (!v.trim()) setInputMode("text");
               if (sendError) setSendError(null);
             }}
@@ -367,8 +362,8 @@ export function ChatStep({
                 disabled={busy}
                 stopKey={stopKey}
                 getBase={() => textareaRef.current?.value ?? draft}
-                onTranscript={(t) => {
-                  setDraft(t);
+                onTranscript={(text) => {
+                  setDraft(text);
                   setInputMode("voice");
                 }}
                 onStatus={setDictation}
@@ -378,7 +373,7 @@ export function ChatStep({
           <button
             type="submit"
             disabled={busy || !draft.trim()}
-            aria-label={busy ? "Esperá a que el tutor termine de responder" : "Enviar"}
+            aria-label={busy ? t.chat.sendWait : t.chat.send}
             className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg bg-ink text-white shadow-1 transition-colors hover:bg-ink-hover disabled:bg-line-strong disabled:text-white"
           >
             {busy ? <Spinner className="size-4" /> : <ArrowUp className="size-5" aria-hidden="true" />}
@@ -391,17 +386,15 @@ export function ChatStep({
               {sendError}
             </p>
           ) : dictation.listening ? (
-            <p className="text-rose">
-              Escuchando… {fmtSec(dictation.seconds)} / {fmtSec(MAX_VOICE_SECONDS)}. Revisá el texto antes de enviarlo.
-            </p>
+            <p className="text-rose">{t.chat.listening(fmtSec(dictation.seconds), fmtSec(MAX_VOICE_SECONDS))}</p>
           ) : dictation.error ? (
             <p className="text-rose">{dictation.error}</p>
           ) : draft.length > MAX_CHAT_CHARS - 300 ? (
             <p className={cn("tabular", draft.trim().length > MAX_CHAT_CHARS ? "font-medium text-rose" : "text-text-3")}>
-              {draft.trim().length}/{MAX_CHAT_CHARS} caracteres
+              {t.chat.charCount(draft.trim().length, MAX_CHAT_CHARS)}
             </p>
           ) : (
-            <p className="hidden text-text-3 sm:block">Enter envía · Shift + Enter hace un salto de línea</p>
+            <p className="hidden text-text-3 sm:block">{t.chat.enterHint}</p>
           )}
         </div>
       </div>

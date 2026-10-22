@@ -73,6 +73,18 @@ describe("create", () => {
     expect(applied.body.activity.tutorRules).toContain("Que tomen postura.");
   });
 
+  it("is created in Castellano or English and the language can change", async () => {
+    const t = await newTeacher();
+    const room = await newClassroom(t.cookie);
+    const created = await call("POST", "/api/activities", { cookie: t.cookie, body: { classroomId: room, title: "Thinking about my thinking", language: "en" } });
+    expect(created.status).toBe(201);
+    expect(created.body.activity.language).toBe("en");
+    const back = await call("PATCH", `/api/activities/${created.body.activity.id}`, { cookie: t.cookie, body: { language: "es" } });
+    expect(back.body.activity.language).toBe("es");
+    expect((await call("PATCH", `/api/activities/${created.body.activity.id}`, { cookie: t.cookie, body: { language: "fr" } })).status).toBe(400);
+    expect((await newActivity(t.cookie, room)).language).toBe("es");
+  });
+
   it("turns the final answer on or off and saves the closing question", async () => {
     const t = await newTeacher();
     const room = await newClassroom(t.cookie);

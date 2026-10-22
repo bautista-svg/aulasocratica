@@ -6,7 +6,8 @@ import { Mic } from "lucide-react";
 import { cn } from "@client/lib/cn";
 import { Button } from "@client/components/ui/button";
 import { fmtTime } from "@client/lib/format";
-import { EVENT_LABELS, STUDENT_INTENTS } from "@shared/domain/pedagogy";
+import { EVENT_LABELS, STUDENT_INTENTS, type StudentIntent } from "@shared/domain/pedagogy";
+import { intentMessages } from "@shared/domain/language";
 import { HELP_INTENTS, REFORMULATION_INTENTS, studentMessageCounts } from "@shared/domain/live-monitor";
 import { tutorQuestion } from "@shared/domain/thinking-xray";
 import type { SessionDetail } from "@shared/contracts/sessions";
@@ -48,7 +49,8 @@ export function buildSteps(d: SessionDetail): Step[] {
     if (intent && isHelp(m.intent)) {
       steps.push({ kind: "help", text: intent.label, at: m.createdAt, label: EVENT_LABELS[intent.event] ?? intent.label, voice });
     } else if (intent && isReformulation(m.intent)) {
-      const text = m.content.startsWith(intent.message) ? m.content.slice(intent.message.length).trim() : m.content;
+      const prefix = intentMessages(m.intent as StudentIntent).find((msg) => m.content.startsWith(msg));
+      const text = prefix ? m.content.slice(prefix.length).trim() : m.content;
       steps.push({ kind: "reformulation", text: text || m.content, at: m.createdAt, label: EVENT_LABELS[intent.event] ?? intent.label, voice });
     } else {
       // What the student wrote (or dictated) in their own words, between two tutor questions.

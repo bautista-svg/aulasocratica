@@ -28,6 +28,7 @@ import { acquireStream, releaseStream } from "./streams";
 import { detectAlerts } from "./alerts";
 import { runInBackground } from "./background";
 import { sanitizeMoreInstructions } from "@shared/domain/consignas";
+import { intentMessages, languageOf } from "@shared/domain/language";
 
 export const CHAT_LIMIT = { perSession: 20, windowMs: 5 * 60_000 };
 export const HISTORY_LIMIT = 40;
@@ -38,6 +39,10 @@ export const TUTOR_MAX_TOKENS = 1500;
 export const REFUSAL_REPLY =
   "Prefiero no seguir por ese lado. Volvamos a la actividad: ¿qué parte de la consigna te gustaría pensar ahora?";
 const EMPTY_REPLY = "Perdón, no me salió una respuesta. ¿Me contás de nuevo qué estás pensando?";
+const REPLIES_EN = {
+  refusal: "I'd rather not go down that road. Let's get back to the activity: which part of the task would you like to think about now?",
+  empty: "Sorry, I couldn't come up with an answer. Could you tell me again what you're thinking?",
+};
 
 type ChatBody = z.infer<typeof chatBody>;
 
@@ -153,6 +158,7 @@ export async function tutorChat(c: Context, ctx: StudentCtx, body: ChatBody): Pr
       instructions: activity.instructions,
       moreInstructions: sanitizeMoreInstructions(activity.moreInstructions, ACTIVITY_LIMITS.instructions),
       askFinalAnswer: activity.askFinalAnswer,
+      language: languageOf(activity.language),
       material: activity.material,
       files,
       tutorType: activity.tutorType,
@@ -167,7 +173,7 @@ export async function tutorChat(c: Context, ctx: StudentCtx, body: ChatBody): Pr
     });
     const { system, messages } = tutorRequest(prompt, history);
 
-    const presetOnly = body.intent !== null && userText.trim() === STUDENT_INTENTS[body.intent].message;
+    const presetOnly = body.intent !== null && intentMessages(body.intent).includes(userText.trim());
     const detectAfter =
       userMessageId && !presetOnly
         ? {
@@ -269,9 +275,9 @@ function streamReply(
       let text = draft.text.trim();
       if (final.stop_reason === "refusal") {
         log.info("tutor_refusal", { sessionId: session.id, category: final.stop_details?.category ?? null });
-        text = REFUSAL_REPLY;
+        text = languageOf(activity.language) === "en" ? REPLIES_EN.refusal : REFUSAL_REPLY;
       } else if (!text) {
-        text = EMPTY_REPLY;
+        text = languageOf(activity.language) === "en" ? REPLIES_EN.empty : EMPTY_REPLY;
       }
       await draft.chain;
       let messageId: string;

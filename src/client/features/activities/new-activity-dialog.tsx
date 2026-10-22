@@ -12,6 +12,8 @@ import type { ActivityEditorData } from "@shared/contracts/activities";
 import type { TutorSummary } from "@shared/contracts/tutors";
 import { useRequestId, useSingleFlight } from "./single-flight";
 import { storeActivity } from "./api";
+import type { ActivityLanguage } from "@shared/domain/language";
+import { LanguageSwitch } from "./language-switch";
 
 /** The teacher's own "Pensamiento crítico" (edited or not): the default tutor of a new activity. */
 export function defaultTutorId(tutors: TutorSummary[] | undefined): string {
@@ -23,12 +25,13 @@ export function NewActivityDialog({ classroomId, open, onOpenChange }: { classro
   const [title, setTitle] = useState("");
   // "" until the tutors load; then the teacher's "Pensamiento crítico" unless they pick another one.
   const [tutorId, setTutorId] = useState("");
+  const [language, setLanguage] = useState<ActivityLanguage>("es");
   const tutors = useTutors();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const requestId = useRequestId(open);
   const create = useMutation({
-    mutationFn: (body: { classroomId: string; title: string; tutorId: string | null; requestId: string }) =>
+    mutationFn: (body: { classroomId: string; title: string; tutorId: string | null; language: ActivityLanguage; requestId: string }) =>
       api.post<{ activity: ActivityEditorData }>("/api/activities", body),
     onSuccess: (r) => {
       storeActivity(qc, r.activity);
@@ -42,6 +45,7 @@ export function NewActivityDialog({ classroomId, open, onOpenChange }: { classro
   useEffect(() => {
     if (open) {
       setTitle("");
+      setLanguage("es");
       setTutorId(defaultTutorId(tutors.data));
       create.reset();
     }
@@ -55,7 +59,7 @@ export function NewActivityDialog({ classroomId, open, onOpenChange }: { classro
   const submit = () => {
     // A double click (or Enter + click) creates one activity, never two.
     if (!title.trim() || !start()) return;
-    create.mutate({ classroomId, title, tutorId: tutorId || null, requestId });
+    create.mutate({ classroomId, title, tutorId: tutorId || null, language, requestId });
   };
 
   return (
@@ -85,6 +89,7 @@ export function NewActivityDialog({ classroomId, open, onOpenChange }: { classro
         <Field label="Título" error={fields.title} hint="Lo ven tus alumnos al abrir el enlace.">
           {(p) => <Input id={p.id} aria-describedby={p.describedBy} invalid={p.invalid} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={160} autoFocus />}
         </Field>
+        <LanguageSwitch value={language} onChange={setLanguage} />
         <Field label="Tutor" error={fields.tutorId} hint="Se copia su configuración de Mis tutores (con tus cambios). Podés ajustarla después.">
           {(p) => (
             <Select id={p.id} aria-describedby={p.describedBy} value={tutorId} onChange={(e) => setTutorId(e.target.value)} disabled={tutors.isPending}>

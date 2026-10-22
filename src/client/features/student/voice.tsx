@@ -7,6 +7,7 @@ import { Mic, Square, Volume2 } from "lucide-react";
 import { cn } from "@client/lib/cn";
 import { MAX_VOICE_SECONDS, chunkSpeech, speakableText } from "@shared/domain/voice";
 import { recognitionCtor, type RecognitionLike } from "./voice-support";
+import { useT, type StudentStrings } from "./i18n";
 
 // ── Dictation ──
 
@@ -16,23 +17,23 @@ export interface DictationStatus {
   error: string | null;
 }
 
-function dictationError(code: string): string | null {
+function dictationError(code: string, t: StudentStrings["voice"]): string | null {
   switch (code) {
     case "aborted":
       return null;
     case "not-allowed":
     case "service-not-allowed":
-      return "Tu navegador no tiene permiso para usar el micrófono. Tocá el candado de la barra de direcciones, permití el micrófono y probá de nuevo.";
+      return t.notAllowed;
     case "no-speech":
-      return "No se escuchó nada. Acercate al micrófono y probá de nuevo.";
+      return t.noSpeech;
     case "audio-capture":
-      return "No encontramos un micrófono en este dispositivo.";
+      return t.audioCapture;
     case "network":
-      return "El dictado necesita conexión a internet. Probá de nuevo o escribí tu mensaje.";
+      return t.network;
     case "language-not-supported":
-      return "Tu navegador no puede dictar en este idioma. Escribí tu mensaje.";
+      return t.languageNotSupported;
     default:
-      return "No pudimos usar el dictado. Escribí tu mensaje o probá de nuevo.";
+      return t.generic;
   }
 }
 
@@ -53,6 +54,7 @@ export function DictationButton({
   /** Changing this value stops dictation (the student typed or sent). */
   stopKey: number;
 }) {
+  const t = useT().voice;
   const rec = useRef<RecognitionLike | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const [listening, setListening] = useState(false);
@@ -102,7 +104,7 @@ export function DictationButton({
       if (text) onTranscript(base + sep + text);
     };
     r.onerror = (e) => {
-      error = dictationError(e.error);
+      error = dictationError(e.error, t);
       status.current({ listening: false, seconds, error });
     };
     r.onend = () => {
@@ -114,7 +116,7 @@ export function DictationButton({
     try {
       r.start();
     } catch {
-      status.current({ listening: false, seconds: 0, error: dictationError("") });
+      status.current({ listening: false, seconds: 0, error: dictationError("", t) });
       return;
     }
     rec.current = r;
@@ -133,7 +135,7 @@ export function DictationButton({
       onClick={() => (listening ? stop() : start())}
       disabled={disabled && !listening}
       aria-pressed={listening}
-      aria-label={listening ? "Detener el dictado" : "Dictar tu mensaje"}
+      aria-label={listening ? t.stopDictation : t.dictate}
       className={cn(
         "relative inline-flex size-11 shrink-0 items-center justify-center rounded-lg transition-colors disabled:opacity-40",
         listening ? "bg-rose-soft text-rose" : "text-text-2 hover:bg-sunken hover:text-ink",
@@ -200,6 +202,7 @@ function stopReading() {
 }
 
 export function ListenButton({ id, text, lang }: { id: string; text: string; lang: string }) {
+  const t = useT().voice;
   const current = useSyncExternalStore(subscribe, () => speakingId, () => null);
   const playing = current === id;
   useEffect(() => () => {
@@ -213,7 +216,7 @@ export function ListenButton({ id, text, lang }: { id: string; text: string; lan
       className="-ml-2 inline-flex h-11 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-text-3 transition-colors hover:bg-sunken hover:text-ink"
     >
       {playing ? <Square className="size-3.5 fill-current" aria-hidden="true" /> : <Volume2 className="size-4" aria-hidden="true" />}
-      {playing ? "Detener" : "Escuchar"}
+      {playing ? t.stop : t.listen}
     </button>
   );
 }

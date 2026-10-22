@@ -5,7 +5,7 @@ import { ArrowLeft, CheckCircle2, KeyRound, Lock } from "lucide-react";
 import { Button } from "@client/components/ui/button";
 import { cn } from "@client/lib/cn";
 import { Field, FormError, Textarea } from "@client/components/ui/field";
-import { ApiError, errorMessage } from "@client/lib/api";
+import { ApiError } from "@client/lib/api";
 import type { StudentWorkspace } from "@shared/contracts/student";
 import { MAX_ANSWER_CHARS, MAX_REFLECTION_ANSWER_CHARS, MIN_ANSWER_CHARS } from "@shared/contracts/student-limits";
 import { setWorkspace, studentApi, studentKey } from "./api";
@@ -14,6 +14,7 @@ import { UnsentNotice } from "./entry";
 import { ReadOnlyThread } from "./thread";
 import { canSpeak, speechLang } from "./voice-support";
 import { DeliverableField, DeliverableFileLine } from "./deliverable";
+import { useT } from "./i18n";
 
 function useHeadingFocus(focus: boolean | undefined) {
   const ref = useRef<HTMLHeadingElement | null>(null);
@@ -35,6 +36,7 @@ function useStaleHandler(token: string) {
 // ── Step 1: initial answer ──
 
 export function InitialAnswerStep({ token, workspace, focusHeading }: { token: string; workspace: StudentWorkspace; focusHeading?: boolean }) {
+  const t = useT();
   const qc = useQueryClient();
   const onStale = useStaleHandler(token);
   const [answer, setAnswer, clear] = useDraft(draftKey(token, workspace.resumeCode, "initial"));
@@ -54,7 +56,13 @@ export function InitialAnswerStep({ token, workspace, focusHeading }: { token: s
       setWorkspace(qc, token, r.workspace);
     } catch (err) {
       onStale(err);
-      setError(err instanceof ApiError ? (err.fields.answer ?? err.message) : errorMessage(err) || "No pudimos guardar tu respuesta.");
+      setError(
+        err instanceof ApiError
+          ? err.fields.answer
+            ? t.fieldError("answer", err.fields.answer)
+            : t.error(err)
+          : t.error(err) || t.steps.initialFailed,
+      );
     } finally {
       setBusy(false);
     }
@@ -62,19 +70,16 @@ export function InitialAnswerStep({ token, workspace, focusHeading }: { token: s
 
   return (
     <section aria-labelledby="initial-title" className="rounded-xl border border-line bg-surface p-5 shadow-2 sm:p-7">
-      <p className="text-sm font-semibold text-lilac-ink">Antes de conversar</p>
+      <p className="text-sm font-semibold text-lilac-ink">{t.steps.beforeChat}</p>
       <h2 id="initial-title" ref={headingRef} tabIndex={-1} className="q-hang mt-2 text-[24px] leading-tight outline-none sm:text-[26px]">
-        ¿Qué pensás vos?
+        {t.steps.whatDoYouThink}
       </h2>
-      <p className="mt-3 text-[15px] leading-6 text-text-2">
-        Escribí tu primera idea sobre la consigna, aunque no estés seguro. Cuando la guardes ya no se puede cambiar: al final vas a
-        escribir tu respuesta mejorada.
-      </p>
+      <p className="mt-3 text-[15px] leading-6 text-text-2">{t.steps.initialIntro}</p>
       <form onSubmit={submit} className="mt-5 space-y-4">
         <Field
-          label="Tu primera idea"
+          label={t.steps.firstIdea}
           counter={length > MAX_ANSWER_CHARS - 400 ? { value: length, max: MAX_ANSWER_CHARS } : undefined}
-          hint="Se guarda en este dispositivo mientras escribís, aunque cierres la página."
+          hint={t.steps.savedHint}
         >
           {({ id, describedBy, invalid }) => (
             <Textarea
@@ -85,13 +90,13 @@ export function InitialAnswerStep({ token, workspace, focusHeading }: { token: s
               onChange={(e) => setAnswer(e.target.value)}
               minRows={5}
               maxRows={14}
-              placeholder="Yo creo que…"
+              placeholder={t.steps.initialPlaceholder}
             />
           )}
         </Field>
         <FormError message={error} />
         <Button type="submit" size="lg" className="w-full sm:w-auto" loading={busy} disabled={length < MIN_ANSWER_CHARS || length > MAX_ANSWER_CHARS}>
-          Guardar y empezar a conversar
+          {t.steps.saveAndStart}
         </Button>
       </form>
     </section>
@@ -111,6 +116,7 @@ export function ClosingStep({
   onBack: () => void;
   focusHeading?: boolean;
 }) {
+  const t = useT();
   const qc = useQueryClient();
   const onStale = useStaleHandler(token);
   const code = workspace.resumeCode;
@@ -180,8 +186,10 @@ export function ClosingStep({
       setWorkspace(qc, token, r.workspace);
     } catch (err) {
       onStale(err);
-      if (err instanceof ApiError && Object.keys(err.fields).length) setFieldErrors(err.fields);
-      setError(errorMessage(err) || "No pudimos enviar tu trabajo. Probá de nuevo.");
+      if (err instanceof ApiError && Object.keys(err.fields).length) {
+        setFieldErrors(Object.fromEntries(Object.entries(err.fields).map(([k, v]) => [k, t.fieldError(k, v)])));
+      }
+      setError(t.error(err) || t.steps.finishFailed);
     } finally {
       setBusy(false);
     }
@@ -190,37 +198,35 @@ export function ClosingStep({
   return (
     <section aria-labelledby="closing-title" className="space-y-5">
       <Button variant="ghost" className="-ml-3 h-11" icon={<ArrowLeft className="size-4" />} onClick={onBack} disabled={busy}>
-        Volver a la conversación
+        {t.steps.backToChat}
       </Button>
       <div className="rounded-xl border border-line bg-surface p-5 shadow-2 sm:p-7">
-        <p className="text-sm font-semibold text-lilac-ink">Para terminar</p>
+        <p className="text-sm font-semibold text-lilac-ink">{t.steps.toFinish}</p>
         <h2 id="closing-title" ref={headingRef} tabIndex={-1} className={cn("mt-2 text-[24px] leading-tight outline-none sm:text-[26px]", asks ? "q-hang" : "font-display font-semibold text-ink")}>
-          {asks ? workspace.activity.finalQuestion : "Antes de enviar tu trabajo"}
+          {asks ? workspace.activity.finalQuestion : t.steps.beforeSend}
         </h2>
         <p className="mt-3 text-[15px] leading-6 text-text-2">
-          {asks
-            ? "Escribí tu respuesta final con tus palabras y contá cómo lo pensaste. Cuando la envíes ya no vas a poder cambiarla, y tu docente va a poder leerla."
-            : "Completá lo que te pide tu docente y enviá tu trabajo. Cuando lo envíes ya no vas a poder cambiarlo."}
+          {asks ? t.steps.closingIntroAsk : t.steps.closingIntro}
         </p>
 
         <form onSubmit={submit} className="mt-6 space-y-6">
           {workspace.session.initialAnswer ? (
             <div className="rounded-md bg-sunken px-4 py-3">
-              <p className="text-xs font-semibold text-text-3">Tu primera idea</p>
+              <p className="text-xs font-semibold text-text-3">{t.steps.firstIdea}</p>
               <p className="mt-1 text-[15px] leading-6 whitespace-pre-wrap text-text-2">{workspace.session.initialAnswer}</p>
             </div>
           ) : null}
 
           {!asks ? null : multi ? (
             <fieldset className="space-y-5">
-              <legend className="text-[15px] font-semibold text-text">Tu respuesta a cada consigna</legend>
-              <p className="-mt-3 text-[13px] text-text-3">Se guardan en este dispositivo mientras escribís, aunque cierres la página.</p>
+              <legend className="text-[15px] font-semibold text-text">{t.steps.answerEachTask}</legend>
+              <p className="-mt-3 text-[13px] text-text-3">{t.steps.savedHintPlural}</p>
               {consignas.map((c, i) => {
                 const v = finals[i] ?? "";
                 return (
                   <div key={i} className="rounded-lg border border-line bg-paper/60 p-3.5 sm:p-4">
                     <Field
-                      label={`Consigna ${i + 1}`}
+                      label={t.steps.taskN(i + 1)}
                       error={fieldErrors[`finalAnswers.${i}`]}
                       counter={v.length > MAX_ANSWER_CHARS - 400 ? { value: v.length, max: MAX_ANSWER_CHARS } : undefined}
                     >
@@ -234,7 +240,7 @@ export function ClosingStep({
                             value={v}
                             onChange={(e) => setFinalAt(i, e.target.value)}
                             minRows={3}
-                            placeholder="Ahora pienso que…"
+                            placeholder={t.steps.finalPlaceholder}
                           />
                         </>
                       )}
@@ -245,8 +251,8 @@ export function ClosingStep({
             </fieldset>
           ) : (
             <Field
-              label="Tu respuesta final"
-              hint="Se guarda en este dispositivo mientras escribís, aunque cierres la página."
+              label={t.steps.finalAnswer}
+              hint={t.steps.savedHint}
               error={fieldErrors.finalAnswer}
               counter={length > MAX_ANSWER_CHARS - 400 ? { value: length, max: MAX_ANSWER_CHARS } : undefined}
             >
@@ -258,7 +264,7 @@ export function ClosingStep({
                   value={finalAnswer}
                   onChange={(e) => setFinal(e.target.value)}
                   minRows={5}
-                  placeholder="Ahora pienso que…"
+                  placeholder={t.steps.finalPlaceholder}
                 />
               )}
             </Field>
@@ -266,15 +272,19 @@ export function ClosingStep({
 
           {workspace.activity.reflectionQuestions.length ? (
             <fieldset className="space-y-4 border-t border-line pt-5">
-              <legend className="float-left w-full font-display text-lg font-semibold text-ink">Tu reflexión</legend>
-              <p className="clear-left pt-1 text-sm text-text-2">Contá cómo fue tu forma de pensar. Podés responder las que quieras.</p>
+              <legend className="float-left w-full font-display text-lg font-semibold text-ink">{t.steps.reflection}</legend>
+              <p className="clear-left pt-1 text-sm text-text-2">{t.steps.reflectionIntro}</p>
               {workspace.activity.reflectionQuestions.map((q, i) => {
                 const v = reflection[q.key] ?? "";
                 return (
                   <Field
                     key={q.key}
-                    label={q.question}
-                    optional
+                    label={
+                      <>
+                        {q.question}
+                        <span className="ml-1.5 font-normal text-text-3">{t.steps.optional}</span>
+                      </>
+                    }
                     error={fieldErrors[`reflection.${i}.answer`]}
                     counter={v.length > MAX_REFLECTION_ANSWER_CHARS - 300 ? { value: v.trim().length, max: MAX_REFLECTION_ANSWER_CHARS } : undefined}
                   >
@@ -300,12 +310,12 @@ export function ClosingStep({
           <FormError message={error} />
           {missingFile ? (
             <p id="falta-entrega" className="text-sm font-medium text-text-2 sm:text-right">
-              Subí tu archivo o pegá el enlace para poder enviar tu trabajo.
+              {t.steps.missingFile}
             </p>
           ) : null}
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
             <Button variant="secondary" size="lg" onClick={onBack} disabled={busy}>
-              Seguir conversando
+              {t.steps.keepChatting}
             </Button>
             <Button
               type="submit"
@@ -314,7 +324,7 @@ export function ClosingStep({
               aria-describedby={missingFile ? "falta-entrega" : undefined}
               disabled={!answered || missingFile || uploading}
             >
-              Enviar mi trabajo
+              {t.steps.sendWork}
             </Button>
           </div>
         </form>
@@ -338,6 +348,7 @@ export function DoneStep({
   /** Text written on this device that never reached the server (session closed meanwhile). */
   unsent?: DraftField[];
 }) {
+  const t = useT();
   const ended = workspace.stage === "ended";
   const s = workspace.session;
   const headingRef = useHeadingFocus(focusHeading);
@@ -353,31 +364,27 @@ export function DoneStep({
           <CheckCircle2 className="size-9 text-leaf" aria-hidden="true" />
         )}
         <h2 id="done-title" ref={headingRef} tabIndex={-1} className="mt-3 font-display text-[26px] leading-tight font-semibold text-ink outline-none">
-          {ended ? "Tu docente cerró tu sesión" : "¡Terminaste la actividad!"}
+          {ended ? t.done.endedTitle : t.done.doneTitle}
         </h2>
         <p className="mt-2 text-[15px] leading-6 text-text-2">
-          {ended
-            ? s.finalAnswer
-              ? "Ya no se pueden agregar respuestas. Tu trabajo quedó guardado y tu docente lo puede ver."
-              : "Ya no se pueden agregar respuestas. Lo que escribiste hasta acá quedó guardado y tu docente lo puede ver."
-            : "Tu trabajo quedó guardado y tu docente lo puede ver."}
+          {ended ? (s.finalAnswer ? t.done.endedWithAnswer : t.done.endedNoAnswer) : t.done.body}
         </p>
         {ended ? <UnsentNotice fields={unsent} reopenable /> : null}
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2">
           {s.initialAnswer ? (
             <div className="rounded-md bg-sunken px-4 py-3.5">
-              <p className="text-xs font-semibold text-text-3">Al empezar pensabas</p>
+              <p className="text-xs font-semibold text-text-3">{t.done.thoughtBefore}</p>
               <p className="mt-1 text-[15px] leading-6 whitespace-pre-wrap text-text">{s.initialAnswer}</p>
             </div>
           ) : null}
           {s.finalAnswers.length > 1 ? (
             <div className="rounded-md bg-leaf-soft px-4 py-3.5 sm:col-span-2">
-              <p className="text-xs font-semibold text-leaf">Ahora pensás</p>
+              <p className="text-xs font-semibold text-leaf">{t.done.thinkNow}</p>
               <ol className="mt-2 space-y-2.5">
                 {s.finalAnswers.map((a, i) => (
                   <li key={i}>
-                    <p className="text-xs font-semibold text-text-2">Consigna {i + 1}</p>
+                    <p className="text-xs font-semibold text-text-2">{t.done.taskN(i + 1)}</p>
                     <p className="mt-0.5 text-[15px] leading-6 whitespace-pre-wrap text-text">{a}</p>
                   </li>
                 ))}
@@ -385,7 +392,7 @@ export function DoneStep({
             </div>
           ) : s.finalAnswer ? (
             <div className={s.initialAnswer ? "rounded-md bg-leaf-soft px-4 py-3.5" : "rounded-md bg-leaf-soft px-4 py-3.5 sm:col-span-2"}>
-              <p className="text-xs font-semibold text-leaf">Ahora pensás</p>
+              <p className="text-xs font-semibold text-leaf">{t.done.thinkNow}</p>
               <p className="mt-1 text-[15px] leading-6 whitespace-pre-wrap text-text">{s.finalAnswer}</p>
             </div>
           ) : null}
@@ -393,7 +400,7 @@ export function DoneStep({
 
         {workspace.deliverable ? (
           <div className="mt-6 border-t border-line pt-5">
-            <h3 className="font-display text-lg font-semibold text-ink">Tu entrega</h3>
+            <h3 className="font-display text-lg font-semibold text-ink">{t.done.deliverable}</h3>
             <div className="mt-3 rounded-md border border-line bg-paper px-4 py-3">
               <DeliverableFileLine file={workspace.deliverable} link={linkOpen} />
             </div>
@@ -402,7 +409,7 @@ export function DoneStep({
 
         {answered.length ? (
           <div className="mt-6 border-t border-line pt-5">
-            <h3 className="font-display text-lg font-semibold text-ink">Tu reflexión</h3>
+            <h3 className="font-display text-lg font-semibold text-ink">{t.done.reflection}</h3>
             <dl className="mt-3 space-y-3">
               {answered.map((r) => (
                 <div key={r.key}>
@@ -417,17 +424,16 @@ export function DoneStep({
         <p className="mt-6 flex items-start gap-2.5 rounded-md bg-lilac-soft px-4 py-3 text-sm leading-6 text-lilac-ink">
           <KeyRound className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <span>
-            Tu código es <strong className="font-mono text-[15px] tracking-[0.15em]">{workspace.resumeCode}</strong>. Con él podés volver a ver
-            tu trabajo desde otro dispositivo{linkOpen ? "" : " cuando tu docente vuelva a abrir la actividad"}.
+            {t.done.codeLine((code) => <strong className="font-mono text-[15px] tracking-[0.15em]">{code}</strong>, workspace.resumeCode, linkOpen)}
           </span>
         </p>
       </div>
 
       <details className="group rounded-xl border border-line bg-surface shadow-1">
         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-5 py-3 font-semibold text-ink [&::-webkit-details-marker]:hidden">
-          Ver la conversación con el tutor
-          <span className="text-sm font-normal text-text-3 group-open:hidden">Mostrar</span>
-          <span className="hidden text-sm font-normal text-text-3 group-open:inline">Ocultar</span>
+          {t.done.seeChat}
+          <span className="text-sm font-normal text-text-3 group-open:hidden">{t.done.show}</span>
+          <span className="hidden text-sm font-normal text-text-3 group-open:inline">{t.done.hide}</span>
         </summary>
         <div className="border-t border-line px-5 py-5">
           <ReadOnlyThread messages={workspace.messages} initialAnswer={null} listenLang={listenLang} />

@@ -283,6 +283,18 @@ describe("UI audit fixes in Crear con IA", () => {
     expect(draft.body.activityId).not.toBe(r1.body.activityId);
   });
 
+  it("an English activity: the proposals are written for students in English and the activity is created in English", async () => {
+    const a = await newTeacher();
+    const room = await newClassroom(a.cookie);
+    aiMock.json({ proposals: [aiProposal(), aiProposal({ title: "B" }), aiProposal({ title: "C" })] });
+    const r = await call("POST", "/api/planning/proposals", { cookie: a.cookie, body: { classroomId: room, topic: "Sparta and Athens", language: "en" } });
+    expect(r.status).toBe(200);
+    expect(JSON.stringify(aiMock.lastRequest()!.body.messages)).toContain("IDIOMA DE LA ACTIVIDAD: inglés");
+    const c = await call("POST", "/api/planning/create", { cookie: a.cookie, body: { classroomId: room, proposal: aiProposal(), language: "en" } });
+    const [act] = await db.select().from(schema.activities).where(eq(schema.activities.id, c.body.activityId));
+    expect(act!.language).toBe("en");
+  });
+
   it("D04: with the teacher's preset of the suggested type, its edits are copied", async () => {
     const a = await newTeacher();
     const room = await newClassroom(a.cookie);

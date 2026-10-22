@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as RD from "@radix-ui/react-dialog";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Bell, Bot, FileUp, Link2, ScanText, Scale, Sprout, X, type LucideIcon } from "lucide-react";
+import { ArrowRight, Bell, Bot, FileUp, Languages, Link2, ListOrdered, MessageCircleQuestion, ScanText, Scale, Sprout, X, type LucideIcon } from "lucide-react";
 import { cn } from "@client/lib/cn";
 import { api } from "@client/lib/api";
 import { meKey } from "@client/lib/session";
@@ -23,6 +23,9 @@ const ICONS: Record<NewsKey, { icon: LucideIcon; tile: string }> = {
   tutors: { icon: Bot, tile: "bg-lilac-soft text-lilac-ink" },
   links: { icon: Link2, tile: "bg-amber-soft text-amber" },
   scans: { icon: ScanText, tile: "bg-ink-soft text-ink" },
+  english: { icon: Languages, tile: "bg-leaf-soft text-leaf" },
+  consignas: { icon: ListOrdered, tile: "bg-amber-soft text-amber" },
+  closing: { icon: MessageCircleQuestion, tile: "bg-lilac-soft text-lilac-ink" },
 };
 
 export function WhatsNew({ me }: { me: Me }) {

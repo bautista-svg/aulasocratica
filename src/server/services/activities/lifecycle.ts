@@ -64,6 +64,7 @@ export async function createActivity(input: {
   classroom: typeof schema.classrooms.$inferSelect;
   title: string;
   tutor: TutorRow | null;
+  language?: "es" | "en";
 }): Promise<string> {
   if (input.classroom.isArchived) {
     throw badRequest("Esta aula está archivada. Restaurala para crear actividades.");
@@ -78,6 +79,7 @@ export async function createActivity(input: {
       subject: input.classroom.subject.slice(0, 80),
       reflectionQuestions: DEFAULT_REFLECTION_QUESTIONS.map((q) => ({ ...q })),
       linkToken: newLinkToken(),
+      language: input.language ?? "es",
       ...(input.tutor ? tutorConfig(input.tutor) : {}),
     })
     .returning({ id: schema.activities.id });

@@ -5,6 +5,7 @@ import { LogoMark } from "@client/components/brand/logo";
 import { cn } from "@client/lib/cn";
 import type { StudentMessage } from "@shared/contracts/student";
 import { Markdown } from "./markdown";
+import { useT } from "./i18n";
 
 const ListenButton = lazy(() => import("./voice").then((m) => ({ default: m.ListenButton })));
 
@@ -31,14 +32,15 @@ export const TutorMessage = memo(
 );
 
 function TutorMessageView({ text, current, streaming, thinking, listen }: TutorMessageProps) {
+  const t = useT();
   return (
     <div className="flex gap-3">
       <LogoMark className="mt-0.5 size-7 shrink-0" />
       <div className="min-w-0 flex-1">
-        <p className="sr-only">El tutor dice:</p>
+        <p className="sr-only">{t.thread.tutorSays}</p>
         {thinking ? (
           <p className="flex h-7 items-center gap-1.5 text-[15px] text-text-3">
-            El tutor está pensando
+            {t.thread.thinking}
             <span className="animate-pulse-dot inline-block size-1.5 rounded-full bg-lilac" aria-hidden="true" />
             <span className="animate-pulse-dot inline-block size-1.5 rounded-full bg-lilac [animation-delay:200ms]" aria-hidden="true" />
             <span className="animate-pulse-dot inline-block size-1.5 rounded-full bg-lilac [animation-delay:400ms]" aria-hidden="true" />
@@ -73,15 +75,16 @@ export const StudentMessageBubble = memo(function StudentMessageBubble({
   label?: ReactNode;
   className?: string;
 }) {
+  const t = useT();
   return (
     <div className={cn("flex justify-end", className)}>
       <div className="max-w-[88%] rounded-2xl rounded-br-md bg-ink-soft px-4 py-2.5 text-[16px] leading-7 text-ink sm:max-w-[80%]">
-        <p className="sr-only">Vos:</p>
+        <p className="sr-only">{t.thread.you}</p>
         {label ? <p className="mb-0.5 text-xs font-semibold text-lilac-ink">{label}</p> : null}
         <p className="break-words whitespace-pre-wrap">{text}</p>
         {voice ? (
           <p className="mt-1 flex items-center gap-1 text-xs text-text-3">
-            <Mic className="size-3" aria-hidden="true" /> Dictado
+            <Mic className="size-3" aria-hidden="true" /> {t.thread.dictated}
           </p>
         ) : null}
       </div>
@@ -99,14 +102,15 @@ export function ReadOnlyThread({
   initialAnswer: string | null;
   listenLang: string | null;
 }) {
+  const t = useT();
   if (!messages.length && !initialAnswer) {
-    return <p className="text-[15px] text-text-2">No hubo conversación con el tutor.</p>;
+    return <p className="text-[15px] text-text-2">{t.thread.noConversation}</p>;
   }
   return (
     <ol className="space-y-6">
       {initialAnswer ? (
         <li>
-          <StudentMessageBubble text={initialAnswer} label="Tu primera idea" />
+          <StudentMessageBubble text={initialAnswer} label={t.thread.firstIdea} />
         </li>
       ) : null}
       {messages.map((m) => (

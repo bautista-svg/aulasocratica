@@ -1,0 +1,2 @@
+ALTER TABLE "activities" ADD COLUMN "language" text DEFAULT 'es' NOT NULL;--> statement-breakpoint
+ALTER TABLE "activities" ADD CONSTRAINT "activities_language" CHECK ("activities"."language" in ('es','en'));

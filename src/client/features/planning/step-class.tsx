@@ -8,6 +8,7 @@ import { useClassrooms } from "@client/features/classrooms/api";
 import { ClassroomFormDialog } from "@client/features/classrooms/classroom-form";
 import { classroomLabel, type ClassroomSummary } from "@shared/contracts/classrooms";
 import type { WizardState } from "./wizard-state";
+import { LanguageSwitch } from "@client/features/activities/language-switch";
 
 const DURATIONS = [40, 60, 80, 120];
 
@@ -72,6 +73,8 @@ export function StepClass({
       {missing ? (
         <Notice tone="amber">El aula que estaba elegida está archivada o ya no existe. Elegí otra para seguir.</Notice>
       ) : null}
+
+      <LanguageSwitch value={s.language ?? "es"} onChange={(v) => update({ language: v })} />
 
       <div className="grid gap-5 sm:grid-cols-2">
         <Field label="Materia" optional error={errors.subject}>

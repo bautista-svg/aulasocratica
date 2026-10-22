@@ -32,7 +32,8 @@ import {
 } from "@shared/contracts/student";
 import type { FileKind } from "@shared/domain/files";
 import { isStreaming } from "./streams";
-import { DEFAULT_FINAL_QUESTION, consignasOf, readFinalAnswers } from "@shared/domain/consignas";
+import { consignasOf, readFinalAnswers } from "@shared/domain/consignas";
+import { DEFAULT_FINAL_QUESTION_BY_LANGUAGE, LINK_AVAILABILITY_MESSAGE_EN, languageOf, reflectionQuestionsIn } from "@shared/domain/language";
 
 const DAY = 86_400_000;
 export const DEVICE_TOKEN_DAYS = 30;
@@ -134,7 +135,10 @@ export function availabilityOf(link: LinkCtx): LinkAvailability {
 
 export function ensureAvailable(link: LinkCtx): void {
   const av = availabilityOf(link);
-  if (av !== "available") throw new HttpError(403, LINK_AVAILABILITY_MESSAGE[av], "unavailable", { availability: av });
+  if (av !== "available") {
+    const message = languageOf(link.activity.language) === "en" ? LINK_AVAILABILITY_MESSAGE_EN[av] : LINK_AVAILABILITY_MESSAGE[av];
+    throw new HttpError(403, message, "unavailable", { availability: av });
+  }
 }
 
 // ── Device tokens ──
@@ -428,8 +432,9 @@ export async function refreshSession(ctx: StudentCtx): Promise<StudentCtx> {
  * The activity's reflection questions exactly as the teacher left them. New activities start
  * with DEFAULT_REFLECTION_QUESTIONS; an empty list is a deliberate choice (no reflection step).
  */
+/** The activity's reflection questions; the default ones read in English in English activities. */
 export function reflectionQuestionsOf(activity: Activity): ReflectionQuestion[] {
-  return sanitizeReflectionQuestions(activity.reflectionQuestions);
+  return reflectionQuestionsIn(sanitizeReflectionQuestions(activity.reflectionQuestions), languageOf(activity.language));
 }
 
 export function stageOf(activity: Activity, session: Session): StudentStage {
@@ -460,6 +465,7 @@ export function publicActivity(link: LinkCtx): StudentLinkInfo["activity"] {
   const room = link.classroom;
   return {
     title: a.title,
+    language: languageOf(a.language),
     subject: a.subject,
     // Name, grade + division and school without repeating what the name already says.
     classroom: studentMetaLine([room.name, [room.grade, room.division].filter(Boolean).join(" "), room.school]),
@@ -542,7 +548,8 @@ export async function buildWorkspace(ctx: StudentCtx, opts: { files?: boolean } 
       material: activity.material,
       requireInitialAnswer: activity.requireInitialAnswer,
       askFinalAnswer: activity.askFinalAnswer,
-      finalQuestion: activity.finalQuestion.trim() || DEFAULT_FINAL_QUESTION,
+      finalQuestion: activity.finalQuestion.trim() || DEFAULT_FINAL_QUESTION_BY_LANGUAGE[languageOf(activity.language)],
+      language: languageOf(activity.language),
       voiceLanguage: isVoiceLanguage(activity.voiceLanguage) ? activity.voiceLanguage : "off",
       reflectionQuestions: questions,
       deliverableMode: isDeliverableMode(activity.deliverableMode) ? activity.deliverableMode : "off",

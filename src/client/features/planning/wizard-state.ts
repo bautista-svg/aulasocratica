@@ -10,6 +10,8 @@ export interface WizardState {
   /** Furthest step reached (the stepper lets the teacher jump back and forth up to here). */
   maxStep: number;
   classroomId: string;
+  /** Language of the activity for the students (older saved drafts have none: Castellano). */
+  language?: "es" | "en";
   subject: string;
   grade: string;
   topic: string;
@@ -110,6 +112,7 @@ export function proposalsInput(s: WizardState): ProposalsInput {
     materialIds: s.materialIds,
     extraText: s.extraText,
     request: s.request,
+    language: s.language ?? "es",
   };
 }
 

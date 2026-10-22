@@ -8,6 +8,7 @@ import type { ReflectionQuestion, RubricCriterion } from "@shared/domain/activit
 import type { VoiceLanguage } from "@shared/domain/voice";
 import type { DeliverableMode } from "@shared/domain/deliverables";
 import type { HelpLevel } from "@shared/contracts/activities";
+import type { ActivityLanguage } from "@shared/domain/language";
 
 export interface ActivityDraft {
   subject: string;
@@ -22,6 +23,7 @@ export interface ActivityDraft {
   requireInitialAnswer: boolean;
   askFinalAnswer: boolean;
   finalQuestion: string;
+  language: ActivityLanguage;
   voiceLanguage: VoiceLanguage;
   deliverableMode: DeliverableMode;
   deliverablePrompt: string;
@@ -42,6 +44,7 @@ export const DRAFT_KEYS = [
   "requireInitialAnswer",
   "askFinalAnswer",
   "finalQuestion",
+  "language",
   "voiceLanguage",
   "deliverableMode",
   "deliverablePrompt",
@@ -66,6 +69,7 @@ export function draftFrom(a: ActivityEditorData): ActivityDraft {
     requireInitialAnswer: a.requireInitialAnswer,
     askFinalAnswer: a.askFinalAnswer,
     finalQuestion: a.finalQuestion,
+    language: a.language,
     voiceLanguage: a.voiceLanguage,
     deliverableMode: a.deliverableMode,
     deliverablePrompt: a.deliverablePrompt,

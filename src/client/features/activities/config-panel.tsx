@@ -13,6 +13,8 @@ import { VOICE_LANGUAGE_LABELS, type VoiceLanguage } from "@shared/domain/voice"
 import { DELIVERABLE_MODES, DELIVERABLE_PROMPT_MAX, MAX_DELIVERABLE_LABEL, type DeliverableMode } from "@shared/domain/deliverables";
 import { ACTIVITY_LIMITS, type ActivityEditorData } from "@shared/contracts/activities";
 import { DEFAULT_FINAL_QUESTION, FINAL_QUESTION_MAX, MAX_CONSIGNAS } from "@shared/domain/consignas";
+import { DEFAULT_FINAL_QUESTION_BY_LANGUAGE } from "@shared/domain/language";
+import { LanguageSwitch } from "./language-switch";
 import { useSaveActivity } from "./api";
 import { EditorSection, RadioCards } from "./parts";
 import { MaterialFiles } from "./material-files";
@@ -23,6 +25,7 @@ import { errorKeyBelongsTo, type ActivityForm, type DraftKey, type FieldErrors }
 import { useKeepFieldVisible, useKeyboardOpen } from "./keep-field-visible";
 
 export const SECTIONS: { id: string; title: string; keys: DraftKey[] }[] = [
+  { id: "idioma", title: "Idioma", keys: ["language"] },
   { id: "consigna", title: "Consigna", keys: ["instructions", "moreInstructions"] },
   { id: "objetivos", title: "Objetivos", keys: ["objectives", "subject"] },
   { id: "material", title: "Material", keys: ["material"] },
@@ -107,6 +110,28 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
     // scroll-mb: fields brought into view (focus, scrollIntoView) stop above the save bar and the phone tab bar.
     <div ref={rootRef} className="lg:grid lg:grid-cols-[minmax(0,1fr)_190px] lg:gap-8 [&_input]:scroll-mb-44 [&_textarea]:scroll-mb-44 lg:[&_input]:scroll-mb-24 lg:[&_textarea]:scroll-mb-24">
       <div className="grid min-w-0 gap-4">
+        <EditorSection
+          id="idioma"
+          title="Idioma"
+          description="Los alumnos ven sus pantallas, los botones de ayuda y las preguntas de cierre en este idioma, y el tutor les responde en él. Tus pantallas siguen en castellano."
+          {...meta("idioma")}
+        >
+          <LanguageSwitch
+            value={draft.language}
+            onChange={(v) => {
+              set("language", v);
+              // Voice in the other language would not match: an English activity talks in English.
+              if (v === "en" && draft.voiceLanguage === "es") set("voiceLanguage", "en");
+              if (v === "es" && draft.voiceLanguage === "en") set("voiceLanguage", "es");
+            }}
+          />
+          {draft.language === "en" ? (
+            <p className="mt-3 text-[13px] leading-5 text-text-3">
+              Escribí la consigna, el material y las preguntas en inglés: los alumnos los leen tal cual.
+            </p>
+          ) : null}
+        </EditorSection>
+
         <EditorSection
           id="consigna"
           title="Consigna"
@@ -234,7 +259,7 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
               className="mt-4"
               label="Pregunta de cierre"
               optional
-              hint={`Es lo que leen al terminar. Si la dejás vacía, dice «${DEFAULT_FINAL_QUESTION}».`}
+              hint={`Es lo que leen al terminar. Si la dejás vacía, dice «${DEFAULT_FINAL_QUESTION_BY_LANGUAGE[draft.language]}».`}
               error={errors.finalQuestion}
               counter={draft.finalQuestion.length > FINAL_QUESTION_MAX - 40 ? { value: draft.finalQuestion.length, max: FINAL_QUESTION_MAX } : undefined}
             >
@@ -246,7 +271,7 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
                   value={draft.finalQuestion}
                   maxLength={FINAL_QUESTION_MAX}
                   onChange={(e) => set("finalQuestion", e.target.value)}
-                  placeholder={DEFAULT_FINAL_QUESTION}
+                  placeholder={DEFAULT_FINAL_QUESTION_BY_LANGUAGE[draft.language]}
                 />
               )}
             </Field>

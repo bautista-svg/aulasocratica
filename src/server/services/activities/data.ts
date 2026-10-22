@@ -10,6 +10,7 @@ import { isDeliverableMode } from "@shared/domain/deliverables";
 import { ACTIVITY_LIMITS, type ActivityEditorData, type ActivityFile, type ActivityStatus, type HelpLevel } from "@shared/contracts/activities";
 import type { FileKind, ProcessingStatus } from "@shared/domain/files";
 import { sanitizeMoreInstructions } from "@shared/domain/consignas";
+import { languageOf } from "@shared/domain/language";
 
 type ActivityRow = typeof schema.activities.$inferSelect;
 
@@ -29,6 +30,7 @@ export function configOf(a: ActivityRow) {
     requireInitialAnswer: a.requireInitialAnswer,
     askFinalAnswer: a.askFinalAnswer,
     finalQuestion: a.finalQuestion,
+    language: languageOf(a.language),
     voiceLanguage: a.voiceLanguage,
     deliverableMode: a.deliverableMode,
     deliverablePrompt: a.deliverablePrompt,
@@ -76,6 +78,7 @@ export async function loadActivity(teacherId: string, activityId: string): Promi
     requireInitialAnswer: a.requireInitialAnswer,
     askFinalAnswer: a.askFinalAnswer,
     finalQuestion: a.finalQuestion,
+    language: languageOf(a.language),
     voiceLanguage: isVoiceLanguage(a.voiceLanguage) ? a.voiceLanguage : "off",
     deliverableMode: isDeliverableMode(a.deliverableMode) ? a.deliverableMode : "off",
     deliverablePrompt: a.deliverablePrompt,

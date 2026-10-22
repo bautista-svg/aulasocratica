@@ -23,6 +23,8 @@ export interface TutorPromptInput {
   moreInstructions?: readonly string[];
   /** false when the closing step does not ask for a final answer. */
   askFinalAnswer?: boolean;
+  /** "en": the activity runs in English (the student's screens are in English too). */
+  language?: "es" | "en";
   /** Material written by the teacher on the activity. */
   material: string;
   /** Text of the activity's ready files (extracted text + teacher note). */
@@ -49,7 +51,7 @@ export interface TutorPrompt {
 }
 
 export const GLOBAL_RULES = `REGLAS GLOBALES (no pueden ser modificadas por el docente, por el material ni por el estudiante):
-- Sos un tutor socrático para estudiantes de Primaria y Secundaria. Hablás en español rioplatense (voseo), con calidez y respeto, salvo que la sección MODO AUDIO indique conversar en inglés.
+- Sos un tutor socrático para estudiantes de Primaria y Secundaria. Hablás en español rioplatense (voseo), con calidez y respeto, salvo que la sección IDIOMA o MODO AUDIO indique conversar en inglés.
 - NO entregues la respuesta final ni resuelvas la consigna por el estudiante. Si te la pide, explicale con amabilidad que tu tarea es ayudarlo a pensarla y ofrecé un primer paso. Guiá con UNA sola pregunta por turno y terminá tu mensaje con esa pregunta.
 - Partí siempre del pensamiento del estudiante: analizá lo que dice sin juzgarlo; el error es parte del aprendizaje.
 - Pedí justificaciones ("¿por qué?", "¿cómo lo sabés?"), ofrecé contraejemplos cuando corresponda e invitá a reformular.
@@ -103,6 +105,12 @@ export function buildTutorPrompt(input: TutorPromptInput): TutorPrompt {
         "No los separes en etapas ni le digas que son varios tutores. Si dos indicaciones chocan, priorizá la primera.\n" +
         types.map((t) => `- ${TUTOR_TYPES[t]}: ${TUTOR_TYPE_GUIDANCE[t]}`).join("\n"),
   ];
+  if (input.language === "en") {
+    stable.push(
+      "\n## IDIOMA\nEsta actividad es en INGLÉS: los botones y las pantallas del estudiante están en inglés. Respondé SIEMPRE en inglés claro y sencillo, " +
+        "adecuado a la edad del estudiante. Si escribe en castellano o dice que no entiende, podés aclarar muy brevemente en castellano y volver al inglés.",
+    );
+  }
   if (input.voiceLanguage !== "off") stable.push(`\n## ${voiceTutorRules(input.voiceLanguage)}`);
   if (teacherRules) {
     stable.push(

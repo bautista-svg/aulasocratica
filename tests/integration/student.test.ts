@@ -799,6 +799,28 @@ describe("closing question", () => {
   });
 });
 
+describe("English activities", () => {
+  it("the student gets the activity in English: closing and reflection questions, availability and help buttons", async () => {
+    const s = await joined({ requireInitialAnswer: false, language: "en", reflectionQuestions: [{ key: "discovered", question: "¿Qué descubriste durante la actividad?" }] });
+    expect(s.workspace.activity).toMatchObject({ language: "en", finalQuestion: "What do you think now?" });
+    expect(s.workspace.activity.reflectionQuestions[0].question).toBe("What did you discover during the activity?");
+    expect((await call("GET", `/api/s/${s.token}`)).body.activity.language).toBe("en");
+
+    // An English help button counts as that help, and only the student's own words are evidence.
+    aiMock.text("Here is a hint: what part of the whole is 2/4?");
+    const r = await chat(s.token, s.cookie, { text: "I need a hint.", intent: "hint" });
+    expect(r.events.at(-1)!.event).toBe("done");
+    const req = recorded.find((x) => x.body.stream === true)!.body as any;
+    expect(req.system[0].text).toContain("Respondé SIEMPRE en inglés");
+    const [session] = await db.select().from(schema.learningSessions).where(eq(schema.learningSessions.id, s.session.id));
+    expect(session!.hintCount).toBe(1);
+
+    await db.update(schema.activities).set({ linkActive: false }).where(eq(schema.activities.id, s.activity.id));
+    const closed = await call("GET", `/api/s/${s.token}`);
+    expect(closed.body.message).toBe("Your teacher closed this activity for now.");
+  });
+});
+
 describe("integrity signals", () => {
   it("groups repeated signals into one open alert per kind and never counts them as work", async () => {
     const s = await joined({ requireInitialAnswer: false });

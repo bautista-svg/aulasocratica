@@ -2,10 +2,10 @@
 // release. The server remembers the last release the teacher saw (teachers.news_seen), so the
 // notice never comes back, on any device; after a new release it shows only what is new to them.
 
-export type NewsKey = "alerts" | "deliverables" | "aspects" | "rubric" | "links" | "tutors" | "scans";
+export type NewsKey = "alerts" | "deliverables" | "aspects" | "rubric" | "links" | "tutors" | "scans" | "english" | "consignas" | "closing";
 
 /** Releases in order; adding one shows its items to everyone who has not seen them. */
-export const NEWS_RELEASES = ["2026-10-22", "2026-10-22b"] as const;
+export const NEWS_RELEASES = ["2026-10-22", "2026-10-22b", "2026-10-22c"] as const;
 export type NewsRelease = (typeof NEWS_RELEASES)[number];
 
 export interface NewsItem {
@@ -57,6 +57,24 @@ export const NEWS_ITEMS: NewsItem[] = [
     title: "Entregas con enlace",
     text: "Además de un archivo, el alumno puede pegar un enlace (Drive, Docs, Canva…). Si es de Google y está compartido, la IA lo lee.",
     coveredBy: "deliverables",
+  },
+  {
+    key: "english",
+    release: "2026-10-22c",
+    title: "Actividades en inglés",
+    text: "Elegí «English» al crear la actividad o en Configuración → Idioma: los alumnos la ven en inglés y el tutor les responde en inglés.",
+  },
+  {
+    key: "consignas",
+    release: "2026-10-22c",
+    title: "Varias consignas",
+    text: "Con «Agregar consigna», los alumnos resuelven varias en orden, con el mismo tutor, y escriben una respuesta por consigna.",
+  },
+  {
+    key: "closing",
+    release: "2026-10-22c",
+    title: "La respuesta final, a tu manera",
+    text: "Pedila o no, y cambiá la pregunta «¿Qué pensás ahora?», en Configuración → Respuesta final.",
   },
   {
     key: "scans",

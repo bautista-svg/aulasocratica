@@ -9,6 +9,7 @@ import type { VoiceLanguage } from "../domain/voice";
 import type { FileKind } from "../domain/files";
 import { DELIVERABLE_URL_MAX, type DeliverableKind, type DeliverableMode } from "../domain/deliverables";
 import { MAX_CONSIGNAS } from "../domain/consignas";
+import type { ActivityLanguage } from "../domain/language";
 import { AWAY_MIN_MS, PASTE_MIN_CHARS } from "../domain/alerts";
 import { MAX_ANSWER_CHARS, MAX_CHAT_CHARS, MAX_REFLECTION_ANSWER_CHARS, MIN_ANSWER_CHARS } from "./student-limits";
 
@@ -93,6 +94,8 @@ export type SignalInput = z.input<typeof signalBody>;
 
 export interface StudentActivityPublic {
   title: string;
+  /** Language of the student's screens ("es" or "en"). */
+  language: ActivityLanguage;
   subject: string;
   /** "5.º B · Escuela N.º 12" style label (show it with studentMetaLine([subject, classroom])). */
   classroom: string;
@@ -175,8 +178,10 @@ export interface StudentWorkspace {
     /** Every consigna in order (the first is `instructions`). */
     consignas: string[];
     askFinalAnswer: boolean;
-    /** The closing question, already defaulted. */
+    /** The closing question, already defaulted (in the activity's language). */
     finalQuestion: string;
+    /** Language of the student's screens and the tutor. */
+    language: ActivityLanguage;
     material: string;
     requireInitialAnswer: boolean;
     voiceLanguage: VoiceLanguage;

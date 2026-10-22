@@ -164,6 +164,8 @@ export const activities = pgTable(
     /** Whether the closing step asks for a final answer, and with which question ("" = the default one). */
     askFinalAnswer: boolean("ask_final_answer").notNull().default(true),
     finalQuestion: text("final_question").notNull().default(""),
+    /** Language of the student's screens and the tutor: "es" or "en". */
+    language: text("language").notNull().default("es"),
     voiceLanguage: text("voice_language").notNull().default("off"),
     /**
      * Whether students hand in a file or link when they finish: off, optional or required. New
@@ -192,6 +194,7 @@ export const activities = pgTable(
     check("activities_help_level", sql`${t.helpLevel} in ('autonomous','moderate','intensive')`),
     check("activities_voice_language", sql`${t.voiceLanguage} in ('off','es','en')`),
     check("activities_deliverable_mode", sql`${t.deliverableMode} in ('off','optional','required')`),
+    check("activities_language", sql`${t.language} in ('es','en')`),
   ],
 );
 

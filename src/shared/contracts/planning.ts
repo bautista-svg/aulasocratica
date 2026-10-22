@@ -21,6 +21,8 @@ export const proposalsBody = z.object({
   extraText: text(MAX_EXTRA_TEXT).default(""),
   /** Optional extra request ("que sea en grupos", "otra más corta"…). */
   request: text(600).default(""),
+  /** Language of the activity for the students: what they read is written in it. */
+  language: z.enum(["es", "en"]).default("es"),
 });
 export type ProposalsInput = z.input<typeof proposalsBody>;
 
@@ -59,6 +61,7 @@ export const createFromProposalBody = z.object({
   materialIds: z.array(z.string().uuid()).max(MAX_PICK, `Podés elegir hasta ${MAX_PICK} materiales.`).default([]),
   extraText: text(MAX_EXTRA_TEXT).default(""),
   publish: z.boolean().default(false),
+  language: z.enum(["es", "en"]).default("es"),
   /** Same id again (double click, retry after a lost response) → the activity created the first time. */
   requestId: z.string().uuid().optional(),
 });
