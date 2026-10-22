@@ -97,7 +97,7 @@ function ClassroomsPage() {
                   ) : null}
                 </div>
                 <p className="mt-1 text-sm text-text-2">
-                  {[c.subject, [c.grade, c.division].filter(Boolean).join(" "), c.school].filter(Boolean).join(" · ") || "Sin datos de curso"}
+                  {[c.teacherName ? `Docente: ${c.teacherName}` : c.subject, [c.grade, c.division].filter(Boolean).join(" "), c.school].filter(Boolean).join(" · ") || "Sin datos de curso"}
                 </p>
                 <div className="mt-auto flex flex-wrap gap-x-4 gap-y-1 pt-5 text-sm text-text-3">
                   <span className="inline-flex items-center gap-1.5">

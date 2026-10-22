@@ -1,0 +1,1 @@
+ALTER TABLE "classrooms" ADD COLUMN "teacher_name" text DEFAULT '' NOT NULL;

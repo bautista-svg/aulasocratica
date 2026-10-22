@@ -44,6 +44,7 @@ async function summaries(teacherId: string, where: ReturnType<typeof and>): Prom
     id: c.id,
     name: c.name,
     school: c.school,
+    teacherName: c.teacherName,
     subject: c.subject,
     grade: c.grade,
     division: c.division,

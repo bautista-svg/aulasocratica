@@ -8,8 +8,8 @@ import type { ClassroomSummary } from "@shared/contracts/classrooms";
 import { useSaveClassroom } from "./api";
 import { useRequestId, useSingleFlight } from "@client/features/activities/single-flight";
 
-type Values = { name: string; school: string; subject: string; grade: string; division: string; description: string };
-const EMPTY: Values = { name: "", school: "", subject: "", grade: "", division: "", description: "" };
+type Values = { name: string; school: string; teacherName: string; subject: string; grade: string; division: string; description: string };
+const EMPTY: Values = { name: "", school: "", teacherName: "", subject: "", grade: "", division: "", description: "" };
 
 export function ClassroomFormDialog({
   open,
@@ -32,7 +32,15 @@ export function ClassroomFormDialog({
     if (open) {
       setValues(
         classroom
-          ? { name: classroom.name, school: classroom.school, subject: classroom.subject, grade: classroom.grade, division: classroom.division, description: classroom.description }
+          ? {
+              name: classroom.name,
+              school: classroom.school,
+              teacherName: classroom.teacherName,
+              subject: classroom.subject,
+              grade: classroom.grade,
+              division: classroom.division,
+              description: classroom.description,
+            }
           : EMPTY,
       );
       save.reset();
@@ -85,8 +93,18 @@ export function ClassroomFormDialog({
           {(p) => <Input id={p.id} aria-describedby={p.describedBy} invalid={p.invalid} value={values.name} onChange={set("name")} maxLength={120} autoFocus required />}
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Materia" optional error={fields.subject}>
-            {(p) => <Input id={p.id} aria-describedby={p.describedBy} value={values.subject} onChange={set("subject")} maxLength={80} />}
+          <Field label="Docente" optional error={fields.teacherName}>
+            {(p) => (
+              <Input
+                id={p.id}
+                aria-describedby={p.describedBy}
+                value={values.teacherName}
+                onChange={set("teacherName")}
+                maxLength={80}
+                autoComplete="name"
+                placeholder="Laura Gómez"
+              />
+            )}
           </Field>
           <Field label="Escuela" optional error={fields.school}>
             {(p) => <Input id={p.id} aria-describedby={p.describedBy} value={values.school} onChange={set("school")} maxLength={160} />}

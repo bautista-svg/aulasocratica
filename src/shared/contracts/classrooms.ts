@@ -5,6 +5,8 @@ const short = (max: number) => z.string().trim().max(max, `Usá hasta ${max} car
 export const classroomBody = z.object({
   name: z.string().trim().min(1, "Poné un nombre para el aula.").max(120, "Usá hasta 120 caracteres."),
   school: short(160).default(""),
+  /** The course's teacher ("Docente"). */
+  teacherName: short(80).default(""),
   subject: short(80).default(""),
   grade: short(40).default(""),
   division: short(40).default(""),
@@ -21,6 +23,7 @@ export interface ClassroomSummary {
   id: string;
   name: string;
   school: string;
+  teacherName: string;
   subject: string;
   grade: string;
   division: string;

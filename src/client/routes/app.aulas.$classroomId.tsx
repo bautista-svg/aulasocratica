@@ -55,7 +55,7 @@ function ClassroomPage() {
     );
   }
   const c = room.data;
-  const meta = [c.subject, [c.grade, c.division].filter(Boolean).join(" "), c.school].filter(Boolean).join(" · ");
+  const meta = [c.teacherName ? `Docente: ${c.teacherName}` : c.subject, [c.grade, c.division].filter(Boolean).join(" "), c.school].filter(Boolean).join(" · ");
 
   const archive = () =>
     save.mutate(

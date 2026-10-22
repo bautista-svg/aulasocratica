@@ -86,6 +86,16 @@ describe("classrooms", () => {
     expect((await call("GET", "/api/classrooms", { cookie: b.cookie })).body.classrooms).toHaveLength(0);
   });
 
+  it("keeps the course's teacher («Docente») and lets it change", async () => {
+    const a = await newTeacher();
+    const r = await call("POST", "/api/classrooms", { cookie: a.cookie, body: { name: "6.º A", teacherName: "Laura Gómez", grade: "6.º grado" } });
+    expect(r.status).toBe(201);
+    expect(r.body.classroom).toMatchObject({ teacherName: "Laura Gómez", subject: "" });
+    const p = await call("PATCH", `/api/classrooms/${r.body.classroom.id}`, { cookie: a.cookie, body: { teacherName: "Martín Ruiz" } });
+    expect(p.body.classroom.teacherName).toBe("Martín Ruiz");
+    expect((await call("PATCH", `/api/classrooms/${r.body.classroom.id}`, { cookie: a.cookie, body: { teacherName: "x".repeat(81) } })).status).toBe(400);
+  });
+
   it("validates input with per-field messages", async () => {
     const a = await newTeacher();
     const r = await call("POST", "/api/classrooms", { cookie: a.cookie, body: { name: "" } });

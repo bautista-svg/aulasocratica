@@ -72,6 +72,9 @@ export const classrooms = pgTable(
     teacherId: uuid("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     school: text("school").notNull().default(""),
+    /** Asked by teachers: a course has several subjects but one teacher ("Docente"). */
+    teacherName: text("teacher_name").notNull().default(""),
+    /** Kept for courses created before "Docente" replaced it in the form (default subject of their activities). */
     subject: text("subject").notNull().default(""),
     grade: text("grade").notNull().default(""),
     division: text("division").notNull().default(""),

@@ -24,6 +24,7 @@ Estados: **Funciona** (de punta a punta, persistido y probado) · **Parcial** ·
 | Funcionalidad | Estado original | Problemas | Solución | Prioridad | Prueba | Estado final |
 |---|---|---|---|---|---|---|
 | Crear/editar/archivar/restaurar/eliminar aula | Funcionaba; archivar ocultaba el aula sin forma de restaurar y dejaba los enlaces abiertos | Aula archivada irrecuperable, enlaces activos | Pestaña Archivadas con Restaurar; archivar cierra los enlaces de sus actividades | Alta | I: auth-classrooms; UI | Funciona |
+| «Docente» en lugar de «Materia» en el aula | El aula pedía una materia | Pedido del cliente (21-10 y 22-10): un curso tiene varias materias pero una docente | El formulario del aula pide «Docente» y la tarjeta del curso la muestra; la materia queda en cada actividad (las aulas viejas conservan la suya) | Media | I: auth-classrooms | Funciona |
 | Lista de alumnos del aula | Alta manual/CSV con correo | Alumnos mezclados entre actividades | Lista opcional pegando nombres; los alumnos aparecen solos al entrar; **filtro "Mostrar alumnos de [actividad]"** | Alta (WhatsApp) | I: auth-classrooms; E2E: flows | Funciona |
 | Corregir nombre / eliminar alumno con sus trabajos | Parcial | — | Renombrar con control de duplicados; eliminar con confirmación (y los informes se actualizan) | Media | I: auth-classrooms, security-fixes | Funciona |
 | Alertas del aula (configurables) | Funcionaba | — | Catálogo de la plataforma (las de seguridad siempre activas) + alertas propias | Media | I: auth-classrooms | Funciona |
