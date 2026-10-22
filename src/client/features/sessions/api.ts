@@ -69,6 +69,13 @@ export function useSessionMutations(id: string) {
       mutationFn: () => api.post<RubricSuggestResult>(`/api/sessions/${id}/rubric/suggest`),
       onSuccess: (r) => patch((d) => ({ ...d, rubric: r.rubric })),
     }),
+    clearSuggestion: useMutation({
+      mutationFn: (criterionId?: string) =>
+        api.del<{ rubric: RubricAssessmentView }>(
+          `/api/sessions/${id}/rubric/suggestion${criterionId ? `?criterionId=${encodeURIComponent(criterionId)}` : ""}`,
+        ),
+      onSuccess: (r) => patch((d) => ({ ...d, rubric: r.rubric })),
+    }),
     saveRubric: useMutation({
       mutationFn: (body: RubricSaveInput) => api.put<{ rubric: RubricAssessmentView }>(`/api/sessions/${id}/rubric`, body),
       onSuccess: (r) => patch((d) => ({ ...d, rubric: r.rubric })),
