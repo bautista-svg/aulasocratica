@@ -23,6 +23,8 @@ export interface SessionSummaryContent {
 }
 
 export const MAX_EVIDENCE_PER_POINT = 3;
+/** An objective is the title of its point, and teachers write long ones: never cut it. */
+const TITLE_MAX = 1000;
 
 /** Keeps only valid, available bases (no rubric basis when the activity has no rubric). */
 export function normalizeBasis(
@@ -54,7 +56,7 @@ function points(raw: unknown, corpus: string | null): SummaryPoint[] {
   for (const r of raw.slice(0, 12)) {
     if (!r || typeof r !== "object") continue;
     const o = r as { title?: unknown; observation?: unknown; evidence?: unknown };
-    const title = str(o.title, 200);
+    const title = str(o.title, TITLE_MAX);
     const observation = str(o.observation, 1500);
     if (!title || !observation) continue;
     const evidence = (Array.isArray(o.evidence) ? o.evidence : [])
@@ -64,6 +66,21 @@ function points(raw: unknown, corpus: string | null): SummaryPoint[] {
     out.push({ title, observation, evidence });
   }
   return out;
+}
+
+const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+
+/**
+ * Shows each objective point with the full objective of the activity: the AI sometimes shortens
+ * it, and summaries saved before this fix had titles cut at 200 characters.
+ */
+export function withFullObjectives(points: SummaryPoint[], objectives: string[]): SummaryPoint[] {
+  return points.map((p) => {
+    const title = norm(p.title).replace(/(?:\.{3}|…)$/, "").trim();
+    if (title.length < 12) return p;
+    const full = objectives.find((o) => norm(o).startsWith(title));
+    return full && full.length > p.title.length ? { ...p, title: full } : p;
+  });
 }
 
 /**

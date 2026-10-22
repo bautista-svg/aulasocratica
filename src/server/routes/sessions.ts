@@ -11,6 +11,7 @@ import { audit } from "../services/audit";
 import { hit } from "../lib/rate-limit";
 import { log } from "../lib/logger";
 import { confirmBody, rubricSaveBody, summaryBody, xrayItemPatch } from "@shared/contracts/sessions";
+import { splitObjectives } from "@shared/domain/session-summary";
 import { loadSessionDetail, summaryView } from "../services/sessions/detail";
 import { buildJourneyPdf, journeyDisposition } from "../services/sessions/journey-pdf";
 import { analyzeDeliverable, analyzeXray, clearRubricSuggestion, patchXrayItem, saveRubric, suggestRubric, summarize } from "../services/sessions/ai";
@@ -146,7 +147,7 @@ export const sessionRoutes = new Hono<AppEnv>()
     const body = await readJson(c, summaryBody);
     aiLimit(c);
     const saved = await summarize(row, t.id, body.basis);
-    return c.json({ summary: summaryView(saved) });
+    return c.json({ summary: summaryView(saved, splitObjectives(row.activity.objectives)) });
   })
 
   // ── Radiografía del pensamiento ──

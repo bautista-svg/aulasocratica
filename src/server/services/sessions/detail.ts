@@ -14,7 +14,7 @@ import { REFLECTION_QUESTIONS } from "@shared/domain/pedagogy";
 import { currentStage, lastSignalAt, liveStatus, stageReached, type LiveSession } from "@shared/domain/live-monitor";
 import { observedAlertReason } from "@shared/domain/alerts";
 import { buildThinkingFlow } from "@shared/domain/thinking-xray";
-import { sanitizeSummary, splitObjectives, type SummaryBasis } from "@shared/domain/session-summary";
+import { sanitizeSummary, splitObjectives, withFullObjectives, type SummaryBasis } from "@shared/domain/session-summary";
 import { classroomLabel } from "@shared/contracts/classrooms";
 import type {
   DeliverableAnalysis,
@@ -159,12 +159,13 @@ export function rubricView(
   };
 }
 
-export function summaryView(row: typeof schema.sessionSummaries.$inferSelect | undefined): SummaryView | null {
+export function summaryView(row: typeof schema.sessionSummaries.$inferSelect | undefined, objectives: string[]): SummaryView | null {
   if (!row) return null;
+  const content = sanitizeSummary(row.content);
   const meta = ((row.content as { meta?: Record<string, unknown> } | null)?.meta ?? {}) as Record<string, unknown>;
   return {
     basis: row.basis.filter((b): b is SummaryBasis => b === "rubric" || b === "objectives"),
-    content: sanitizeSummary(row.content),
+    content: { ...content, objectives: withFullObjectives(content.objectives, objectives) },
     generatedAt: row.updatedAt.toISOString(),
     droppedQuotes: typeof meta.droppedQuotes === "number" ? meta.droppedQuotes : 0,
     omittedMessages: typeof meta.omittedMessages === "number" ? meta.omittedMessages : 0,
@@ -309,7 +310,7 @@ export async function loadSessionDetail(row: OwnedSessionRow): Promise<SessionDe
     events,
     alerts,
     rubric: rubricView(rubricRows[0], rubric),
-    summary: summaryView(summaryRows[0]),
+    summary: summaryView(summaryRows[0], splitObjectives(a.objectives)),
     summaryAvailable: { rubric: rubric.length > 0, objectives: splitObjectives(a.objectives).length > 0 },
     xray: xrayView(xrayRows[0]),
     flow: buildThinkingFlow(finished.map((m) => ({ role: m.role, content: m.content, intent: m.intent, createdAt: m.createdAt }))),

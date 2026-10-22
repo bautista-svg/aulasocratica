@@ -9,7 +9,7 @@ import { generateStructured } from "../../ai/client";
 import { badRequest, conflict, notFound } from "../../lib/errors";
 import { readFile } from "../../lib/storage";
 import { sanitizeRubric } from "@shared/domain/activity-design";
-import { normalizeBasis, sanitizeSummary, splitObjectives, type SummaryBasis } from "@shared/domain/session-summary";
+import { normalizeBasis, sanitizeSummary, splitObjectives, withFullObjectives, type SummaryBasis } from "@shared/domain/session-summary";
 import { XRAY_MOMENTS, sanitizeXrayItems } from "@shared/domain/thinking-xray";
 import { quoteAppears } from "@shared/domain/thinking-xray";
 import { MAX_IMAGE_BYTES } from "@shared/domain/files";
@@ -440,7 +440,8 @@ ${tasks}
     criteria: raw.criteria.map((p) => ({ ...p, evidence: p.evidence.filter((e) => quoteInTexts(e, texts)) })),
     objectives: raw.objectives.map((p) => ({ ...p, evidence: p.evidence.filter((e) => quoteInTexts(e, texts)) })),
   };
-  const content = sanitizeSummary(strict, texts.join("\n"));
+  const clean = sanitizeSummary(strict, texts.join("\n"));
+  const content = { ...clean, objectives: withFullObjectives(clean.objectives, objectives) };
   const droppedQuotes = Math.max(0, countEvidence(raw) - countEvidence(strict));
   const stored = { ...content, meta: { droppedQuotes, omittedMessages: transcript.omitted } };
   const [saved] = await db
