@@ -8,6 +8,7 @@
 //    activity → one prompt cache shared by the whole class);
 //  - `volatile`: what changes per student/turn (initial answer, hint count, and material
 //    excerpts when the material is too long to send whole).
+// `tutorRequest` lays them out for the cache (see there).
 import { HELP_LEVELS, TUTOR_TYPES, TUTOR_TYPE_GUIDANCE } from "./pedagogy";
 import { voiceTutorRules, type VoiceLanguage } from "./voice";
 import { assembleMaterial, selectMaterial, type MaterialSource } from "./material-select";
@@ -193,4 +194,49 @@ export function conversationQuery(turns: HistoryTurn[], initialAnswer: string | 
     .map((t) => t.content)
     .join("\n");
   return [instructions, initialAnswer ?? "", recent].join("\n").slice(-8000);
+}
+
+// ── Request layout for the prompt cache ──
+
+type CacheMark = { type: "ephemeral" };
+export interface TutorTextBlock {
+  type: "text";
+  text: string;
+  cache_control?: CacheMark;
+}
+export interface TutorRequestMessage {
+  role: "user" | "assistant";
+  content: string | TutorTextBlock[];
+}
+
+/** Heading of the per-turn context inside the student's newest message. */
+export const TURN_CONTEXT_HEADING = "[Contexto de la plataforma para este turno: no lo escribió el estudiante]";
+
+/**
+ * The request for one tutor turn, laid out so the API reads as much as possible from its cache:
+ * - system = only the stable part, cached: the same for every student and turn of the activity;
+ * - the history only grows, and the tutor's previous reply carries a cache mark, so each turn
+ *   reads every earlier turn from the cache instead of paying for it again;
+ * - what changes every turn (student state, material excerpts) goes LAST, inside the newest
+ *   student message, so it never changes what was cached.
+ * `history` must end with the student's message (the caller checks it).
+ */
+export function tutorRequest(prompt: TutorPrompt, history: HistoryTurn[]): { system: TutorTextBlock[]; messages: TutorRequestMessage[] } {
+  const cache: CacheMark = { type: "ephemeral" };
+  const last = history.length - 1;
+  const messages: TutorRequestMessage[] = history.map((t, i) => {
+    if (i === last) {
+      return {
+        role: t.role,
+        content: [
+          { type: "text", text: `${TURN_CONTEXT_HEADING}\n${prompt.volatile}` },
+          { type: "text", text: t.content },
+        ],
+      };
+    }
+    // The tutor's reply right before the new message: the end of what the next turn will reuse.
+    if (i === last - 1 && t.role === "assistant") return { role: t.role, content: [{ type: "text", text: t.content, cache_control: cache }] };
+    return { role: t.role, content: t.content };
+  });
+  return { system: [{ type: "text", text: prompt.stable, cache_control: cache }], messages };
 }

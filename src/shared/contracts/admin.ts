@@ -33,6 +33,8 @@ export interface AdminUsagePurpose {
   calls: number;
   inputTokens: number;
   outputTokens: number;
+  /** Input tokens read from the prompt cache (they cost a tenth). */
+  cacheReadTokens: number;
   costUsd: number;
 }
 

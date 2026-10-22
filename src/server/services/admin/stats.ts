@@ -1,4 +1,4 @@
-import { AI_PRICES_PER_MTOK } from "@shared/domain/ai-cost";
+import { AI_PRICES_PER_MTOK, costUsd } from "@shared/domain/ai-cost";
 // Read-only aggregates for /admin. Counts and AI usage only: no student names, no content,
 // no full teacher emails (masked).
 import { sql } from "drizzle-orm";
@@ -6,7 +6,6 @@ import { db } from "../../db/client";
 import { env } from "../../env";
 import {
   AI_PRICE_PER_MTOK,
-  estimateCostUsd,
   maskEmail,
   type AdminOverview,
   type AdminUsageDay,
@@ -29,6 +28,10 @@ export function lastDays(count: number, now = new Date()): string[] {
   return Array.from({ length: count }, (_, i) => new Date(base - (count - 1 - i) * 86_400_000).toISOString().slice(0, 10));
 }
 
+/** Cost with the cache prices (reads cost a tenth of normal input), as the daily caps count it. */
+const costOf = (r: { cacheRead?: number; cacheWrite?: number } | undefined, input: number, output: number) =>
+  costUsd({ inputTokens: input, outputTokens: output, cacheReadTokens: Number(r?.cacheRead ?? 0), cacheWriteTokens: Number(r?.cacheWrite ?? 0) });
+
 export async function adminOverview(): Promise<AdminOverview> {
   const days = lastDays(DAYS);
   const since = sql`(${days[0]}::date::timestamp at time zone ${TZ})`;
@@ -45,20 +48,24 @@ export async function adminOverview(): Promise<AdminOverview> {
         (select count(*)::int from activities where status = 'published') as "published",
         (select count(*)::int from learning_sessions) as "studentSessions",
         (select count(*)::int from messages where created_at > now() - interval '7 days') as "messages7"`),
-    db.execute<{ day: string; calls: number; failed: number; input: number; output: number }>(sql`
+    db.execute<{ day: string; calls: number; failed: number; input: number; output: number; cacheRead: number; cacheWrite: number }>(sql`
       select to_char((created_at at time zone ${TZ})::date, 'YYYY-MM-DD') as day,
         count(*)::int as calls,
         count(*) filter (where not ok)::int as failed,
         coalesce(sum(input_tokens), 0)::float8 as input,
-        coalesce(sum(output_tokens), 0)::float8 as output
+        coalesce(sum(output_tokens), 0)::float8 as output,
+        coalesce(sum(cache_read_tokens), 0)::float8 as "cacheRead",
+        coalesce(sum(cache_write_tokens), 0)::float8 as "cacheWrite"
       from ai_usage
       where created_at >= ${since}
       group by 1
       order by 1`),
-    db.execute<{ purpose: string; calls: number; input: number; output: number }>(sql`
+    db.execute<{ purpose: string; calls: number; input: number; output: number; cacheRead: number; cacheWrite: number }>(sql`
       select purpose, count(*)::int as calls,
         coalesce(sum(input_tokens), 0)::float8 as input,
-        coalesce(sum(output_tokens), 0)::float8 as output
+        coalesce(sum(output_tokens), 0)::float8 as output,
+        coalesce(sum(cache_read_tokens), 0)::float8 as "cacheRead",
+        coalesce(sum(cache_write_tokens), 0)::float8 as "cacheWrite"
       from ai_usage
       where created_at >= ${since}
       group by purpose
@@ -76,7 +83,7 @@ export async function adminOverview(): Promise<AdminOverview> {
       failed: r?.failed ?? 0,
       inputTokens: input,
       outputTokens: output,
-      costUsd: round4(estimateCostUsd(input, output)),
+      costUsd: round4(costOf(r, input, output)),
     };
   });
   const byPurpose = Array.from(purposeRows).map((r) => ({
@@ -84,7 +91,8 @@ export async function adminOverview(): Promise<AdminOverview> {
     calls: r.calls,
     inputTokens: Number(r.input),
     outputTokens: Number(r.output),
-    costUsd: round4(estimateCostUsd(Number(r.input), Number(r.output))),
+    cacheReadTokens: Number(r.cacheRead),
+    costUsd: round4(costOf(r, Number(r.input), Number(r.output))),
   }));
   const totals = Array.from(totalsRows)[0]!;
   return {

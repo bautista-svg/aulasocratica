@@ -18,7 +18,7 @@ import { log, errorFields } from "../../lib/logger";
 import { STUDENT_INTENTS, sanitizeExtraTutorTypes } from "@shared/domain/pedagogy";
 import { KIND_LABEL, type FileKind } from "@shared/domain/files";
 import { isVoiceLanguage } from "@shared/domain/voice";
-import { buildHistory, buildTutorPrompt, conversationQuery } from "@shared/domain/tutor-prompt";
+import { buildHistory, buildTutorPrompt, conversationQuery, tutorRequest } from "@shared/domain/tutor-prompt";
 import type { MaterialSource } from "@shared/domain/material-select";
 import type { chatBody } from "@shared/contracts/student";
 import type { z } from "zod";
@@ -161,11 +161,7 @@ export async function tutorChat(c: Context, ctx: StudentCtx, body: ChatBody): Pr
       hintCount: state.hintCount,
       recentConversation: conversationQuery(history, state.initialAnswer, activity.instructions),
     });
-    const system: Anthropic.TextBlockParam[] = [
-      { type: "text", text: prompt.stable, cache_control: { type: "ephemeral" } },
-      { type: "text", text: prompt.volatile },
-    ];
-    const messages: Anthropic.MessageParam[] = history.map((t) => ({ role: t.role, content: t.content }));
+    const { system, messages } = tutorRequest(prompt, history);
 
     const presetOnly = body.intent !== null && userText.trim() === STUDENT_INTENTS[body.intent].message;
     const detectAfter =

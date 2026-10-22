@@ -108,14 +108,24 @@ export async function detectAlerts(input: DetectInput): Promise<number> {
       maxTokens: 1500,
       system: INSTRUCTIONS,
       schema: detectionSchema,
+      // Instructions + the classroom's alert list are the same for every student: cached, so each
+      // check of the class pays only for the student's text (measured: the next check reads them).
       content: [
-        "ALERTAS ACTIVAS:",
-        ...active.map((a) => `- ${a.key}: ${a.name} — ${a.description}`),
-        earlier.length ? `\nMENSAJES ANTERIORES DEL ESTUDIANTE (contexto):\n<<<\n${earlier.map((e) => fence(e, 600)).join("\n---\n")}\n>>>` : "",
-        `\nTEXTO DEL ESTUDIANTE A REVISAR:\n<<<\n${fence(text, 3000)}\n>>>`,
-      ]
-        .filter(Boolean)
-        .join("\n"),
+        {
+          type: "text",
+          text: ["ALERTAS ACTIVAS:", ...active.map((a) => `- ${a.key}: ${a.name} — ${a.description}`)].join("\n"),
+          cache_control: { type: "ephemeral" },
+        },
+        {
+          type: "text",
+          text: [
+            earlier.length ? `MENSAJES ANTERIORES DEL ESTUDIANTE (contexto):\n<<<\n${earlier.map((e) => fence(e, 600)).join("\n---\n")}\n>>>` : "",
+            `TEXTO DEL ESTUDIANTE A REVISAR:\n<<<\n${fence(text, 3000)}\n>>>`,
+          ]
+            .filter(Boolean)
+            .join("\n\n"),
+        },
+      ],
     });
 
     const found = sanitizeDetections(result.detections, {

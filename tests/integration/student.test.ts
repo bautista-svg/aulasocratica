@@ -414,6 +414,10 @@ describe("availability is checked on every request", () => {
   });
 });
 
+/** The text of a recorded message (the newest one also carries the per-turn context block). */
+const textOf = (m: { content: string | { text: string }[] }) => (typeof m.content === "string" ? m.content : m.content.map((b) => b.text).join("\n"));
+const studentText = (m: { content: string | { text: string }[] }) => (typeof m.content === "string" ? m.content : m.content.at(-1)!.text);
+
 describe("tutor chat", () => {
   it("requires the initial answer only when the activity asks for it", async () => {
     const s = await joined();
@@ -431,7 +435,7 @@ describe("tutor chat", () => {
     expect(events.filter((e) => e === "initial_answer_saved")).toHaveLength(1);
   });
 
-  it("streams the reply as SSE, stores both messages and sends a cached two-block system prompt", async () => {
+  it("streams the reply as SSE, stores both messages and lays the request out for the prompt cache", async () => {
     const s = await joined();
     await call("POST", `/api/s/${s.token}/initial`, { cookie: s.cookie, body: { answer: "Creo que sí porque es la mitad." } });
     await settleStudentJobs();
@@ -463,12 +467,15 @@ describe("tutor chat", () => {
     expect(req.max_tokens).toBe(1500);
     expect(req.thinking).toEqual({ type: "disabled" });
     expect(req.output_config).toEqual({ effort: "low" });
-    expect(req.system).toHaveLength(2);
+    // System: only the stable, cached part. The student's state travels in the newest message.
+    expect(req.system).toHaveLength(1);
     expect(req.system[0].cache_control).toEqual({ type: "ephemeral" });
     expect(req.system[0].text).toMatch(/^REGLAS GLOBALES/);
-    expect(req.system[1].cache_control).toBeUndefined();
-    expect(req.system[1].text).toContain("Creo que sí porque es la mitad.");
-    expect(req.messages).toEqual([{ role: "user", content: "Porque 2 es la mitad de 4" }]);
+    expect(req.system[0].text).not.toContain("Creo que sí porque es la mitad.");
+    expect(req.messages).toHaveLength(1);
+    expect(req.messages[0].role).toBe("user");
+    expect(req.messages[0].content[0].text).toContain("Creo que sí porque es la mitad.");
+    expect(studentText(req.messages[0])).toBe("Porque 2 es la mitad de 4");
 
     const usage = await db.select().from(schema.aiUsage).where(eq(schema.aiUsage.purpose, "tutor_chat"));
     expect(usage).toHaveLength(1);
@@ -493,12 +500,15 @@ describe("tutor chat", () => {
     expect(r.status).toBe(200);
     const streams = recorded.filter((x) => x.body.stream === true);
     const last = streams.at(-1)!.body as any;
-    expect(last.messages).toEqual([
-      { role: "user", content: "Primera idea" },
-      { role: "assistant", content: "¿Qué pensás vos?" },
-      { role: "user", content: "Necesito una pista." },
+    expect(last.messages.map((m: never) => [(m as { role: string }).role, studentText(m)])).toEqual([
+      ["user", "Primera idea"],
+      ["assistant", "¿Qué pensás vos?"],
+      ["user", "Necesito una pista."],
     ]);
-    expect(last.system[1].text).toContain("Pistas solicitadas hasta ahora: 1.");
+    // The previous reply ends what the next turn reads from the cache; the state goes last.
+    expect(last.messages[1].content[0].cache_control).toEqual({ type: "ephemeral" });
+    expect(last.messages[2].content[0].text).toContain("Pistas solicitadas hasta ahora: 1.");
+    expect(last.system[0].text).not.toContain("Pistas solicitadas");
     await chat(s.token, s.cookie, { text: "No entendí.", intent: "not_understood" });
     const [session] = await db.select().from(schema.learningSessions).where(eq(schema.learningSessions.id, s.session.id));
     expect(session!.hintCount).toBe(1);
@@ -514,7 +524,7 @@ describe("tutor chat", () => {
     const r = await chat(s.token, s.cookie, { text: "Hola, no sé por dónde empezar" });
     expect(r.events.at(-1)!.event).toBe("done");
     const req = recorded.find((x) => x.body.stream === true)!.body as any;
-    const prompt = `${req.system[0].text}\n${req.system[1].text}`;
+    const prompt = `${req.system[0].text}\n${textOf(req.messages.at(-1))}`;
     expect(prompt).toMatch(/no se lo pidas/);
     expect(prompt).not.toMatch(/pedile que (primero )?(intente|escriba|responda)/i);
     // Closing and finishing also work without an initial answer.
@@ -628,7 +638,7 @@ describe("tutor chat", () => {
     msgs = await messagesOf(s.session.id);
     expect(msgs.map((m) => m.role)).toEqual(["user", "assistant"]);
     const lastReq = recorded.filter((x) => x.body.stream === true).at(-1)!.body as any;
-    expect(lastReq.messages).toEqual([{ role: "user", content: "Mi mensaje" }]);
+    expect(lastReq.messages.map((m: never) => studentText(m))).toEqual(["Mi mensaje"]);
 
     const nothing = await chat(s.token, s.cookie, { retry: true });
     expect(nothing.status).toBe(409);
@@ -793,6 +803,12 @@ describe("AI alert detection", () => {
     expect(content).toContain("safety_signal");
     expect(content).not.toContain("- pasted_text:");
     expect(content).not.toContain("- left_app:");
+    // The alert list (same for the whole class) is cached; the student's text goes after it.
+    const [list, student] = req.messages[0].content;
+    expect(list.cache_control).toEqual({ type: "ephemeral" });
+    expect(list.text).toContain("comprehension_gap");
+    expect(list.text).not.toContain(answer);
+    expect(student.text).toContain(answer);
 
     const alerts = await db.select().from(schema.studentAlerts).where(eq(schema.studentAlerts.sessionId, s.session.id));
     expect(alerts.map((a) => a.alertKey).sort()).toEqual(["comprehension_gap", "socioemotional"]);

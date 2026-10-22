@@ -142,8 +142,8 @@ function UsageChart({ ai }: { ai: AdminOverview["ai"] }) {
         </div>
         <p className="mt-4 text-[13px] leading-5 text-text-3">
           Costo estimado con precios de referencia de US$ {ai.pricePerMTok.input.toLocaleString("es-AR", { minimumFractionDigits: 2 })} por millón de tokens de entrada y US${" "}
-          {ai.pricePerMTok.output.toLocaleString("es-AR", { minimumFractionDigits: 2 })} por millón de salida. No es la factura: el costo real depende de los precios vigentes del
-          proveedor, el uso de caché y los impuestos. Límites diarios de gasto en IA: US$ {ai.dailyUsdPerWorkspace} por espacio y US$ {ai.dailyUsdGlobal} para todo el servicio.
+          {ai.pricePerMTok.output.toLocaleString("es-AR", { minimumFractionDigits: 2 })} por millón de salida; lo leído de la caché se cuenta a la décima parte. No es la factura: el costo real depende de los precios
+          vigentes del proveedor y los impuestos. Límites diarios de gasto en IA: US$ {ai.dailyUsdPerWorkspace} por espacio y US$ {ai.dailyUsdGlobal} para todo el servicio.
         </p>
       </div>
     </Card>
@@ -171,6 +171,11 @@ function PurposeTable({ ai }: { ai: AdminOverview["ai"] }) {
                   Entrada
                 </th>
                 <th scope="col" className="px-4 py-2 text-right font-semibold">
+                  <abbr title="Parte de la entrada que se leyó de la caché (cuesta la décima parte)" className="no-underline">
+                    De caché
+                  </abbr>
+                </th>
+                <th scope="col" className="px-4 py-2 text-right font-semibold">
                   Salida
                 </th>
                 <th scope="col" className="px-5 py-2 text-right font-semibold">
@@ -186,6 +191,7 @@ function PurposeTable({ ai }: { ai: AdminOverview["ai"] }) {
                   </th>
                   <td className="tabular px-4 py-2.5 text-right">{fmtNum(p.calls)}</td>
                   <td className="tabular px-4 py-2.5 text-right">{fmtCompact(p.inputTokens)}</td>
+                  <td className="tabular px-4 py-2.5 text-right">{p.inputTokens ? `${Math.round((p.cacheReadTokens / p.inputTokens) * 100)} %` : "—"}</td>
                   <td className="tabular px-4 py-2.5 text-right">{fmtCompact(p.outputTokens)}</td>
                   <td className="tabular px-5 py-2.5 text-right">{fmtUsd(p.costUsd)}</td>
                 </tr>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GLOBAL_RULES, buildHistory, buildTutorPrompt, conversationQuery, stripFences, type TutorPromptInput } from "./tutor-prompt";
+import { GLOBAL_RULES, TURN_CONTEXT_HEADING, buildHistory, buildTutorPrompt, conversationQuery, stripFences, tutorRequest, type TutorPromptInput } from "./tutor-prompt";
 import { TUTOR_TYPE_GUIDANCE, HELP_LEVELS, sanitizeExtraTutorTypes, tutorTypesLabel } from "./pedagogy";
 
 const base: TutorPromptInput = {
@@ -188,5 +188,48 @@ describe("buildHistory", () => {
     const q = conversationQuery([{ role: "user", content: "volcanes" }], "mi idea", "consigna");
     expect(q).toContain("volcanes");
     expect(q).toContain("mi idea");
+  });
+});
+
+describe("tutorRequest (prompt cache layout)", () => {
+  const turns = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({ role: (i % 2 === 0 ? "user" : "assistant") as "user" | "assistant", content: `turno ${i + 1}` }));
+  const plain = (r: ReturnType<typeof tutorRequest>, upTo: number) =>
+    JSON.stringify(r.messages.slice(0, upTo).map((m) => ({ role: m.role, text: Array.isArray(m.content) ? m.content.map((b) => b.text).join("") : m.content })));
+
+  it("caches only the stable system prompt: nothing that changes per turn lives there", () => {
+    const a = tutorRequest(buildTutorPrompt({ ...base, hintCount: 0 }), turns(1));
+    const b = tutorRequest(buildTutorPrompt({ ...base, hintCount: 3, initialAnswer: "Otra idea." }), turns(3));
+    expect(a.system).toEqual(b.system);
+    expect(a.system).toHaveLength(1);
+    expect(a.system[0]!.cache_control).toEqual({ type: "ephemeral" });
+    expect(a.system[0]!.text).not.toContain("Pistas solicitadas");
+  });
+
+  it("puts the per-turn context last, inside the newest student message, before what the student wrote", () => {
+    const r = tutorRequest(buildTutorPrompt({ ...base, hintCount: 2 }), turns(3));
+    const last = r.messages.at(-1)!;
+    expect(last.role).toBe("user");
+    const blocks = last.content as { text: string }[];
+    expect(blocks[0]!.text.startsWith(TURN_CONTEXT_HEADING)).toBe(true);
+    expect(blocks[0]!.text).toContain("Pistas solicitadas hasta ahora: 2.");
+    expect(blocks[1]!.text).toBe("turno 3");
+    // The tutor's previous reply ends the cached part.
+    expect((r.messages[1]!.content as { cache_control?: unknown }[])[0]!.cache_control).toEqual({ type: "ephemeral" });
+    expect(JSON.stringify(r.messages.slice(0, 1))).not.toContain("cache_control");
+  });
+
+  it("next turn reuses everything the previous turn cached, even when the student state changes", () => {
+    const turn3 = tutorRequest(buildTutorPrompt({ ...base, hintCount: 0 }), turns(3));
+    const turn5 = tutorRequest(buildTutorPrompt({ ...base, hintCount: 1 }), turns(5));
+    // Same system, and the messages turn 3 cached are sent again unchanged (as plain text) in turn 5.
+    expect(turn5.system).toEqual(turn3.system);
+    expect(plain(turn5, 2)).toBe(plain(turn3, 2));
+  });
+
+  it("the first turn has no reply to mark: only the system prompt is cached", () => {
+    const r = tutorRequest(buildTutorPrompt(base), turns(1));
+    expect(r.messages).toHaveLength(1);
+    expect(JSON.stringify(r.messages)).not.toContain("cache_control");
   });
 });

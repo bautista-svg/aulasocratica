@@ -65,6 +65,17 @@ docs/                Arquitectura, auditoría, informes
    En los esquemas, **nada de `z.enum`**: `zodOutputFormat` pasa el enum a la descripción y la API no lo hace
    cumplir, así que un valor inesperado rompería todo el pedido. Se pide `z.string()` y se normaliza al guardar
    (ver `toAspectKey`).
+6. **Caché de prompts** (medido con la API real, `npx tsx --env-file=.env scripts/dev/ai-cache-check.ts`):
+   - Tutor (`tutorRequest`): el system es solo la parte estable y va cacheado; la respuesta anterior del tutor lleva
+     la marca de caché, así cada turno lee de la caché toda la charla previa; lo que cambia en cada turno (estado del
+     alumno, fragmentos del material) va al final, dentro del último mensaje. En 6 turnos: 15–16 % más barato que el
+     diseño anterior y cada turno avanzado ~40 % menos. Los tests de `tutor-prompt.test.ts` fijan este orden.
+   - Detección de alertas: instrucciones + lista de alertas del aula (iguales para toda la clase) van cacheadas; el
+     texto del alumno, después.
+   - **Cambiar el formato de salida (el esquema) invalida la caché**: dos análisis distintos del mismo trabajo
+     (resumen, rúbrica, fortalezas) no comparten caché aunque el prefijo sea idéntico. No vale la pena reordenarlos.
+   - Nada que cambie por turno (fechas, contadores) puede ir antes de una marca de caché.
+   - `/admin` muestra, por función, qué parte de la entrada salió de la caché y el costo con esos precios.
 5. **Sin simulaciones**: nada de datos falsos, timeouts artificiales ni botones decorativos. Si algo no se puede
    hacer, no se muestra o se explica por qué.
 6. **Fechas**: la API devuelve ISO strings. **Ids**: uuid v4.

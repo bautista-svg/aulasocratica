@@ -150,6 +150,20 @@ describe("admin: overview and workspaces", () => {
     }
   });
 
+  it("shows how much of the input came from the prompt cache and counts it at the cache price", async () => {
+    const t = await newTeacher();
+    await db.insert(schema.aiUsage).values([
+      { teacherId: t.id, purpose: "tutor_chat", model: "m", inputTokens: 100_000, cacheReadTokens: 80_000, cacheWriteTokens: 10_000, outputTokens: 1_000 },
+    ]);
+    const r = await call("GET", "/api/admin/overview", { cookie: await adminCookie() });
+    const chat = r.body.ai.byPurpose.find((p: { purpose: string }) => p.purpose === "tutor_chat");
+    expect(chat).toMatchObject({ inputTokens: 100_000, cacheReadTokens: 80_000 });
+    // 10k uncached × 0.1 + 10k written × 0.125 + 80k read × 0.01 + 1k output × 0.5, per million = 0.00355
+    // (shown rounded to 4 decimals); without the cache prices it would be 0.0105.
+    expect(chat.costUsd).toBe(0.0036);
+    expect(r.body.ai.days.at(-1).costUsd).toBe(0.0036);
+  });
+
   it("paginates workspaces with a cursor", async () => {
     const base = Date.now();
     await db.insert(schema.teachers).values(Array.from({ length: 27 }, (_, i) => ({ createdAt: new Date(base - i * 1000) })));
