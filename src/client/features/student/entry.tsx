@@ -97,13 +97,14 @@ const UNSENT_TEXT: Record<DraftField, string> = {
   chat: "tu último mensaje para el tutor",
   initial: "tu primera idea",
   final: "tu respuesta final",
+  finals: "tus respuestas finales",
   reflection: "tu reflexión",
 };
 
 /** "Lo que escribiste no se envió": text kept on this device that the server never got. */
 export function UnsentNotice({ fields, reopenable }: { fields: DraftField[]; reopenable: boolean }) {
   if (!fields.length) return null;
-  const order: DraftField[] = ["chat", "initial", "final", "reflection"];
+  const order: DraftField[] = ["chat", "initial", "final", "finals", "reflection"];
   const names = order.filter((f) => fields.includes(f)).map((f) => UNSENT_TEXT[f]);
   const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} y ${names.at(-1)}` : names[0]!;
   const plural = names.length > 1;

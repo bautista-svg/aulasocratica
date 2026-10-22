@@ -114,6 +114,18 @@ export function ClosingStep({
   const onStale = useStaleHandler(token);
   const code = workspace.resumeCode;
   const [finalAnswer, setFinal, clearFinal] = useDraft(draftKey(token, code, "final"));
+  // Several consignas: one answer each (kept on this device as a list until it is sent).
+  const consignas = workspace.activity.consignas;
+  const multi = consignas.length > 1;
+  const [finalsRaw, setFinalsRaw, clearFinals] = useDraft(draftKey(token, code, "finals"));
+  let finals: string[] = [];
+  try {
+    const parsed = finalsRaw ? (JSON.parse(finalsRaw) as unknown) : [];
+    finals = Array.isArray(parsed) ? parsed.map((a) => (typeof a === "string" ? a : "")) : [];
+  } catch {
+    finals = [];
+  }
+  const setFinalAt = (i: number, value: string) => setFinalsRaw(JSON.stringify(consignas.map((_, j) => (j === i ? value : (finals[j] ?? "")))));
   const [reflectionRaw, setReflectionRaw, clearReflection] = useDraft(draftKey(token, code, "reflection"));
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -140,18 +152,26 @@ export function ClosingStep({
   }, [token, onStale]);
 
   const length = finalAnswer.trim().length;
+  const answered = multi
+    ? consignas.every((_, i) => {
+        const n = (finals[i] ?? "").trim().length;
+        return n >= MIN_ANSWER_CHARS && n <= MAX_ANSWER_CHARS;
+      })
+    : length >= MIN_ANSWER_CHARS && length <= MAX_ANSWER_CHARS;
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (busy || length < MIN_ANSWER_CHARS) return;
+    if (busy || !answered) return;
     setBusy(true);
     setError(null);
     setFieldErrors({});
     try {
       const r = await studentApi.finish(token, {
-        finalAnswer: finalAnswer.trim(),
+        finalAnswer: multi ? "" : finalAnswer.trim(),
+        ...(multi ? { finalAnswers: consignas.map((_, i) => (finals[i] ?? "").trim()) } : {}),
         reflection: workspace.activity.reflectionQuestions.map((q) => ({ key: q.key, answer: (reflection[q.key] ?? "").trim() })),
       });
       clearFinal();
+      clearFinals();
       clearReflection();
       setWorkspace(qc, token, r.workspace);
     } catch (err) {
@@ -186,24 +206,58 @@ export function ClosingStep({
             </div>
           ) : null}
 
-          <Field
-            label="Tu respuesta final"
-            hint="Se guarda en este dispositivo mientras escribís, aunque cierres la página."
-            error={fieldErrors.finalAnswer}
-            counter={length > MAX_ANSWER_CHARS - 400 ? { value: length, max: MAX_ANSWER_CHARS } : undefined}
-          >
-            {({ id, describedBy, invalid }) => (
-              <Textarea
-                id={id}
-                aria-describedby={describedBy}
-                invalid={invalid}
-                value={finalAnswer}
-                onChange={(e) => setFinal(e.target.value)}
-                minRows={5}
-                placeholder="Ahora pienso que…"
-              />
-            )}
-          </Field>
+          {multi ? (
+            <fieldset className="space-y-5">
+              <legend className="text-[15px] font-semibold text-text">Tu respuesta a cada consigna</legend>
+              <p className="-mt-3 text-[13px] text-text-3">Se guardan en este dispositivo mientras escribís, aunque cierres la página.</p>
+              {consignas.map((c, i) => {
+                const v = finals[i] ?? "";
+                return (
+                  <div key={i} className="rounded-lg border border-line bg-paper/60 p-3.5 sm:p-4">
+                    <Field
+                      label={`Consigna ${i + 1}`}
+                      error={fieldErrors[`finalAnswers.${i}`]}
+                      counter={v.length > MAX_ANSWER_CHARS - 400 ? { value: v.length, max: MAX_ANSWER_CHARS } : undefined}
+                    >
+                      {({ id, describedBy, invalid }) => (
+                        <>
+                          <p className="-mt-0.5 line-clamp-3 text-sm leading-6 whitespace-pre-wrap text-text-2">{c}</p>
+                          <Textarea
+                            id={id}
+                            aria-describedby={describedBy}
+                            invalid={invalid}
+                            value={v}
+                            onChange={(e) => setFinalAt(i, e.target.value)}
+                            minRows={3}
+                            placeholder="Ahora pienso que…"
+                          />
+                        </>
+                      )}
+                    </Field>
+                  </div>
+                );
+              })}
+            </fieldset>
+          ) : (
+            <Field
+              label="Tu respuesta final"
+              hint="Se guarda en este dispositivo mientras escribís, aunque cierres la página."
+              error={fieldErrors.finalAnswer}
+              counter={length > MAX_ANSWER_CHARS - 400 ? { value: length, max: MAX_ANSWER_CHARS } : undefined}
+            >
+              {({ id, describedBy, invalid }) => (
+                <Textarea
+                  id={id}
+                  aria-describedby={describedBy}
+                  invalid={invalid}
+                  value={finalAnswer}
+                  onChange={(e) => setFinal(e.target.value)}
+                  minRows={5}
+                  placeholder="Ahora pienso que…"
+                />
+              )}
+            </Field>
+          )}
 
           {workspace.activity.reflectionQuestions.length ? (
             <fieldset className="space-y-4 border-t border-line pt-5">
@@ -253,7 +307,7 @@ export function ClosingStep({
               size="lg"
               loading={busy}
               aria-describedby={missingFile ? "falta-entrega" : undefined}
-              disabled={length < MIN_ANSWER_CHARS || length > MAX_ANSWER_CHARS || missingFile || uploading}
+              disabled={!answered || missingFile || uploading}
             >
               Enviar mi trabajo
             </Button>
@@ -312,7 +366,19 @@ export function DoneStep({
               <p className="mt-1 text-[15px] leading-6 whitespace-pre-wrap text-text">{s.initialAnswer}</p>
             </div>
           ) : null}
-          {s.finalAnswer ? (
+          {s.finalAnswers.length > 1 ? (
+            <div className="rounded-md bg-leaf-soft px-4 py-3.5 sm:col-span-2">
+              <p className="text-xs font-semibold text-leaf">Ahora pensás</p>
+              <ol className="mt-2 space-y-2.5">
+                {s.finalAnswers.map((a, i) => (
+                  <li key={i}>
+                    <p className="text-xs font-semibold text-text-2">Consigna {i + 1}</p>
+                    <p className="mt-0.5 text-[15px] leading-6 whitespace-pre-wrap text-text">{a}</p>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ) : s.finalAnswer ? (
             <div className={s.initialAnswer ? "rounded-md bg-leaf-soft px-4 py-3.5" : "rounded-md bg-leaf-soft px-4 py-3.5 sm:col-span-2"}>
               <p className="text-xs font-semibold text-leaf">Ahora pensás</p>
               <p className="mt-1 text-[15px] leading-6 whitespace-pre-wrap text-text">{s.finalAnswer}</p>

@@ -199,6 +199,8 @@ export interface SessionDetail {
     status: "in_progress" | "completed";
     initialAnswer: string | null;
     finalAnswer: string | null;
+    /** With several consignas: one answer per consigna (finalAnswer has them joined). */
+    finalAnswers: string[];
     reflection: ReflectionAnswer[];
     hintCount: number;
     resumeCode: string;
@@ -220,6 +222,8 @@ export interface SessionDetail {
     id: string;
     title: string;
     instructions: string;
+    /** Every consigna in order (the first is `instructions`). */
+    consignas: string[];
     objectives: string;
     requireInitialAnswer: boolean;
     status: string;

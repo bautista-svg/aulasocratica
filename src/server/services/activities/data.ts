@@ -7,8 +7,9 @@ import { isUuid } from "../access";
 import { sanitizeReflectionQuestions, sanitizeRubric } from "@shared/domain/activity-design";
 import { isVoiceLanguage } from "@shared/domain/voice";
 import { isDeliverableMode } from "@shared/domain/deliverables";
-import type { ActivityEditorData, ActivityFile, ActivityStatus, HelpLevel } from "@shared/contracts/activities";
+import { ACTIVITY_LIMITS, type ActivityEditorData, type ActivityFile, type ActivityStatus, type HelpLevel } from "@shared/contracts/activities";
 import type { FileKind, ProcessingStatus } from "@shared/domain/files";
+import { sanitizeMoreInstructions } from "@shared/domain/consignas";
 
 type ActivityRow = typeof schema.activities.$inferSelect;
 
@@ -18,6 +19,7 @@ export function configOf(a: ActivityRow) {
     subject: a.subject,
     objectives: a.objectives,
     instructions: a.instructions,
+    moreInstructions: sanitizeMoreInstructions(a.moreInstructions, ACTIVITY_LIMITS.instructions),
     material: a.material,
     tutorType: a.tutorType,
     extraTutorTypes: sanitizeExtraTutorTypes(a.extraTutorTypes, a.tutorType),
@@ -61,6 +63,7 @@ export async function loadActivity(teacherId: string, activityId: string): Promi
     subject: a.subject,
     objectives: a.objectives,
     instructions: a.instructions,
+    moreInstructions: sanitizeMoreInstructions(a.moreInstructions, ACTIVITY_LIMITS.instructions),
     material: a.material,
     tutorType: a.tutorType,
     extraTutorTypes: sanitizeExtraTutorTypes(a.extraTutorTypes, a.tutorType),

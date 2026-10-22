@@ -11,6 +11,7 @@ import type { VoiceLanguage } from "../domain/voice";
 import { DELIVERABLE_PROMPT_MAX, type DeliverableMode } from "../domain/deliverables";
 import type { FileKind, ProcessingStatus } from "../domain/files";
 import { MAX_TUTOR_TYPES, TUTOR_TYPES } from "../domain/pedagogy";
+import { MAX_CONSIGNAS } from "../domain/consignas";
 import { MAX_TUTOR_RULES } from "../domain/tutors";
 
 export type ActivityStatus = "draft" | "published" | "archived";
@@ -59,6 +60,8 @@ export interface ActivityDetail {
   subject: string;
   objectives: string;
   instructions: string;
+  /** Consignas after the first one. */
+  moreInstructions: string[];
   material: string;
   tutorType: string;
   /** Other types combined with the main one (up to two). */
@@ -171,6 +174,7 @@ export const activityPatch = z
     subject: text(ACTIVITY_LIMITS.subject),
     objectives: text(ACTIVITY_LIMITS.objectives),
     instructions: text(ACTIVITY_LIMITS.instructions),
+    moreInstructions: z.array(text(ACTIVITY_LIMITS.instructions)).max(MAX_CONSIGNAS - 1, `Podés poner hasta ${MAX_CONSIGNAS} consignas.`),
     material: text(ACTIVITY_LIMITS.material),
     tutorType: tutorTypeSchema,
     extraTutorTypes: z.array(tutorTypeSchema).max(MAX_TUTOR_TYPES - 1, `Podés combinar hasta ${MAX_TUTOR_TYPES} tipos de tutor.`),

@@ -32,6 +32,7 @@ import {
 } from "@shared/contracts/student";
 import type { FileKind } from "@shared/domain/files";
 import { isStreaming } from "./streams";
+import { consignasOf, readFinalAnswers } from "@shared/domain/consignas";
 
 const DAY = 86_400_000;
 export const DEVICE_TOKEN_DAYS = 30;
@@ -526,6 +527,7 @@ export async function buildWorkspace(ctx: StudentCtx, opts: { files?: boolean } 
       endedByTeacher: session.endedByTeacher,
       initialAnswer: session.initialAnswer,
       finalAnswer: session.finalAnswer,
+      finalAnswers: readFinalAnswers(session.finalAnswers),
       reflection: readReflection(session.reflection, questions),
       hintCount: session.hintCount,
       startedAt: session.startedAt.toISOString(),
@@ -536,6 +538,7 @@ export async function buildWorkspace(ctx: StudentCtx, opts: { files?: boolean } 
       subject: activity.subject,
       objectives: activity.objectives,
       instructions: activity.instructions,
+      consignas: consignasOf(activity),
       material: activity.material,
       requireInitialAnswer: activity.requireInitialAnswer,
       voiceLanguage: isVoiceLanguage(activity.voiceLanguage) ? activity.voiceLanguage : "off",

@@ -740,6 +740,46 @@ describe("closing and completion", () => {
   });
 });
 
+describe("several consignas", () => {
+  it("the student answers each consigna; the teacher sees them apart and joined for the analyses", async () => {
+    const s = await joined({ requireInitialAnswer: false, moreInstructions: ["Ahora probalo con 3/6.", "  "] });
+    expect(s.workspace.activity.consignas).toEqual([
+      "¿Es cierto que 2/4 y 1/2 representan la misma cantidad? Explicá por qué.",
+      "Ahora probalo con 3/6.",
+    ]);
+
+    // The tutor knows both, in order.
+    aiMock.text("Vamos con la consigna 1: ¿qué parte del entero es 2/4?");
+    await chat(s.token, s.cookie, { text: "Hola" });
+    const req = recorded.find((x) => x.body.stream === true)!.body as any;
+    expect(req.system[0].text).toContain("CONSIGNAS (2, en orden)");
+
+    // One answer per consigna is required.
+    const missing = await call("POST", `/api/s/${s.token}/finish`, { cookie: s.cookie, body: { finalAnswers: ["Son iguales porque es la mitad.", ""] } });
+    expect(missing.status).toBe(400);
+    expect(missing.body.error.fields["finalAnswers.1"]).toBeTruthy();
+    expect(missing.body.error.fields["finalAnswers.0"]).toBeUndefined();
+
+    const done = await call("POST", `/api/s/${s.token}/finish`, {
+      cookie: s.cookie,
+      body: { finalAnswers: ["Son iguales porque es la mitad.", "3/6 también es la mitad."] },
+    });
+    expect(done.status).toBe(200);
+    expect(done.body.workspace.session.finalAnswers).toEqual(["Son iguales porque es la mitad.", "3/6 también es la mitad."]);
+    const detail = await call("GET", `/api/sessions/${s.session.id}`, { cookie: s.teacher.cookie });
+    expect(detail.body.activity.consignas).toHaveLength(2);
+    expect(detail.body.session.finalAnswers).toEqual(["Son iguales porque es la mitad.", "3/6 también es la mitad."]);
+    expect(detail.body.session.finalAnswer).toBe("Consigna 1:\nSon iguales porque es la mitad.\n\nConsigna 2:\n3/6 también es la mitad.");
+  });
+
+  it("one consigna still needs its final answer", async () => {
+    const s = await joined({ requireInitialAnswer: false });
+    const r = await call("POST", `/api/s/${s.token}/finish`, { cookie: s.cookie, body: { finalAnswer: "" } });
+    expect(r.status).toBe(400);
+    expect(r.body.error.fields.finalAnswer).toBeTruthy();
+  });
+});
+
 describe("integrity signals", () => {
   it("groups repeated signals into one open alert per kind and never counts them as work", async () => {
     const s = await joined({ requireInitialAnswer: false });

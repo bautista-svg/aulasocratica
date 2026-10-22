@@ -8,6 +8,7 @@ import type { ReflectionAnswer, ReflectionQuestion } from "../domain/activity-de
 import type { VoiceLanguage } from "../domain/voice";
 import type { FileKind } from "../domain/files";
 import { DELIVERABLE_URL_MAX, type DeliverableKind, type DeliverableMode } from "../domain/deliverables";
+import { MAX_CONSIGNAS } from "../domain/consignas";
 import { AWAY_MIN_MS, PASTE_MIN_CHARS } from "../domain/alerts";
 import { MAX_ANSWER_CHARS, MAX_CHAT_CHARS, MAX_REFLECTION_ANSWER_CHARS, MIN_ANSWER_CHARS } from "./student-limits";
 
@@ -51,12 +52,12 @@ export const chatBody = z
   .refine((b) => b.retry || b.text.length > 0, { message: "Escribí un mensaje.", path: ["text"] });
 export type ChatInput = z.input<typeof chatBody>;
 
+const answerText = z.string().trim().max(MAX_ANSWER_CHARS, `Tu respuesta puede tener hasta ${MAX_ANSWER_CHARS} caracteres.`);
+
+/** One final answer, or one per consigna when the activity has several (checked against them on the server). */
 export const finishBody = z.object({
-  finalAnswer: z
-    .string()
-    .trim()
-    .min(MIN_ANSWER_CHARS, "Escribí tu respuesta final.")
-    .max(MAX_ANSWER_CHARS, `Tu respuesta puede tener hasta ${MAX_ANSWER_CHARS} caracteres.`),
+  finalAnswer: answerText.default(""),
+  finalAnswers: z.array(answerText).max(MAX_CONSIGNAS).optional(),
   reflection: z
     .array(
       z.object({
@@ -159,6 +160,8 @@ export interface StudentWorkspace {
     endedByTeacher: boolean;
     initialAnswer: string | null;
     finalAnswer: string | null;
+    /** With several consignas: one answer per consigna. */
+    finalAnswers: string[];
     reflection: ReflectionAnswer[];
     hintCount: number;
     startedAt: string;
@@ -169,6 +172,8 @@ export interface StudentWorkspace {
     subject: string;
     objectives: string;
     instructions: string;
+    /** Every consigna in order (the first is `instructions`). */
+    consignas: string[];
     material: string;
     requireInitialAnswer: boolean;
     voiceLanguage: VoiceLanguage;

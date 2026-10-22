@@ -271,16 +271,33 @@ function InstructionsCard({ workspace, defaultOpen, footer }: { workspace: Stude
   const [desktop] = useState(() => typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches);
   const [open, setOpen] = useState(defaultOpen || desktop);
   const [materialOpen, setMaterialOpen] = useState(false);
-  const hasMore = Boolean(a.objectives || a.material || footer || a.instructions.length > 180);
+  const multi = a.consignas.length > 1;
+  const hasMore = Boolean(a.objectives || a.material || footer || multi || a.instructions.length > 180);
   const instructions = a.instructions.trim() || "Tu docente no escribió una consigna: conversá con el tutor sobre el tema de la actividad.";
 
   return (
     <section aria-labelledby="consigna-title" className="rounded-lg border border-line bg-surface shadow-1">
       <div className="px-4 pt-4 pb-3">
         <h2 id="consigna-title" className="text-xs font-bold tracking-wide text-lilac-ink uppercase">
-          Consigna
+          {multi ? `Consignas (${a.consignas.length})` : "Consigna"}
         </h2>
-        <p className={cn("mt-1.5 text-[15px] leading-6 whitespace-pre-wrap text-text", !open && "line-clamp-3")}>{instructions}</p>
+        {multi ? (
+          <ol className={cn("mt-2 space-y-3", !open && "max-h-24 overflow-hidden")}>
+            {a.consignas.map((c, i) => (
+              <li key={i} className="flex gap-3">
+                <span className="mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-lilac-soft text-xs font-bold text-lilac-ink tabular" aria-hidden="true">
+                  {i + 1}
+                </span>
+                <p className="min-w-0 text-[15px] leading-6 whitespace-pre-wrap text-text">
+                  <span className="sr-only">Consigna {i + 1}: </span>
+                  {c}
+                </p>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className={cn("mt-1.5 text-[15px] leading-6 whitespace-pre-wrap text-text", !open && "line-clamp-3")}>{instructions}</p>
+        )}
         {open && a.objectives ? (
           <div className="mt-3">
             <h3 className="text-xs font-bold tracking-wide text-text-3 uppercase">Lo que vas a aprender</h3>
@@ -312,7 +329,7 @@ function InstructionsCard({ workspace, defaultOpen, footer }: { workspace: Stude
           aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
         >
-          {open ? "Mostrar menos" : "Ver la consigna completa"}
+          {open ? "Mostrar menos" : multi ? "Ver todas las consignas" : "Ver la consigna completa"}
           <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} aria-hidden="true" />
         </button>
       ) : null}

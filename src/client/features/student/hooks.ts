@@ -116,7 +116,7 @@ export function useDraft(key: string): [string, (v: string | ((prev: string) => 
 export const draftPrefix = (token: string) => `as-draft:${token}:`;
 export const draftKey = (token: string, code: string, field: string) => `${draftPrefix(token)}${code}:${field}`;
 
-export type DraftField = "initial" | "chat" | "final" | "reflection";
+export type DraftField = "initial" | "chat" | "final" | "finals" | "reflection";
 
 /** Fields of this work with text written on this device that was not sent yet. */
 export function unsentDrafts(token: string, code?: string): DraftField[] {
@@ -129,7 +129,10 @@ export function unsentDrafts(token: string, code?: string): DraftField[] {
       if (!k?.startsWith(prefix)) continue;
       const field = k.slice(k.lastIndexOf(":") + 1) as DraftField;
       const v = parse(store.getItem(k));
-      const filled = field === "reflection" ? Object.values(safeJson(v)).some((a) => typeof a === "string" && a.trim()) : v.trim();
+      const filled =
+        field === "reflection" || field === "finals"
+          ? Object.values(safeJson(v)).some((a) => typeof a === "string" && a.trim())
+          : v.trim();
       if (filled) out.add(field);
     }
   } catch {

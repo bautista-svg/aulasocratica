@@ -4,7 +4,8 @@
 // last_activity_at only moves with real work, never with signals or page loads.
 import { and, eq, isNull } from "drizzle-orm";
 import { db, schema } from "../../db/client";
-import { HttpError } from "../../lib/errors";
+import { HttpError, badRequest } from "../../lib/errors";
+import { MIN_ANSWER_CHARS } from "@shared/contracts/student-limits";
 import { hit } from "../../lib/rate-limit";
 import { publish } from "../../lib/events";
 import { normalizeForMatch } from "@shared/domain/thinking-xray";
@@ -20,6 +21,7 @@ import {
 } from "./session";
 import { detectAlerts, recordObservedSignal } from "./alerts";
 import { runInBackground } from "./background";
+import { consignasOf, joinFinalAnswers } from "@shared/domain/consignas";
 
 export const SIGNAL_LIMIT = { perSession: 40, windowMs: 10 * 60_000 };
 
@@ -76,7 +78,7 @@ export async function startClosing(ctx: StudentCtx): Promise<void> {
 
 export async function finishActivity(
   ctx: StudentCtx,
-  input: { finalAnswer: string; reflection: { key: string; answer: string }[] },
+  input: { finalAnswer: string; finalAnswers?: string[]; reflection: { key: string; answer: string }[] },
 ): Promise<StudentCtx> {
   if (ctx.session.endedByTeacher) throw readOnlyError(ctx.session);
   if (ctx.session.status === "completed") return ctx; // idempotent (double tap)
@@ -91,6 +93,22 @@ export async function finishActivity(
       .limit(1);
     if (!file) throw new HttpError(409, "Subí tu archivo antes de enviar tu trabajo.", "deliverable_required");
   }
+  // Several consignas: one answer each; finalAnswer keeps them joined for everything that reads it.
+  const consignas = consignasOf(ctx.activity);
+  let finalAnswer = input.finalAnswer.trim();
+  let finalAnswers: string[] = [];
+  if (consignas.length > 1) {
+    const given = input.finalAnswers ?? [];
+    const fields: Record<string, string> = {};
+    consignas.forEach((_, i) => {
+      if ((given[i] ?? "").trim().length < MIN_ANSWER_CHARS) fields[`finalAnswers.${i}`] = "Escribí tu respuesta a esta consigna.";
+    });
+    if (Object.keys(fields).length) throw badRequest("Respondé cada consigna antes de enviar tu trabajo.", fields);
+    finalAnswers = consignas.map((_, i) => given[i]!.trim());
+    finalAnswer = joinFinalAnswers(finalAnswers);
+  } else if (finalAnswer.length < MIN_ANSWER_CHARS) {
+    throw badRequest("Escribí tu respuesta final.", { finalAnswer: "Escribí tu respuesta final." });
+  }
   const questions = reflectionQuestionsOf(ctx.activity);
   const byKey = new Map(input.reflection.map((r) => [r.key, r.answer.trim()]));
   const reflection: ReflectionAnswer[] = questions.map((q) => ({ key: q.key, question: q.question, answer: byKey.get(q.key) ?? "" }));
@@ -98,7 +116,8 @@ export async function finishActivity(
   const [row] = await db
     .update(schema.learningSessions)
     .set({
-      finalAnswer: input.finalAnswer,
+      finalAnswer,
+      finalAnswers,
       reflection,
       status: "completed",
       completedAt: now,
@@ -113,16 +132,16 @@ export async function finishActivity(
   }
 
   const answered = reflection.filter((r) => r.answer).length;
-  await recordEvent(ctx.session.id, "final_answer_saved", { length: input.finalAnswer.length });
+  await recordEvent(ctx.session.id, "final_answer_saved", { length: finalAnswer.length, ...(finalAnswers.length ? { consignas: finalAnswers.length } : {}) });
   const initial = ctx.session.initialAnswer;
-  if (initial && normalizeForMatch(initial) !== normalizeForMatch(input.finalAnswer)) {
+  if (initial && normalizeForMatch(initial) !== normalizeForMatch(finalAnswer)) {
     await recordEvent(ctx.session.id, "reformulated");
   }
   if (answered > 0) await recordEvent(ctx.session.id, "reflection_submitted", { answered, questions: reflection.length });
   await recordEvent(ctx.session.id, "activity_completed");
   publish(ctx.activity.id, "session", ctx.session.id);
 
-  const text = [input.finalAnswer, ...reflection.filter((r) => r.answer).map((r) => r.answer)].join("\n\n");
+  const text = [finalAnswer, ...reflection.filter((r) => r.answer).map((r) => r.answer)].join("\n\n");
   runInBackground("alerts_final", () =>
     detectAlerts({
       sessionId: ctx.session.id,

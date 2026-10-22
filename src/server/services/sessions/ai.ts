@@ -18,6 +18,7 @@ import { buildTranscript, fence, quoteInTexts, studentTexts } from "./corpus";
 import { deliverableView, loadMessages, readLevels, reflectionOf, rubricView, xrayView, type OwnedSessionRow } from "./detail";
 import { deliverableOf } from "../deliverables";
 import { mergeXray, readXrayItems } from "./xray-store";
+import { consignasOf } from "@shared/domain/consignas";
 
 const STYLE = `Escribís en español rioplatense, claro y prudente ("parece", "muestra", "todavía no aparece").
 Solo describís lo que se observa en lo que el alumno escribió. No hacés diagnósticos ni hablás de inteligencia, emociones, motivación o capacidad.
@@ -90,6 +91,14 @@ export async function courseOf(a: OwnedSessionRow["activity"]): Promise<string> 
 }
 
 export function activityHeader(a: OwnedSessionRow["activity"]) {
+  const consignas = consignasOf(a);
+  if (consignas.length > 1) {
+    return `Actividad: ${fence(a.title, 200)}
+Consignas (el alumno las resolvió en orden; su respuesta final tiene una parte por consigna):
+<<<
+${consignas.map((c, i) => `Consigna ${i + 1}: ${fence(c, 6000)}`).join("\n")}
+>>>`;
+  }
   return `Actividad: ${fence(a.title, 200)}
 Consigna:
 <<<

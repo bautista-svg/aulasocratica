@@ -36,6 +36,7 @@ import type { FileKind, ProcessingStatus } from "@shared/domain/files";
 import { isDeliverableMode, type DeliverableKind } from "@shared/domain/deliverables";
 import { alertOrigin, progressFor, stepsFor } from "./live-rules";
 import { readXrayItems, visibleXray } from "./xray-store";
+import { consignasOf, readFinalAnswers } from "@shared/domain/consignas";
 
 export type OwnedSessionRow = {
   session: typeof schema.learningSessions.$inferSelect;
@@ -284,6 +285,7 @@ export async function loadSessionDetail(row: OwnedSessionRow): Promise<SessionDe
       status: s.status === "completed" ? "completed" : "in_progress",
       initialAnswer: s.initialAnswer,
       finalAnswer: s.finalAnswer,
+      finalAnswers: readFinalAnswers(s.finalAnswers),
       reflection: reflectionOf(s, a.reflectionQuestions),
       hintCount: Math.max(s.hintCount, events.filter((e) => e.eventType === "hint_requested").length),
       resumeCode: s.resumeCode,
@@ -304,6 +306,7 @@ export async function loadSessionDetail(row: OwnedSessionRow): Promise<SessionDe
       id: a.id,
       title: a.title,
       instructions: a.instructions,
+      consignas: consignasOf(a),
       objectives: a.objectives,
       requireInitialAnswer: a.requireInitialAnswer,
       status: a.status,

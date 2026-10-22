@@ -12,6 +12,7 @@ import { db, schema } from "../../db/client";
 import { anthropic, aiError, assertBudget, recordUsage, wellFormed, MODEL, type UsageContext } from "../../ai/client";
 import { env } from "../../env";
 import { HttpError } from "../../lib/errors";
+import { ACTIVITY_LIMITS } from "@shared/contracts/activities";
 import { hit } from "../../lib/rate-limit";
 import { publish } from "../../lib/events";
 import { log, errorFields } from "../../lib/logger";
@@ -26,6 +27,7 @@ import { isReadOnly, readOnlyError, recordEvent, type StudentCtx } from "./sessi
 import { acquireStream, releaseStream } from "./streams";
 import { detectAlerts } from "./alerts";
 import { runInBackground } from "./background";
+import { sanitizeMoreInstructions } from "@shared/domain/consignas";
 
 export const CHAT_LIMIT = { perSession: 20, windowMs: 5 * 60_000 };
 export const HISTORY_LIMIT = 40;
@@ -149,6 +151,7 @@ export async function tutorChat(c: Context, ctx: StudentCtx, body: ChatBody): Pr
       subject: activity.subject,
       objectives: activity.objectives,
       instructions: activity.instructions,
+      moreInstructions: sanitizeMoreInstructions(activity.moreInstructions, ACTIVITY_LIMITS.instructions),
       material: activity.material,
       files,
       tutorType: activity.tutorType,

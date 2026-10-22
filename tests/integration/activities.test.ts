@@ -73,6 +73,17 @@ describe("create", () => {
     expect(applied.body.activity.tutorRules).toContain("Que tomen postura.");
   });
 
+  it("saves extra consignas (trimmed, empty ones dropped, at most 8 in total)", async () => {
+    const t = await newTeacher();
+    const room = await newClassroom(t.cookie);
+    const a = await newActivity(t.cookie, room);
+    const r = await call("PATCH", `/api/activities/${a.id}`, { cookie: t.cookie, body: { instructions: "Primera", moreInstructions: [" Segunda ", "", "Tercera"] } });
+    expect(r.status).toBe(200);
+    expect(r.body.activity.moreInstructions).toEqual(["Segunda", "Tercera"]);
+    const tooMany = await call("PATCH", `/api/activities/${a.id}`, { cookie: t.cookie, body: { moreInstructions: Array.from({ length: 8 }, (_, i) => `C${i}`) } });
+    expect(tooMany.status).toBe(400);
+  });
+
   it("combines up to three tutor types; a saved tutor replaces the combination", async () => {
     const t = await newTeacher();
     const room = await newClassroom(t.cookie);

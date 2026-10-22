@@ -13,6 +13,7 @@ export interface ActivityDraft {
   subject: string;
   objectives: string;
   instructions: string;
+  moreInstructions: string[];
   material: string;
   tutorType: string;
   extraTutorTypes: string[];
@@ -30,6 +31,7 @@ export const DRAFT_KEYS = [
   "subject",
   "objectives",
   "instructions",
+  "moreInstructions",
   "material",
   "tutorType",
   "extraTutorTypes",
@@ -51,6 +53,7 @@ export function draftFrom(a: ActivityEditorData): ActivityDraft {
     subject: a.subject,
     objectives: a.objectives,
     instructions: a.instructions,
+    moreInstructions: a.moreInstructions,
     material: a.material,
     tutorType: a.tutorType,
     extraTutorTypes: a.extraTutorTypes,

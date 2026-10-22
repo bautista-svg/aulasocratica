@@ -1,8 +1,8 @@
 // "Configuración" tab: everything the teacher prepares before (and while) students work.
 // One explicit "Guardar cambios" for all sections (files and notes save on their own).
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Mic, Paperclip, Save } from "lucide-react";
+import { Mic, Paperclip, Plus, Save, Trash2 } from "lucide-react";
 import { Button } from "@client/components/ui/button";
 import { Switch } from "@client/components/ui/controls";
 import { ConfirmDialog } from "@client/components/ui/dialog";
@@ -12,6 +12,7 @@ import { ApiError, errorMessage } from "@client/lib/api";
 import { VOICE_LANGUAGE_LABELS, type VoiceLanguage } from "@shared/domain/voice";
 import { DELIVERABLE_MODES, DELIVERABLE_PROMPT_MAX, MAX_DELIVERABLE_LABEL, type DeliverableMode } from "@shared/domain/deliverables";
 import { ACTIVITY_LIMITS, type ActivityEditorData } from "@shared/contracts/activities";
+import { MAX_CONSIGNAS } from "@shared/domain/consignas";
 import { useSaveActivity } from "./api";
 import { EditorSection, RadioCards } from "./parts";
 import { MaterialFiles } from "./material-files";
@@ -22,7 +23,7 @@ import { errorKeyBelongsTo, type ActivityForm, type DraftKey, type FieldErrors }
 import { useKeepFieldVisible, useKeyboardOpen } from "./keep-field-visible";
 
 export const SECTIONS: { id: string; title: string; keys: DraftKey[] }[] = [
-  { id: "consigna", title: "Consigna", keys: ["instructions"] },
+  { id: "consigna", title: "Consigna", keys: ["instructions", "moreInstructions"] },
   { id: "objetivos", title: "Objetivos", keys: ["objectives", "subject"] },
   { id: "material", title: "Material", keys: ["material"] },
   { id: "tutor", title: "Tutor", keys: ["tutorType", "extraTutorTypes", "helpLevel", "tutorRules"] },
@@ -105,8 +106,17 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
     // scroll-mb: fields brought into view (focus, scrollIntoView) stop above the save bar and the phone tab bar.
     <div ref={rootRef} className="lg:grid lg:grid-cols-[minmax(0,1fr)_190px] lg:gap-8 [&_input]:scroll-mb-44 [&_textarea]:scroll-mb-44 lg:[&_input]:scroll-mb-24 lg:[&_textarea]:scroll-mb-24">
       <div className="grid min-w-0 gap-4">
-        <EditorSection id="consigna" title="Consigna" description="Lo primero que leen tus alumnos al entrar. Escribila como una pregunta o un desafío." {...meta("consigna")}>
-          <Field label="Consigna" error={errors.instructions} counter={{ value: draft.instructions.length, max: ACTIVITY_LIMITS.instructions }}>
+        <EditorSection
+          id="consigna"
+          title="Consigna"
+          description="Lo primero que leen tus alumnos al entrar. Escribila como una pregunta o un desafío. Con «Agregar consigna» resuelven varias, en orden, con el mismo tutor."
+          {...meta("consigna")}
+        >
+          <Field
+            label={draft.moreInstructions.length ? "Consigna 1" : "Consigna"}
+            error={errors.instructions}
+            counter={{ value: draft.instructions.length, max: ACTIVITY_LIMITS.instructions }}
+          >
             {(p) => (
               <Textarea
                 id={p.id}
@@ -119,6 +129,7 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
               />
             )}
           </Field>
+          <MoreConsignas form={form} />
         </EditorSection>
 
         <EditorSection id="objetivos" title="Objetivos" description="Qué querés que aprendan. El tutor los usa para orientar la conversación." {...meta("objetivos")}>
@@ -368,6 +379,69 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
           toast.success("Cambios descartados");
         }}
       />
+    </div>
+  );
+}
+
+/** Consignas 2, 3… after the first one: added with «+», removed one by one, solved in order. */
+function MoreConsignas({ form }: { form: ActivityForm }) {
+  const { draft, set, errors } = form;
+  const more = draft.moreInstructions;
+  const lastRef = useRef<HTMLTextAreaElement>(null);
+  const [focusNew, setFocusNew] = useState(false);
+  useEffect(() => {
+    if (!focusNew) return;
+    lastRef.current?.focus();
+    setFocusNew(false);
+  }, [focusNew]);
+  const setAt = (i: number, v: string) => set("moreInstructions", more.map((c, j) => (j === i ? v : c)));
+  return (
+    <div className="mt-4 grid gap-4">
+      {more.map((c, i) => (
+        <div key={i} className="relative">
+          <Field label={`Consigna ${i + 2}`} error={errors[`moreInstructions.${i}`]} counter={{ value: c.length, max: ACTIVITY_LIMITS.instructions }}>
+            {(p) => (
+              <Textarea
+                ref={i === more.length - 1 ? lastRef : undefined}
+                id={p.id}
+                aria-describedby={p.describedBy}
+                invalid={p.invalid}
+                value={c}
+                onChange={(e) => setAt(i, e.target.value)}
+                minRows={3}
+                placeholder="Ej.: Ahora explicá por qué la regla funciona con cualquier número."
+              />
+            )}
+          </Field>
+          <button
+            type="button"
+            onClick={() => set("moreInstructions", more.filter((_, j) => j !== i))}
+            aria-label={`Quitar la consigna ${i + 2}`}
+            className="absolute -top-1.5 right-14 inline-flex min-h-9 items-center gap-1 rounded-md px-2 text-[13px] font-semibold text-text-3 hover:bg-sunken hover:text-rose max-sm:min-h-11"
+          >
+            <Trash2 className="size-3.5" aria-hidden="true" />
+            Quitar
+          </button>
+        </div>
+      ))}
+      {errors.moreInstructions ? <p className="text-[13px] font-medium text-rose">{errors.moreInstructions}</p> : null}
+      {more.length < MAX_CONSIGNAS - 1 ? (
+        <button
+          type="button"
+          onClick={() => {
+            set("moreInstructions", [...more, ""]);
+            setFocusNew(true);
+          }}
+          className="group flex min-h-12 items-center justify-center gap-2 rounded-md border border-dashed border-line-strong text-[15px] font-semibold text-lilac-ink transition-colors hover:border-lilac hover:bg-lilac-soft/50"
+        >
+          <span className="inline-flex size-6 items-center justify-center rounded-full bg-lilac-soft text-lilac-ink transition-colors group-hover:bg-surface" aria-hidden="true">
+            <Plus className="size-4" />
+          </span>
+          Agregar consigna
+        </button>
+      ) : (
+        <p className="text-[13px] text-text-3">Llegaste al máximo de {MAX_CONSIGNAS} consignas.</p>
+      )}
     </div>
   );
 }

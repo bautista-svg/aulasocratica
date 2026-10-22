@@ -38,6 +38,7 @@ import {
 import { importRubric, proposeReflection, proposeRubric } from "../services/activities/ai";
 import { activityAspects } from "../services/sessions/aspects";
 import {
+  ACTIVITY_LIMITS,
   activityPatch,
   aiReflectionBody,
   aiRubricBody,
@@ -51,6 +52,7 @@ import {
 } from "@shared/contracts/activities";
 import { sanitizeReflectionQuestions, sanitizeRubric } from "@shared/domain/activity-design";
 import { sanitizeExtraTutorTypes } from "@shared/domain/pedagogy";
+import { sanitizeMoreInstructions } from "@shared/domain/consignas";
 
 /** AI design helpers per workspace: generous for real use, bounded against loops. */
 function assertAiRate(teacherId: string) {
@@ -111,8 +113,9 @@ export const activityRoutes = new Hono<AppEnv>()
   .patch("/:id", async (c) => {
     const { t, activity } = await owned(c);
     const body = await readJson(c, activityPatch);
-    const { rubric, reflectionQuestions, extraTutorTypes, ...rest } = body;
+    const { rubric, reflectionQuestions, extraTutorTypes, moreInstructions, ...rest } = body;
     const values: Partial<typeof schema.activities.$inferInsert> = { ...rest };
+    if (moreInstructions !== undefined) values.moreInstructions = sanitizeMoreInstructions(moreInstructions, ACTIVITY_LIMITS.instructions);
     // The combined types never repeat the main one (also when only the main one changes).
     if (extraTutorTypes !== undefined || body.tutorType !== undefined) {
       values.extraTutorTypes = sanitizeExtraTutorTypes(extraTutorTypes ?? activity.extraTutorTypes, body.tutorType ?? activity.tutorType);

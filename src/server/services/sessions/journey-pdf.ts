@@ -67,9 +67,14 @@ export async function buildJourneyPdf(d: SessionDetail): Promise<Buffer> {
     statusLine(d),
   ]);
 
-  w.section("Consigna");
-  if (d.activity.instructions.trim()) w.paragraph(d.activity.instructions);
-  else w.paragraph("La actividad no tiene consigna escrita.", { italic: true, color: "#646c88" });
+  if (d.activity.consignas.length > 1) {
+    w.section("Consignas");
+    d.activity.consignas.forEach((c, i) => w.labelled(`Consigna ${i + 1}`, c));
+  } else {
+    w.section("Consigna");
+    if (d.activity.instructions.trim()) w.paragraph(d.activity.instructions);
+    else w.paragraph("La actividad no tiene consigna escrita.", { italic: true, color: "#646c88" });
+  }
 
   if (d.activity.requireInitialAnswer || d.session.initialAnswer?.trim()) {
     w.section("Respuesta inicial");
@@ -107,8 +112,9 @@ export async function buildJourneyPdf(d: SessionDetail): Promise<Buffer> {
     w.paragraph("El tutor estaba escribiendo una respuesta cuando se generó este PDF.", { italic: true, color: "#646c88", size: 10 });
   }
 
-  w.section("Respuesta final");
-  if (d.session.finalAnswer?.trim()) w.paragraph(d.session.finalAnswer);
+  w.section(d.session.finalAnswers.length > 1 ? "Respuestas finales" : "Respuesta final");
+  if (d.session.finalAnswers.length > 1) d.session.finalAnswers.forEach((a, i) => w.labelled(`Consigna ${i + 1}`, a.trim() || "(sin respuesta)"));
+  else if (d.session.finalAnswer?.trim()) w.paragraph(d.session.finalAnswer);
   else
     w.paragraph(d.session.endedByTeacher ? "No la escribió: el docente terminó la actividad antes." : "Todavía no la escribió.", {
       italic: true,

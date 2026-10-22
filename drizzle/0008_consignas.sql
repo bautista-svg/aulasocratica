@@ -1,0 +1,2 @@
+ALTER TABLE "activities" ADD COLUMN "more_instructions" jsonb DEFAULT '[]'::jsonb NOT NULL;--> statement-breakpoint
+ALTER TABLE "learning_sessions" ADD COLUMN "final_answers" jsonb DEFAULT '[]'::jsonb NOT NULL;

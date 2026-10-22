@@ -151,6 +151,8 @@ export const activities = pgTable(
     subject: text("subject").notNull().default(""),
     objectives: text("objectives").notNull().default(""),
     instructions: text("instructions").notNull().default(""),
+    /** Consignas after the first one (solved in order with the same tutor). See domain/consignas.ts. */
+    moreInstructions: jsonb("more_instructions").notNull().default(sql`'[]'::jsonb`),
     material: text("material").notNull().default(""),
     tutorType: text("tutor_type").notNull().default("pensamiento_critico"),
     /** Other tutor types combined with the main one (the student talks to one tutor that mixes them). */
@@ -262,6 +264,8 @@ export const learningSessions = pgTable(
     status: text("status").notNull().default("in_progress"),
     initialAnswer: text("initial_answer"),
     finalAnswer: text("final_answer"),
+    /** With several consignas: one final answer per consigna (final_answer keeps them joined). */
+    finalAnswers: jsonb("final_answers").notNull().default(sql`'[]'::jsonb`),
     reflection: jsonb("reflection"),
     hintCount: integer("hint_count").notNull().default(0),
     /** Short code the student uses to continue on another device. */
