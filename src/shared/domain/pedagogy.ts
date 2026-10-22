@@ -62,6 +62,26 @@ export const TUTOR_FORMAT_TYPES: Record<string, string> = {
 
 export const TUTOR_TYPES: Record<string, string> = { ...TUTOR_FOCUS_TYPES, ...TUTOR_FORMAT_TYPES };
 
+/** An activity's tutor can combine up to this many types (the main one plus others). */
+export const MAX_TUTOR_TYPES = 3;
+
+/** The types combined with the main one: known, not repeated, not the main one, at most two. */
+export function sanitizeExtraTutorTypes(raw: unknown, main: string): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const t of raw) {
+    if (typeof t !== "string" || !(t in TUTOR_TYPES) || t === main || out.includes(t)) continue;
+    out.push(t);
+    if (out.length >= MAX_TUTOR_TYPES - 1) break;
+  }
+  return out;
+}
+
+/** "Comprensión lectora + Pensamiento crítico". */
+export function tutorTypesLabel(main: string, extra: readonly string[]): string {
+  return [main, ...extra].map((t) => TUTOR_TYPES[t] ?? t).join(" + ");
+}
+
 /**
  * Teacher-facing explanation of each type, shown when choosing it. Every text describes only
  * what the tutor really does here: it converses by chat (and by voice when the teacher turns

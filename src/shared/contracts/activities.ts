@@ -10,7 +10,7 @@ import {
 import type { VoiceLanguage } from "../domain/voice";
 import { DELIVERABLE_PROMPT_MAX, type DeliverableMode } from "../domain/deliverables";
 import type { FileKind, ProcessingStatus } from "../domain/files";
-import { TUTOR_TYPES } from "../domain/pedagogy";
+import { MAX_TUTOR_TYPES, TUTOR_TYPES } from "../domain/pedagogy";
 import { MAX_TUTOR_RULES } from "../domain/tutors";
 
 export type ActivityStatus = "draft" | "published" | "archived";
@@ -61,6 +61,8 @@ export interface ActivityDetail {
   instructions: string;
   material: string;
   tutorType: string;
+  /** Other types combined with the main one (up to two). */
+  extraTutorTypes: string[];
   helpLevel: HelpLevel;
   tutorRules: string;
   tutorId: string | null;
@@ -171,6 +173,7 @@ export const activityPatch = z
     instructions: text(ACTIVITY_LIMITS.instructions),
     material: text(ACTIVITY_LIMITS.material),
     tutorType: tutorTypeSchema,
+    extraTutorTypes: z.array(tutorTypeSchema).max(MAX_TUTOR_TYPES - 1, `Podés combinar hasta ${MAX_TUTOR_TYPES} tipos de tutor.`),
     helpLevel: helpLevelSchema,
     tutorRules: text(ACTIVITY_LIMITS.tutorRules),
     /** Only `null` is accepted here (unlink the saved tutor); to apply one use POST /:id/tutor. */

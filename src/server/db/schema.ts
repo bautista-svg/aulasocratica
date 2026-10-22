@@ -150,6 +150,8 @@ export const activities = pgTable(
     instructions: text("instructions").notNull().default(""),
     material: text("material").notNull().default(""),
     tutorType: text("tutor_type").notNull().default("pensamiento_critico"),
+    /** Other tutor types combined with the main one (the student talks to one tutor that mixes them). */
+    extraTutorTypes: jsonb("extra_tutor_types").notNull().default(sql`'[]'::jsonb`),
     helpLevel: text("help_level").notNull().default("moderate"),
     tutorRules: text("tutor_rules").notNull().default(""),
     tutorId: uuid("tutor_id").references(() => tutors.id, { onDelete: "set null" }),

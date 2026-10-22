@@ -22,7 +22,7 @@ import {
 } from "@shared/domain/activity-design";
 import { assembleMaterial, selectMaterial } from "@shared/domain/material-select";
 import { KIND_LABEL, MAX_IMAGE_BYTES, validateUpload, type FileKind } from "@shared/domain/files";
-import { TUTOR_TYPES } from "@shared/domain/pedagogy";
+import { sanitizeExtraTutorTypes, tutorTypesLabel } from "@shared/domain/pedagogy";
 import { aiReflectionBody, aiRubricBody, type AiRubricInput } from "@shared/contracts/activities";
 
 type ActivityRow = typeof schema.activities.$inferSelect;
@@ -79,7 +79,7 @@ async function designContext(activity: ActivityRow, draft: DraftContext | undefi
   });
   return [
     `Curso: ${room?.grade || "(sin dato)"} · Asignatura: ${v.subject || room?.subject || "(sin dato)"}`,
-    `Tipo de tutor: ${TUTOR_TYPES[activity.tutorType] ?? activity.tutorType}`,
+    `Tipo de tutor: ${tutorTypesLabel(activity.tutorType, sanitizeExtraTutorTypes(activity.extraTutorTypes, activity.tutorType))}`,
     block("Título", v.title),
     block("Objetivos de aprendizaje", v.objectives || "(sin objetivos cargados)"),
     block("Consigna que ve el alumno", v.instructions || "(sin consigna cargada)"),

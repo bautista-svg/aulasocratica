@@ -73,6 +73,29 @@ describe("create", () => {
     expect(applied.body.activity.tutorRules).toContain("Que tomen postura.");
   });
 
+  it("combines up to three tutor types; a saved tutor replaces the combination", async () => {
+    const t = await newTeacher();
+    const room = await newClassroom(t.cookie);
+    const a = await newActivity(t.cookie, room);
+    const patch = (body: Record<string, unknown>) => call("PATCH", `/api/activities/${a.id}`, { cookie: t.cookie, body });
+
+    const r = await patch({ tutorType: "comprension_lectora", extraTutorTypes: ["pensamiento_critico", "debate_socratico"] });
+    expect(r.status).toBe(200);
+    expect(r.body.activity).toMatchObject({ tutorType: "comprension_lectora", extraTutorTypes: ["pensamiento_critico", "debate_socratico"] });
+    expect((await call("GET", `/api/activities/${a.id}`, { cookie: t.cookie })).body.activity.extraTutorTypes).toEqual(["pensamiento_critico", "debate_socratico"]);
+
+    // More than three in total, or unknown types, are refused.
+    expect((await patch({ extraTutorTypes: ["matematico", "repaso", "argumentacion"] })).status).toBe(400);
+    expect((await patch({ extraTutorTypes: ["inventado"] })).status).toBe(400);
+    // Making one of the combined types the main one removes it from the others.
+    const main = await patch({ tutorType: "pensamiento_critico" });
+    expect(main.body.activity).toMatchObject({ tutorType: "pensamiento_critico", extraTutorTypes: ["debate_socratico"] });
+
+    const tutor = await insertTutor(t.id);
+    const applied = await call("POST", `/api/activities/${a.id}/tutor`, { cookie: t.cookie, body: { tutorId: tutor.id } });
+    expect(applied.body.activity).toMatchObject({ tutorType: "matematico", extraTutorTypes: [] });
+  });
+
   it("refuses tutors and classrooms of other workspaces, and archived classrooms", async () => {
     const a = await newTeacher();
     const b = await newTeacher();

@@ -1,4 +1,5 @@
 // Reading activities and their files in the shape the editor uses.
+import { sanitizeExtraTutorTypes } from "@shared/domain/pedagogy";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { db, schema } from "../../db/client";
 import { notFound } from "../../lib/errors";
@@ -19,6 +20,7 @@ export function configOf(a: ActivityRow) {
     instructions: a.instructions,
     material: a.material,
     tutorType: a.tutorType,
+    extraTutorTypes: sanitizeExtraTutorTypes(a.extraTutorTypes, a.tutorType),
     helpLevel: a.helpLevel,
     tutorRules: a.tutorRules,
     tutorId: a.tutorId,
@@ -61,6 +63,7 @@ export async function loadActivity(teacherId: string, activityId: string): Promi
     instructions: a.instructions,
     material: a.material,
     tutorType: a.tutorType,
+    extraTutorTypes: sanitizeExtraTutorTypes(a.extraTutorTypes, a.tutorType),
     helpLevel: a.helpLevel as HelpLevel,
     tutorRules: a.tutorRules,
     tutorId: a.tutorId,

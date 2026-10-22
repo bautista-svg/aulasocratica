@@ -1,0 +1,1 @@
+ALTER TABLE "activities" ADD COLUMN "extra_tutor_types" jsonb DEFAULT '[]'::jsonb NOT NULL;

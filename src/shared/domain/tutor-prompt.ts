@@ -23,6 +23,8 @@ export interface TutorPromptInput {
   /** Text of the activity's ready files (extracted text + teacher note). */
   files: MaterialSource[];
   tutorType: string;
+  /** Other types combined with the main one. */
+  extraTutorTypes?: readonly string[];
   helpLevel: string;
   teacherRules: string;
   voiceLanguage: VoiceLanguage;
@@ -80,8 +82,8 @@ export function tutorMaterial(input: Pick<TutorPromptInput, "material" | "files"
 
 export function buildTutorPrompt(input: TutorPromptInput): TutorPrompt {
   const help = HELP_LEVELS[input.helpLevel] ?? HELP_LEVELS["moderate"]!;
-  const typeLabel = TUTOR_TYPES[input.tutorType] ?? TUTOR_TYPES["pensamiento_critico"]!;
-  const guidance = TUTOR_TYPE_GUIDANCE[input.tutorType] ?? TUTOR_TYPE_GUIDANCE["pensamiento_critico"]!;
+  const main = input.tutorType in TUTOR_TYPE_GUIDANCE ? input.tutorType : "pensamiento_critico";
+  const types = [main, ...(input.extraTutorTypes ?? []).filter((t) => t !== main && t in TUTOR_TYPE_GUIDANCE)].slice(0, 3);
   const teacherRules = input.teacherRules.trim().slice(0, MAX_TUTOR_RULES);
 
   const material = tutorMaterial(input);
@@ -89,7 +91,12 @@ export function buildTutorPrompt(input: TutorPromptInput): TutorPrompt {
 
   const stable: string[] = [
     GLOBAL_RULES,
-    `\n## PERFIL DEL TUTOR\nTipo: ${typeLabel}. Nivel de ayuda: ${help.label} — ${help.description}\nCómo trabajar: ${guidance}`,
+    types.length === 1
+      ? `\n## PERFIL DEL TUTOR\nTipo: ${TUTOR_TYPES[main]}. Nivel de ayuda: ${help.label} — ${help.description}\nCómo trabajar: ${TUTOR_TYPE_GUIDANCE[main]}`
+      : `\n## PERFIL DEL TUTOR\nEl docente combinó ${types.length} enfoques: ${types.map((t) => TUTOR_TYPES[t]).join(" + ")}. Nivel de ayuda: ${help.label} — ${help.description}\n` +
+        "Sos UN solo tutor que mezcla estos enfoques en la misma conversación, según lo que el estudiante necesite en cada momento. " +
+        "No los separes en etapas ni le digas que son varios tutores. Si dos indicaciones chocan, priorizá la primera.\n" +
+        types.map((t) => `- ${TUTOR_TYPES[t]}: ${TUTOR_TYPE_GUIDANCE[t]}`).join("\n"),
   ];
   if (input.voiceLanguage !== "off") stable.push(`\n## ${voiceTutorRules(input.voiceLanguage)}`);
   if (teacherRules) {

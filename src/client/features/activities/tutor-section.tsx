@@ -1,5 +1,5 @@
 // Tutor configuration of an activity: start from a saved tutor ("Mis tutores") or set the
-// type, help level and teacher indications by hand.
+// type (up to three combined), help level and teacher indications by hand.
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -11,7 +11,7 @@ import { cn } from "@client/lib/cn";
 import { errorMessage } from "@client/lib/api";
 import { useTutors } from "@client/features/tutors/api";
 import { tutorOptionLabel } from "@client/features/tutors/tutor-visual";
-import { HELP_LEVELS, TUTOR_FOCUS_TYPES, TUTOR_FORMAT_TYPES, TUTOR_TYPE_INFO, TUTOR_TYPES } from "@shared/domain/pedagogy";
+import { HELP_LEVELS, MAX_TUTOR_TYPES, TUTOR_FOCUS_TYPES, TUTOR_FORMAT_TYPES, TUTOR_TYPE_INFO, TUTOR_TYPES } from "@shared/domain/pedagogy";
 import { ACTIVITY_LIMITS, type ActivityEditorData, type HelpLevel } from "@shared/contracts/activities";
 import { useApplyTutor } from "./api";
 import { RadioCards } from "./parts";
@@ -27,6 +27,7 @@ export function TutorSection({ activity, form }: { activity: ActivityEditorData;
   const [confirming, setConfirming] = useState(false);
   const [picking, setPicking] = useState(false);
   const chosen = tutors.data?.find((t) => t.id === selected);
+  const types = [draft.tutorType, ...draft.extraTutorTypes];
 
   return (
     <div className="grid gap-6">
@@ -75,8 +76,9 @@ export function TutorSection({ activity, form }: { activity: ActivityEditorData;
       <div>
         <p id="tutor-type-label" className="mb-1.5 text-sm font-semibold text-text">
           Tipo de tutor
+          <span className="ml-1.5 font-normal text-text-3">(podés combinar hasta {MAX_TUTOR_TYPES})</span>
         </p>
-        <div className={cn("rounded-md border bg-surface shadow-1", errors.tutorType ? "border-rose" : "border-line-strong")}>
+        <div className={cn("rounded-md border bg-surface shadow-1", errors.tutorType || errors.extraTutorTypes ? "border-rose" : "border-line-strong")}>
           <button
             type="button"
             aria-describedby="tutor-type-desc"
@@ -87,8 +89,13 @@ export function TutorSection({ activity, form }: { activity: ActivityEditorData;
             <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-lilac-soft text-lilac-ink">
               <Bot className="size-[18px]" aria-hidden="true" />
             </span>
-            <span id="tutor-type-value" className="min-w-0 flex-1 text-[15px] font-semibold text-text">
-              {TUTOR_TYPES[draft.tutorType] ?? "Elegí un tipo"}
+            <span id="tutor-type-value" className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-[15px] font-semibold text-text">
+              {types.map((t, i) => (
+                <span key={t} className="inline-flex items-center gap-1.5">
+                  {i > 0 ? <span className="font-normal text-lilac-ink" aria-label="más">+</span> : null}
+                  {TUTOR_TYPES[t] ?? "Elegí un tipo"}
+                </span>
+              ))}
             </span>
             <span id="tutor-type-change" className="flex shrink-0 items-center gap-1 text-sm font-semibold text-lilac-ink">
               <span>
@@ -97,11 +104,25 @@ export function TutorSection({ activity, form }: { activity: ActivityEditorData;
               <ChevronRight className="size-4" aria-hidden="true" />
             </span>
           </button>
-          <p id="tutor-type-desc" className="px-3.5 pb-3 pl-[62px] text-[13px] leading-5 text-text-2">
-            {tutorTypeDescription(draft.tutorType)}
-          </p>
+          <div id="tutor-type-desc" className="px-3.5 pb-3 pl-[62px] text-[13px] leading-5 text-text-2">
+            {types.length > 1 ? (
+              <>
+                <p className="font-medium text-lilac-ink">Un solo tutor que combina estos enfoques según lo que necesite cada alumno.</p>
+                <ul className="mt-1.5 space-y-1">
+                  {types.map((t) => (
+                    <li key={t}>
+                      <span className="font-semibold text-text">{TUTOR_TYPES[t]}:</span> {tutorTypeDescription(t)}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              tutorTypeDescription(draft.tutorType)
+            )}
+          </div>
         </div>
         {errors.tutorType ? <p className="mt-1.5 text-[13px] font-medium text-rose">{errors.tutorType}</p> : null}
+        {errors.extraTutorTypes ? <p className="mt-1.5 text-[13px] font-medium text-rose">{errors.extraTutorTypes}</p> : null}
       </div>
 
       <div>
@@ -138,9 +159,10 @@ export function TutorSection({ activity, form }: { activity: ActivityEditorData;
       <TutorTypeDialog
         open={picking}
         onOpenChange={setPicking}
-        value={draft.tutorType}
-        onPick={(v) => {
-          set("tutorType", v);
+        value={types}
+        onPick={(picked) => {
+          set("tutorType", picked[0]!);
+          set("extraTutorTypes", picked.slice(1));
           setPicking(false);
         }}
       />
@@ -161,7 +183,7 @@ export function TutorSection({ activity, form }: { activity: ActivityEditorData;
           chosen &&
           apply.mutate(chosen.id, {
             onSuccess: (r) => {
-              form.adopt(r.activity, ["tutorType", "helpLevel", "tutorRules"]);
+              form.adopt(r.activity, ["tutorType", "extraTutorTypes", "helpLevel", "tutorRules"]);
               setConfirming(false);
               setSelected("");
               toast.success(`Tutor aplicado: ${chosen.name}`);
@@ -174,27 +196,61 @@ export function TutorSection({ activity, form }: { activity: ActivityEditorData;
   );
 }
 
-function TutorTypeDialog({ open, onOpenChange, value, onPick }: { open: boolean; onOpenChange: (o: boolean) => void; value: string; onPick: (v: string) => void }) {
+function TutorTypeDialog({
+  open,
+  onOpenChange,
+  value,
+  onPick,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  value: string[];
+  onPick: (types: string[]) => void;
+}) {
+  // Order matters: the first one is the main type (used in lists and when instructions clash).
+  const [picked, setPicked] = useState<string[]>(value);
+  const [opened, setOpened] = useState(false);
+  if (open && !opened) {
+    setOpened(true);
+    setPicked(value);
+  } else if (!open && opened) {
+    setOpened(false);
+  }
+  const full = picked.length >= MAX_TUTOR_TYPES;
+  const toggle = (k: string) =>
+    setPicked((x) => (x.includes(k) ? (x.length > 1 ? x.filter((t) => t !== k) : x) : x.length < MAX_TUTOR_TYPES ? [...x, k] : x));
+
   const group = (title: string, types: Record<string, string>) => (
     <section className="mb-5 last:mb-0">
       <h3 className="mb-2 text-xs font-semibold tracking-wide text-text-3 uppercase">{title}</h3>
       <div className="grid gap-2 sm:grid-cols-2">
         {Object.keys(types).map((k) => {
-          const selected = k === value;
+          const order = picked.indexOf(k);
+          const selected = order >= 0;
+          const locked = !selected && full;
           return (
             <button
               key={k}
               type="button"
               aria-pressed={selected}
-              onClick={() => onPick(k)}
+              aria-disabled={locked || undefined}
+              onClick={() => toggle(k)}
               className={cn(
                 "flex flex-col rounded-md border px-3.5 py-3 text-left transition-colors",
                 selected ? "border-ink bg-ink-soft/60" : "border-line-strong bg-surface hover:border-ink/40",
+                locked && "opacity-55 hover:border-line-strong",
               )}
             >
               <span className="flex items-center justify-between gap-2 text-[15px] font-semibold text-text">
                 {TUTOR_TYPES[k]}
-                {selected ? <Check className="size-4 text-ink" aria-hidden="true" /> : null}
+                {selected ? (
+                  <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-ink">
+                    {picked.length > 1 && order === 0 ? <span className="text-text-2">Principal</span> : null}
+                    <span className="inline-flex size-6 items-center justify-center rounded-full bg-ink text-white tabular" aria-label={`elegido en el lugar ${order + 1}`}>
+                      {picked.length > 1 ? order + 1 : <Check className="size-3.5" aria-hidden="true" />}
+                    </span>
+                  </span>
+                ) : null}
               </span>
               <span className="mt-1 text-[13px] leading-5 text-text-2">{tutorTypeDescription(k)}</span>
               {TUTOR_TYPE_INFO[k]?.whenToUse ? <span className="mt-1.5 text-[12px] leading-5 text-text-3">{TUTOR_TYPE_INFO[k]!.whenToUse}</span> : null}
@@ -210,7 +266,19 @@ function TutorTypeDialog({ open, onOpenChange, value, onPick }: { open: boolean;
       onOpenChange={onOpenChange}
       wide
       title="Elegí el tipo de tutor"
-      description="Cada tipo cambia cómo conversa el tutor con tus alumnos. En todos guía con preguntas en lugar de dar la respuesta."
+      description={`Podés combinar hasta ${MAX_TUTOR_TYPES}: el alumno conversa con un solo tutor que mezcla esos enfoques. En todos guía con preguntas en lugar de dar la respuesta.`}
+      footer={
+        <>
+          <p className="mr-auto self-center text-sm text-text-2" aria-live="polite">
+            {picked.length > 1 ? `Combinás ${picked.length} de ${MAX_TUTOR_TYPES}. El primero es el principal.` : "Tocá otro tipo para combinarlo."}
+            {full ? " Para cambiar uno, sacalo primero." : ""}
+          </p>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={() => onPick(picked)}>Listo</Button>
+        </>
+      }
     >
       {group("Formato de la actividad", TUTOR_FORMAT_TYPES)}
       {group("Enfoque del pensamiento", TUTOR_FOCUS_TYPES)}

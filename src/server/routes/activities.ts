@@ -50,6 +50,7 @@ import {
   resetBody,
 } from "@shared/contracts/activities";
 import { sanitizeReflectionQuestions, sanitizeRubric } from "@shared/domain/activity-design";
+import { sanitizeExtraTutorTypes } from "@shared/domain/pedagogy";
 
 /** AI design helpers per workspace: generous for real use, bounded against loops. */
 function assertAiRate(teacherId: string) {
@@ -110,8 +111,12 @@ export const activityRoutes = new Hono<AppEnv>()
   .patch("/:id", async (c) => {
     const { t, activity } = await owned(c);
     const body = await readJson(c, activityPatch);
-    const { rubric, reflectionQuestions, ...rest } = body;
+    const { rubric, reflectionQuestions, extraTutorTypes, ...rest } = body;
     const values: Partial<typeof schema.activities.$inferInsert> = { ...rest };
+    // The combined types never repeat the main one (also when only the main one changes).
+    if (extraTutorTypes !== undefined || body.tutorType !== undefined) {
+      values.extraTutorTypes = sanitizeExtraTutorTypes(extraTutorTypes ?? activity.extraTutorTypes, body.tutorType ?? activity.tutorType);
+    }
     if (rubric !== undefined) values.rubric = sanitizeRubric(rubric);
     // An empty list stays empty: the teacher decided there is no final reflection.
     if (reflectionQuestions !== undefined) values.reflectionQuestions = sanitizeReflectionQuestions(reflectionQuestions);

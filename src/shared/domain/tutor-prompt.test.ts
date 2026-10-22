@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GLOBAL_RULES, buildHistory, buildTutorPrompt, conversationQuery, stripFences, type TutorPromptInput } from "./tutor-prompt";
-import { TUTOR_TYPE_GUIDANCE, HELP_LEVELS } from "./pedagogy";
+import { TUTOR_TYPE_GUIDANCE, HELP_LEVELS, sanitizeExtraTutorTypes, tutorTypesLabel } from "./pedagogy";
 
 const base: TutorPromptInput = {
   title: "Fracciones equivalentes",
@@ -21,6 +21,28 @@ const base: TutorPromptInput = {
 
 const full = (p: { stable: string; volatile: string }) => `${p.stable}\n${p.volatile}`;
 const count = (haystack: string, needle: string) => haystack.split(needle).length - 1;
+
+describe("combined tutor types", () => {
+  it("keeps up to two known extra types, never the main one or repeats", () => {
+    expect(sanitizeExtraTutorTypes(["comprension_lectora", "matematico", "comprension_lectora", "inventado", "debate_clase", "repaso"], "matematico")).toEqual([
+      "comprension_lectora",
+      "debate_clase",
+    ]);
+    expect(sanitizeExtraTutorTypes("x", "matematico")).toEqual([]);
+    expect(tutorTypesLabel("matematico", ["debate_clase"])).toBe("Matemático + Debate de clase");
+  });
+
+  it("tells the tutor to be ONE tutor that blends the guidance of every chosen type", () => {
+    const p = buildTutorPrompt({ ...base, extraTutorTypes: ["comprension_lectora", "debate_socratico"] });
+    expect(p.stable).toContain("combinó 3 enfoques: Matemático + Comprensión lectora + Debate socrático");
+    expect(p.stable).toContain("Sos UN solo tutor");
+    for (const t of ["matematico", "comprension_lectora", "debate_socratico"]) expect(p.stable).toContain(TUTOR_TYPE_GUIDANCE[t]!);
+    // One type: the profile is as before.
+    const single = buildTutorPrompt(base);
+    expect(single.stable).toContain(`Tipo: Matemático. Nivel de ayuda`);
+    expect(single.stable).not.toContain("combinó");
+  });
+});
 
 describe("buildTutorPrompt", () => {
   it("puts the global rules first, verbatim", () => {

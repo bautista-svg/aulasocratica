@@ -25,7 +25,7 @@ export const SECTIONS: { id: string; title: string; keys: DraftKey[] }[] = [
   { id: "consigna", title: "Consigna", keys: ["instructions"] },
   { id: "objetivos", title: "Objetivos", keys: ["objectives", "subject"] },
   { id: "material", title: "Material", keys: ["material"] },
-  { id: "tutor", title: "Tutor", keys: ["tutorType", "helpLevel", "tutorRules"] },
+  { id: "tutor", title: "Tutor", keys: ["tutorType", "extraTutorTypes", "helpLevel", "tutorRules"] },
   { id: "respuesta-inicial", title: "Respuesta inicial", keys: ["requireInitialAnswer"] },
   { id: "voz", title: "Voz", keys: ["voiceLanguage"] },
   { id: "rubrica", title: "Rúbrica", keys: ["rubric"] },

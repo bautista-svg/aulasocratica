@@ -34,6 +34,8 @@ export function tutorConfig(t: TutorRow) {
   return {
     tutorId: t.id,
     tutorType: t.tutorType in TUTOR_TYPES ? t.tutorType : "pensamiento_critico",
+    // A saved tutor replaces the type: no combination left over from before.
+    extraTutorTypes: [],
     helpLevel,
     tutorRules: composeTutorRules({
       student_age: t.studentAge,

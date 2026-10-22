@@ -15,7 +15,7 @@ import { HttpError } from "../../lib/errors";
 import { hit } from "../../lib/rate-limit";
 import { publish } from "../../lib/events";
 import { log, errorFields } from "../../lib/logger";
-import { STUDENT_INTENTS } from "@shared/domain/pedagogy";
+import { STUDENT_INTENTS, sanitizeExtraTutorTypes } from "@shared/domain/pedagogy";
 import { KIND_LABEL, type FileKind } from "@shared/domain/files";
 import { isVoiceLanguage } from "@shared/domain/voice";
 import { buildHistory, buildTutorPrompt, conversationQuery } from "@shared/domain/tutor-prompt";
@@ -152,6 +152,7 @@ export async function tutorChat(c: Context, ctx: StudentCtx, body: ChatBody): Pr
       material: activity.material,
       files,
       tutorType: activity.tutorType,
+      extraTutorTypes: sanitizeExtraTutorTypes(activity.extraTutorTypes, activity.tutorType),
       helpLevel: activity.helpLevel,
       teacherRules: activity.tutorRules,
       voiceLanguage: isVoiceLanguage(activity.voiceLanguage) ? activity.voiceLanguage : "off",

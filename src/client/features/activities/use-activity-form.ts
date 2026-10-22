@@ -15,6 +15,7 @@ export interface ActivityDraft {
   instructions: string;
   material: string;
   tutorType: string;
+  extraTutorTypes: string[];
   helpLevel: HelpLevel;
   tutorRules: string;
   requireInitialAnswer: boolean;
@@ -31,6 +32,7 @@ export const DRAFT_KEYS = [
   "instructions",
   "material",
   "tutorType",
+  "extraTutorTypes",
   "helpLevel",
   "tutorRules",
   "requireInitialAnswer",
@@ -51,6 +53,7 @@ export function draftFrom(a: ActivityEditorData): ActivityDraft {
     instructions: a.instructions,
     material: a.material,
     tutorType: a.tutorType,
+    extraTutorTypes: a.extraTutorTypes,
     helpLevel: a.helpLevel,
     tutorRules: a.tutorRules,
     requireInitialAnswer: a.requireInitialAnswer,
