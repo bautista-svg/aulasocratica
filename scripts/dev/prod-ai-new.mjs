@@ -1,10 +1,9 @@
 // Checks the features added on 2026-10-22 against a deployed instance with the real model, in a
-// throwaway workspace deleted at the end: combined tutors, link delivery, strengths and areas to
-// reinforce (per work and per group), the calibrated rubric suggestion and full objectives in the
+// throwaway workspace deleted at the end: combined tutors, link delivery, skills with levels and
+// real quotes (per work and per group), the calibrated rubric suggestion and full objectives in the
 // summary.
 //   node scripts/dev/prod-ai-new.mjs https://aulasocratica.becode.com.ar
 const BASE = process.argv[2] ?? "https://aulasocratica.becode.com.ar";
-const ASPECTS = ["redaccion", "argumentacion", "comprension", "materiales", "ejemplos", "pensamiento_critico", "revision", "dialogo", "autonomia", "vocabulario", "creatividad", "reflexion"];
 let failed = 0;
 const ok = (name, pass, detail = "") => {
   if (!pass) failed++;
@@ -97,15 +96,21 @@ try {
 
   await sleep(3000);
   const sessionId = (await req(teacher, "GET", `/api/live/${act.id}`)).data.participants?.[0]?.sessionId;
-  const asp = await req(teacher, "POST", `/api/sessions/${sessionId}/aspects/analyze`);
-  const items = asp.data.items ?? [];
+  const sk = await req(teacher, "POST", `/api/sessions/${sessionId}/skills/analyze`);
+  const skills = sk.data.skills ?? [];
+  const leveled = skills.filter((s) => s.status !== "sin_evidencia");
   ok(
-    "fortalezas y a reforzar (IA real)",
-    asp.status === 200 && items.length > 0 && items.every((i) => ASPECTS.includes(i.aspect)),
-    items.map((i) => `${i.kind === "strength" ? "+" : "−"}${i.aspect}: ${i.observation}`).join(" | ").slice(0, 400),
+    "habilidades con niveles y citas reales (IA real)",
+    sk.status === 200 && skills.length >= 8 && leveled.length > 0 && leveled.every((s) => s.evidence && s.criterion),
+    skills.map((s) => `${s.skill}: ${s.status}${s.evidence ? ` «${s.evidence.slice(0, 50)}»` : ""}`).join(" | ").slice(0, 600),
   );
-  const group = await req(teacher, "GET", `/api/activities/${act.id}/aspects`);
-  ok("vista del grupo", group.status === 200 && group.data.analyzedWorks === 1, `${group.data.aspects?.length ?? 0} aspectos`);
+  console.log(`     por qué (${leveled[0]?.skill}): ${leveled[0]?.why}
+     mejorar: ${leveled[0]?.improve}
+     sugerencia: ${leveled[0]?.suggestion}
+     recomendaciones: ${(sk.data.recommendations ?? []).join(" | ")}
+     citas quitadas: ${sk.data.droppedQuotes}`);
+  const group = await req(teacher, "GET", `/api/activities/${act.id}/skills`);
+  ok("vista del grupo", group.status === 200 && group.data.assessedWorks === 1, `${group.data.skills?.length ?? 0} habilidades · ${group.data.interventions} intervenciones`);
   const sug = await req(teacher, "POST", `/api/sessions/${sessionId}/rubric/suggest`);
   ok("sugerencia de rúbrica calibrada", sug.status === 200, (sug.data.rubric?.suggestion ?? []).map((s) => `nivel ${s.levelIndex}: ${s.rationale}`).join(" | ").slice(0, 300));
   const sum = await req(teacher, "POST", `/api/sessions/${sessionId}/summary`, { basis: ["rubric", "objectives"] });

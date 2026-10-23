@@ -1,17 +1,41 @@
 import { useEffect, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@client/lib/api";
-import type { ActivityAspects } from "@shared/contracts/sessions";
+import type { ActivitySkills, SkillSettingsInput, SkillSettingsResponse } from "@shared/contracts/skills";
 
-export const aspectKeys = {
-  activity: (id: string) => ["activity-aspects", id] as const,
+export const skillKeys = {
+  activity: (id: string) => ["activity-skills", id] as const,
+  settings: ["skill-settings"] as const,
 };
 
-export function useActivityAspects(activityId: string) {
+export function useActivitySkills(activityId: string) {
   return useQuery({
-    queryKey: aspectKeys.activity(activityId),
-    queryFn: ({ signal }) => api.get<ActivityAspects>(`/api/activities/${activityId}/aspects`, signal),
+    queryKey: skillKeys.activity(activityId),
+    queryFn: ({ signal }) => api.get<ActivitySkills>(`/api/activities/${activityId}/skills`, signal),
     staleTime: 10_000,
+  });
+}
+
+export function useSkillSettings(enabled = true) {
+  return useQuery({
+    queryKey: skillKeys.settings,
+    queryFn: ({ signal }) => api.get<SkillSettingsResponse>("/api/skills", signal),
+    enabled,
+    staleTime: 60_000,
+  });
+}
+
+export function useSaveSkillSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: SkillSettingsInput) => api.put<SkillSettingsResponse>("/api/skills", body),
+    onSuccess: (r) => {
+      qc.setQueryData(skillKeys.settings, r);
+      // Every view shows the chosen skills.
+      void qc.invalidateQueries({ queryKey: ["activity-skills"] });
+      void qc.invalidateQueries({ queryKey: ["sessions"] });
+      void qc.invalidateQueries({ queryKey: ["students"] });
+    },
   });
 }
 
@@ -25,7 +49,7 @@ export interface GroupRun {
 }
 
 /**
- * Analyzes the finished works still pending, two at a time, so the chart fills in as they
+ * Evaluates the finished works still pending, two at a time, so the chart fills in as they
  * finish. A busy server (429) gets one more try after a pause; leaving the page stops the run.
  */
 export function useGroupAnalysis(activityId: string) {
@@ -51,7 +75,7 @@ export function useGroupAnalysis(activityId: string) {
         let ok = false;
         for (let attempt = 0; attempt < 2 && !ok && !stopped.current; attempt++) {
           try {
-            await api.post(`/api/sessions/${id}/aspects/analyze`);
+            await api.post(`/api/sessions/${id}/skills/analyze`);
             ok = true;
           } catch (e) {
             if (!(e instanceof ApiError && e.status === 429) || attempt > 0) break;
@@ -63,7 +87,7 @@ export function useGroupAnalysis(activityId: string) {
         if (stopped.current) return;
         setRun({ running: true, done, total: sessionIds.length, failed });
         if (ok) {
-          void qc.invalidateQueries({ queryKey: aspectKeys.activity(activityId) });
+          void qc.invalidateQueries({ queryKey: skillKeys.activity(activityId) });
           void qc.invalidateQueries({ queryKey: ["sessions", id] });
         }
       }
@@ -71,7 +95,7 @@ export function useGroupAnalysis(activityId: string) {
     await Promise.all([worker(), worker()]);
     const final = { running: false, done, total: sessionIds.length, failed };
     if (!stopped.current) setRun(final);
-    void qc.invalidateQueries({ queryKey: aspectKeys.activity(activityId) });
+    void qc.invalidateQueries({ queryKey: skillKeys.activity(activityId) });
     void qc.invalidateQueries({ queryKey: ["students"] });
     return final;
   }

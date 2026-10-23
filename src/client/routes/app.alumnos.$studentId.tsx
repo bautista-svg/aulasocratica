@@ -8,7 +8,7 @@ import { PageSpinner } from "@client/components/ui/spinner";
 import { fmtDate, fmtRelative, plural } from "@client/lib/format";
 import { useStudent } from "@client/features/students/api";
 import { WorkStatusBadge } from "@client/features/live/bits";
-import { StudentAspects } from "@client/features/aspects/student-section";
+import { StudentSkills } from "@client/features/skills/student-section";
 
 export const Route = createFileRoute("/app/alumnos/$studentId")({
   component: StudentPage,
@@ -30,7 +30,7 @@ function StudentPage() {
       </div>
     );
   }
-  const { student, classroom, works, notJoined, aspects } = q.data;
+  const { student, classroom, works, notJoined, skills } = q.data;
   const done = works.filter((w) => w.status === "completed").length;
 
   return (
@@ -58,7 +58,7 @@ function StudentPage() {
         }
       />
 
-      <StudentAspects data={aspects} />
+      <StudentSkills data={skills} />
 
       {works.length === 0 ? (
         <EmptyState

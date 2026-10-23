@@ -15,10 +15,11 @@ import { currentStage, lastSignalAt, liveStatus, stageReached, type LiveSession 
 import { observedAlertReason } from "@shared/domain/alerts";
 import { buildThinkingFlow } from "@shared/domain/thinking-xray";
 import { sanitizeSummary, splitObjectives, withFullObjectives, type SummaryBasis } from "@shared/domain/session-summary";
-import { sanitizeAspects } from "@shared/domain/aspects";
+import { enabledSkills } from "@shared/domain/skills";
+import { skillsView } from "./skills";
+import { skillSettingsOf } from "../skill-settings";
 import { classroomLabel } from "@shared/contracts/classrooms";
 import type {
-  AspectsView,
   DeliverableAnalysis,
   ObservedSignals,
   RubricAssessmentView,
@@ -175,10 +176,6 @@ export function summaryView(row: typeof schema.sessionSummaries.$inferSelect | u
   };
 }
 
-export function aspectsView(row: typeof schema.aspectAnalyses.$inferSelect | undefined): AspectsView {
-  return { items: sanitizeAspects(row?.items), aiGeneratedAt: row?.aiGeneratedAt?.toISOString() ?? null };
-}
-
 export function xrayView(row: typeof schema.thinkingAnalyses.$inferSelect | undefined): XrayView {
   const items = readXrayItems(row?.items);
   return {
@@ -247,7 +244,7 @@ export function deliverableView(row: typeof schema.sessionDeliverables.$inferSel
 
 export async function loadSessionDetail(row: OwnedSessionRow): Promise<SessionDetail> {
   const { session: s, activity: a, student } = row;
-  const [classroomRows, messages, events, alertRows, rubricRows, summaryRows, aspectRows, xrayRows, deliverableRows] = await Promise.all([
+  const [classroomRows, messages, events, alertRows, rubricRows, summaryRows, aspectRows, xrayRows, deliverableRows, skillSettings] = await Promise.all([
     db.select().from(schema.classrooms).where(eq(schema.classrooms.id, a.classroomId)).limit(1),
     loadMessages(s.id),
     loadEvents(s.id),
@@ -257,6 +254,7 @@ export async function loadSessionDetail(row: OwnedSessionRow): Promise<SessionDe
     db.select().from(schema.aspectAnalyses).where(eq(schema.aspectAnalyses.sessionId, s.id)).limit(1),
     db.select().from(schema.thinkingAnalyses).where(eq(schema.thinkingAnalyses.sessionId, s.id)).limit(1),
     db.select().from(schema.sessionDeliverables).where(eq(schema.sessionDeliverables.sessionId, s.id)).limit(1),
+    skillSettingsOf(a.teacherId),
   ]);
   const classroom = classroomRows[0]!;
   const rubric = sanitizeRubric(a.rubric);
@@ -324,7 +322,7 @@ export async function loadSessionDetail(row: OwnedSessionRow): Promise<SessionDe
     summary: summaryView(summaryRows[0], splitObjectives(a.objectives)),
     summaryAvailable: { rubric: rubric.length > 0, objectives: splitObjectives(a.objectives).length > 0 },
     xray: xrayView(xrayRows[0]),
-    aspects: aspectsView(aspectRows[0]),
+    skills: skillsView(aspectRows[0], enabledSkills(skillSettings)),
     flow: buildThinkingFlow(finished.map((m) => ({ role: m.role, content: m.content, intent: m.intent, createdAt: m.createdAt }))),
     signals: observedSignals(events),
   };

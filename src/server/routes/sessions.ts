@@ -10,7 +10,8 @@ import { ownedSession, isUuid } from "../services/access";
 import { audit } from "../services/audit";
 import { hit } from "../lib/rate-limit";
 import { log } from "../lib/logger";
-import { aspectAddBody, confirmBody, rubricSaveBody, summaryBody, xrayItemPatch } from "@shared/contracts/sessions";
+import { confirmBody, rubricSaveBody, summaryBody, xrayItemPatch } from "@shared/contracts/sessions";
+import { skillLevelBody } from "@shared/contracts/skills";
 import { splitObjectives } from "@shared/domain/session-summary";
 import { loadSessionDetail, summaryView } from "../services/sessions/detail";
 import { buildJourneyPdf, journeyDisposition } from "../services/sessions/journey-pdf";
@@ -19,9 +20,9 @@ import { deliverableKeys, deliverableOf, deleteStoredKeys, retryDeliverable, ser
 import { deliverableView } from "../services/sessions/detail";
 import { deleteSession, endSession, reopenSession } from "../services/sessions/actions";
 import { xrayList } from "../services/sessions/lists";
-import { addAspect, analyzeAspects, removeAspect } from "../services/sessions/aspects";
+import { analyzeSkills, setSkillLevel } from "../services/sessions/skills";
 
-/** The group view analyzes many works in a row, so aspects have their own, larger budget. */
+/** The group view analyzes many works in a row, so skills have their own, larger budget. */
 function aspectsLimit(c: Context<AppEnv>) {
   if (!hit(`aspects-ai:${teacherOf(c).id}`, 60, 60_000)) throw tooMany("Pediste muchos análisis seguidos. Esperá un minuto y volvé a probar.");
 }
@@ -129,24 +130,20 @@ export const sessionRoutes = new Hono<AppEnv>()
     return c.json(await suggestRubric(row, t.id));
   })
 
-  // Strengths and areas to reinforce: the AI suggests them; the teacher removes or adds their own.
-  .post("/:id/aspects/analyze", async (c) => {
+  // "Habilidades": the AI evaluates each skill at a level with a quote; the teacher can correct a level.
+  .post("/:id/skills/analyze", async (c) => {
     const t = teacherOf(c);
     const row = await ownedSession(t.id, c.req.param("id"));
     aspectsLimit(c);
-    return c.json(await analyzeAspects(row, t.id));
+    return c.json(await analyzeSkills(row, t.id));
   })
 
-  .post("/:id/aspects", async (c) => {
+  .patch("/:id/skills/:skill", async (c) => {
     const row = await ownedSession(teacherOf(c).id, c.req.param("id"));
-    return c.json(await addAspect(row, await readJson(c, aspectAddBody)));
-  })
-
-  .delete("/:id/aspects/:itemId", async (c) => {
-    const row = await ownedSession(teacherOf(c).id, c.req.param("id"));
-    const itemId = c.req.param("itemId");
-    if (itemId.length > 40) throw badRequest("Aspecto inválido.");
-    return c.json(await removeAspect(row, itemId));
+    const skill = c.req.param("skill");
+    if (skill.length > 40) throw badRequest("Habilidad inválida.");
+    const body = await readJson(c, skillLevelBody);
+    return c.json(await setSkillLevel(row, skill, body.status));
   })
 
   // The teacher disagrees with the AI: remove its suggestion (all, or ?criterionId=… for one criterion).

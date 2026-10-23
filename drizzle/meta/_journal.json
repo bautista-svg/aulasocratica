@@ -99,6 +99,13 @@
       "when": 1792768364750,
       "tag": "0013_google_sign_in",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792790867040,
+      "tag": "0014_skills",
+      "breakpoints": true
     }
   ]
 }

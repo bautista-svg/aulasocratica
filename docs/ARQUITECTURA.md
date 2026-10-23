@@ -110,7 +110,10 @@ docs/                Arquitectura, auditoría, informes
   reiniciar la actividad; un enlace no guarda nada: `url` + `storage_key` nulo, y si es un documento público de Google
   `services/link-reader.ts` lo lee **solo desde dominios de Google**, sin seguir redirecciones a otros, para no hacer
   pedidos a direcciones arbitrarias o internas),
-  `aspect_analyses` (fortalezas y aspectos a reforzar de un trabajo: claves fijas de `shared/domain/aspects.ts` para
+  `aspect_analyses` (habilidades de un trabajo, `skills`: un nivel por habilidad con cita verificada del alumno, o «sin
+  evidencia»; las habilidades y sus indicadores están en `shared/domain/skills.ts` y cada espacio elige cuáles evalúa y
+  suma las suyas en `teachers.skill_settings`. Un nivel sin cita real del alumno pasa a «sin evidencia». El nivel que
+  corrige la docente sobrevive a un nuevo análisis. `items` guarda las antiguas «fortalezas y aspectos a reforzar»; claves fijas para
   poder contarlas por actividad y por alumno; las que marca el docente sobreviven a un nuevo análisis).
 - `teachers.news_seen`: id del último aviso de «Novedades» mostrado (`shared/domain/news.ts`). Se marca apenas se abre,
   así aparece una sola vez en cualquier dispositivo; un aviso nuevo es un id nuevo.

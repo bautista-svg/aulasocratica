@@ -2,10 +2,9 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import { useState } from "react";
 import { toast } from "sonner";
 import { api, ApiError } from "@client/lib/api";
+import type { SkillsAnalyzeResult, SkillsView } from "@shared/contracts/skills";
+import type { SkillStatus } from "@shared/domain/skills";
 import type {
-  AspectAddInput,
-  AspectsAnalyzeResult,
-  AspectsView,
   DeliverableAnalyzeResult,
   RubricAssessmentView,
   RubricSaveInput,
@@ -44,10 +43,10 @@ export function useSession(id: string) {
 export function useSessionMutations(id: string) {
   const qc = useQueryClient();
   const patch = (fn: (d: SessionDetail) => SessionDetail) => qc.setQueryData<SessionDetail>(sessionKeys.one(id), (d) => (d ? fn(d) : d));
-  // The group view of the activity and the student's page count these aspects.
-  const setAspects = (r: AspectsView) => {
-    patch((d) => ({ ...d, aspects: { items: r.items, aiGeneratedAt: r.aiGeneratedAt } }));
-    void qc.invalidateQueries({ queryKey: ["activity-aspects"] });
+  // The group view of the activity and the student's page count these skills.
+  const setSkills = (r: SkillsView) => {
+    patch((d) => ({ ...d, skills: { skills: r.skills, recommendations: r.recommendations, interventions: r.interventions, skillsAt: r.skillsAt, catalog: r.catalog } }));
+    void qc.invalidateQueries({ queryKey: ["activity-skills"] });
     void qc.invalidateQueries({ queryKey: ["students"] });
   };
   const refreshLive = (activityId?: string) => {
@@ -108,17 +107,13 @@ export function useSessionMutations(id: string) {
         void qc.invalidateQueries({ queryKey: ["sessions", "xray-list"] });
       },
     }),
-    analyzeAspects: useMutation({
-      mutationFn: () => api.post<AspectsAnalyzeResult>(`/api/sessions/${id}/aspects/analyze`),
-      onSuccess: (r) => setAspects(r),
+    analyzeSkills: useMutation({
+      mutationFn: () => api.post<SkillsAnalyzeResult>(`/api/sessions/${id}/skills/analyze`),
+      onSuccess: (r) => setSkills(r),
     }),
-    addAspect: useMutation({
-      mutationFn: (body: AspectAddInput) => api.post<AspectsView>(`/api/sessions/${id}/aspects`, body),
-      onSuccess: (r) => setAspects(r),
-    }),
-    removeAspect: useMutation({
-      mutationFn: (itemId: string) => api.del<AspectsView>(`/api/sessions/${id}/aspects/${itemId}`),
-      onSuccess: (r) => setAspects(r),
+    setSkillLevel: useMutation({
+      mutationFn: ({ skill, status }: { skill: string; status: SkillStatus }) => api.patch<SkillsView>(`/api/sessions/${id}/skills/${skill}`, { status }),
+      onSuccess: (r) => setSkills(r),
     }),
     patchXray: useMutation({
       mutationFn: ({ itemId, ...body }: { itemId: string; status?: XrayStatus; interpretation?: string }) =>

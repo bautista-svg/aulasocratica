@@ -38,6 +38,8 @@ export const teachers = pgTable(
     recoveryCodeHash: text("recovery_code_hash"),
     isSuspended: boolean("is_suspended").notNull().default(false),
     tutorsSeededAt: timestamp("tutors_seeded_at", { withTimezone: true }),
+    /** Which skills this workspace evaluates and its own skills (null = the defaults). */
+    skillSettings: jsonb("skill_settings"),
     /** Can send change requests ("Pedidos de cambios"); granted by the admin. */
     canRequestChanges: boolean("can_request_changes").notNull().default(false),
     /** Id of the last "Novedades" notice shown (each one appears once, never again). */
@@ -430,8 +432,16 @@ export const aspectAnalyses = pgTable(
   {
     id: id(),
     sessionId: uuid("session_id").notNull().references(() => learningSessions.id, { onDelete: "cascade" }),
+    /** Former "fortalezas y aspectos a reforzar" (kept; works are evaluated again by skills). */
     items: jsonb("items").notNull().default(sql`'[]'::jsonb`),
     aiGeneratedAt: timestamp("ai_generated_at", { withTimezone: true }),
+    /** "Habilidades": one SkillAssessment per evaluated skill (shared/domain/skills.ts). */
+    skills: jsonb("skills").notNull().default(sql`'[]'::jsonb`),
+    /** Pedagogical recommendations for the teacher about this student. */
+    recommendations: jsonb("recommendations").notNull().default(sql`'[]'::jsonb`),
+    /** The student's interventions the evaluation read (not a measure of quality). */
+    interventions: integer("interventions").notNull().default(0),
+    skillsAt: timestamp("skills_at", { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

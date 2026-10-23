@@ -10,7 +10,7 @@ import { ApiError, errorMessage } from "@client/lib/api";
 import { plural } from "@client/lib/format";
 import { usePageTitle } from "@client/lib/page-title";
 import { LivePanel } from "@client/features/live/live-panel";
-import { AspectsPanel } from "@client/features/aspects/group-panel";
+import { SkillsPanel } from "@client/features/skills/group-panel";
 import { useActivity, useActivityAction, useSaveActivity } from "@client/features/activities/api";
 import { useActivityForm } from "@client/features/activities/use-activity-form";
 import { ConfigPanel, scrollToSection, useSaveDraft } from "@client/features/activities/config-panel";
@@ -252,7 +252,7 @@ function ActivityTabs({
             ) : undefined,
           content: liveOpened ? <LivePanel activityId={activity.id} /> : null,
         },
-        { value: "fortalezas", label: "Fortalezas", content: aspectsOpened ? <AspectsPanel activityId={activity.id} /> : null },
+        { value: "fortalezas", label: "Fortalezas", content: aspectsOpened ? <SkillsPanel activityId={activity.id} /> : null },
       ]}
     />
   );

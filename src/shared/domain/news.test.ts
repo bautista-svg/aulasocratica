@@ -4,15 +4,16 @@ import { NEWS, NEWS_RELEASES, unseenNews } from "./news";
 describe("Novedades", () => {
   it("shows everything once to a teacher who saw nothing, without repeating what one item already says", () => {
     const keys = unseenNews("").map((i) => i.key);
-    expect(keys).toEqual(["alerts", "deliverables", "aspects", "rubric", "tutors", "english", "consignas", "closing", "scans", "ending", "tutorRules", "google"]);
+    expect(keys).toEqual(["alerts", "deliverables", "aspects", "rubric", "tutors", "english", "consignas", "closing", "scans", "ending", "tutorRules", "skills", "google"]);
   });
 
   it("after a release, shows only what is new to that teacher", () => {
-    expect(unseenNews("2026-10-22").map((i) => i.key)).toEqual(["tutors", "links", "english", "consignas", "closing", "scans", "ending", "tutorRules", "google"]);
-    expect(unseenNews("2026-10-22b").map((i) => i.key)).toEqual(["english", "consignas", "closing", "ending", "tutorRules", "google"]);
-    expect(unseenNews("2026-10-22c").map((i) => i.key)).toEqual(["ending", "tutorRules", "google"]);
-    // Those who already saw «Entrá con tu cuenta» get only the Google news.
-    expect(unseenNews("2026-10-23").map((i) => i.key)).toEqual(["google"]);
+    expect(unseenNews("2026-10-22").map((i) => i.key)).toEqual(["tutors", "links", "english", "consignas", "closing", "scans", "ending", "tutorRules", "skills", "google"]);
+    expect(unseenNews("2026-10-22b").map((i) => i.key)).toEqual(["english", "consignas", "closing", "ending", "tutorRules", "skills", "google"]);
+    expect(unseenNews("2026-10-22c").map((i) => i.key)).toEqual(["ending", "tutorRules", "skills", "google"]);
+    // Those who already saw «Entrá con tu cuenta» get only what came after.
+    expect(unseenNews("2026-10-23").map((i) => i.key)).toEqual(["skills", "google"]);
+    expect(unseenNews("2026-10-23b").map((i) => i.key)).toEqual(["skills"]);
     expect(unseenNews(NEWS.id)).toEqual([]);
     expect(NEWS.id).toBe(NEWS_RELEASES.at(-1));
   });

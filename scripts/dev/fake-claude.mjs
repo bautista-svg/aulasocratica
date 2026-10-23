@@ -76,11 +76,36 @@ function interview(body) {
     : { reply: "¿Querés sacarla en todas tus actividades o elegir en cuáles? ¿Y las preguntas que ya escribiste deberían quedar guardadas?", ready: false, summary };
 }
 
+// "Habilidades": a level per skill listed in the prompt, quoting what the student wrote.
+function skills(body) {
+  const text = JSON.stringify(body.messages ?? "");
+  const keys = [...text.matchAll(/- skill: ([a-z_0-9]+)/g)].map((m) => m[1]);
+  const said = [...text.matchAll(/ALUMNO: ([^\\]{12,160})/g)].map((m) => m[1].split(/(?<=[.!?])\s/)[0].trim()).filter((q) => q.split(/\s+/).length >= 4);
+  const levels = ["logrado", "en_desarrollo", "avanzado", "inicial", "logrado", "sin_evidencia"];
+  return {
+    skills: keys.map((skill, i) => {
+      const status = said.length ? levels[i % levels.length] : "sin_evidencia";
+      const quote = status === "sin_evidencia" ? "" : said[i % said.length];
+      return {
+        skill,
+        status,
+        criterion: status === "sin_evidencia" ? "" : "Justifica sus respuestas.",
+        evidence: quote,
+        why: status === "sin_evidencia" ? "La conversación no mostró esta habilidad." : "En sus palabras da una razón concreta para lo que afirma, sin que el tutor se la diga.",
+        improve: status === "sin_evidencia" ? "" : "Podría apoyar la idea con un dato del material.",
+        suggestion: "Pedile que compare su idea con la de un compañero.",
+      };
+    }),
+    recommendations: ["Proponele que explique su razonamiento en voz alta.", "Sumá una pregunta que le pida un ejemplo propio."],
+  };
+}
+
 function reply(body) {
   const format = body.output_config?.format;
   if (format?.schema) {
     const s = format.schema;
     const defs = s.$defs ?? s.definitions ?? {};
+    if (s.properties?.skills && s.properties?.recommendations) return JSON.stringify(skills(body));
     if (s.properties?.reply && s.properties?.summary) return JSON.stringify(interview(body));
     // The aspects request: its keys are listed in the prompt, the schema only has strings.
     const keys = s.properties?.items?.items?.properties?.aspect ? Object.keys(ASPECT_TEXT) : null;

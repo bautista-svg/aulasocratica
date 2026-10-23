@@ -8,7 +8,7 @@ import { classroomLabel } from "@shared/contracts/classrooms";
 import type { XrayListItem, XrayListResponse } from "@shared/contracts/sessions";
 import type { StudentDetail, StudentWork } from "@shared/contracts/students";
 import { xrayCounts } from "./xray-store";
-import { sanitizeAspects, tallyAspects } from "@shared/domain/aspects";
+import { studentSkills } from "./skills";
 
 export const XRAY_PAGE_SIZE = 30;
 
@@ -179,20 +179,8 @@ export async function studentDetail(row: {
     classroom: { id: classroom.id, name: classroom.name, label: classroomLabel(classroom), isArchived: classroom.isArchived },
     works,
     notJoined: activities.filter((a) => !joined.has(a.id)).map((a) => ({ activityId: a.id, title: a.title })),
-    aspects: await studentAspects(works),
+    skills: await studentSkills(works, classroom.teacherId),
   };
 }
 
-/** A student's aspects across their works in the classroom, with the activity as "who". */
-export async function studentAspects(works: { sessionId: string; activityTitle: string }[]) {
-  if (works.length === 0) return { analyzedWorks: 0, aspects: [] };
-  const rows = await db
-    .select({ sessionId: schema.aspectAnalyses.sessionId, items: schema.aspectAnalyses.items })
-    .from(schema.aspectAnalyses)
-    .where(inArray(schema.aspectAnalyses.sessionId, works.map((w) => w.sessionId)));
-  const title = new Map(works.map((w) => [w.sessionId, w.activityTitle]));
-  const counted = rows
-    .map((r) => ({ sessionId: r.sessionId, who: title.get(r.sessionId) ?? "", items: sanitizeAspects(r.items) }))
-    .filter((r) => r.items.length > 0);
-  return { analyzedWorks: counted.length, aspects: tallyAspects(counted) };
-}
+

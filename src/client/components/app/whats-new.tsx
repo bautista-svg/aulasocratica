@@ -48,6 +48,7 @@ const ICONS: Record<NewsKey, { icon: LucideIcon; tile: string }> = {
   tutorRules: { icon: PenLine, tile: "bg-ink-soft text-ink" },
   signin: { icon: LogIn, tile: "bg-leaf-soft text-leaf" },
   google: { icon: KeyRound, tile: "bg-leaf-soft text-leaf" },
+  skills: { icon: Sprout, tile: "bg-lilac-soft text-lilac-ink" },
 };
 
 export function WhatsNew({ me }: { me: Me }) {

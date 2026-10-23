@@ -16,7 +16,7 @@ import { SUMMARY_BASIS_LABELS, type SummaryBasis } from "@shared/domain/session-
 import type { SessionDetail } from "@shared/contracts/sessions";
 import { useSessionMutations } from "./api";
 import { DeliverableCard } from "./deliverable-card";
-import { AspectsCard } from "./aspects-card";
+import { SkillsCard } from "./skills-card";
 
 export function EvaluationTab({ detail }: { detail: SessionDetail }) {
   // Levels from the analysis of the delivered file, brought into the rubric (the teacher reviews them).
@@ -36,7 +36,7 @@ export function EvaluationTab({ detail }: { detail: SessionDetail }) {
       ) : null}
       <RubricCard detail={detail} incoming={incoming} />
       <SummaryCard detail={detail} />
-      <AspectsCard detail={detail} />
+      <SkillsCard detail={detail} />
     </div>
   );
 }

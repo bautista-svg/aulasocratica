@@ -122,7 +122,7 @@ function PrivacyPage() {
                 pestaña u otra aplicación) por 10 segundos o más. Se registra que pasó, no qué estaba mirando.
               </li>
               <li>
-                Sugerencias de la IA sobre su trabajo (resúmenes, niveles de rúbrica propuestos, fortalezas y aspectos a reforzar, alertas e
+                Sugerencias de la IA sobre su trabajo (resúmenes, niveles de rúbrica propuestos, niveles de sus habilidades con citas, alertas e
                 interpretaciones) y lo que el docente
                 decide sobre ellas: confirmarlas, editarlas o descartarlas.
               </li>
