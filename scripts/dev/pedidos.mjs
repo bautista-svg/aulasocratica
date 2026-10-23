@@ -111,7 +111,7 @@ try {
     if (flags.has("--json")) {
       console.log(JSON.stringify(requests, null, 2));
     } else if (!requests.length) {
-      console.log("No hay pedidos pendientes.");
+      console.log(status ? "Todavía no hay pedidos." : "No hay pedidos pendientes.");
     } else {
       console.log(`${requests.length} pedido(s):`);
       for (const r of requests) show(r, await download(r));
