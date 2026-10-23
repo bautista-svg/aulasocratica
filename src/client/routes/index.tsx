@@ -14,6 +14,7 @@ function Home() {
   return (
     <Landing
       hasWorkspace={Boolean(me.data?.teacher)}
+      hasAccount={Boolean(me.data?.teacher?.hasAccount)}
       starting={start.isPending}
       startError={start.isError ? errorMessage(start.error) : null}
       onStart={(e) => {

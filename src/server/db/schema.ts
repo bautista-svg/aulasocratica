@@ -166,6 +166,11 @@ export const activities = pgTable(
     finalQuestion: text("final_question").notNull().default(""),
     /** Language of the student's screens and the tutor: "es" or "en". */
     language: text("language").notNull().default("es"),
+    /** Whether the closing step asks the reflection questions (they are kept when turned off). */
+    askReflection: boolean("ask_reflection").notNull().default(true),
+    /** A message the student reads at the end, with nothing to answer (shown only when on). */
+    closingMessageOn: boolean("closing_message_on").notNull().default(false),
+    closingMessage: text("closing_message").notNull().default(""),
     voiceLanguage: text("voice_language").notNull().default("off"),
     /**
      * Whether students hand in a file or link when they finish: off, optional or required. New

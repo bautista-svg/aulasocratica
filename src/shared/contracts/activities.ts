@@ -11,9 +11,9 @@ import type { VoiceLanguage } from "../domain/voice";
 import { DELIVERABLE_PROMPT_MAX, type DeliverableMode } from "../domain/deliverables";
 import type { FileKind, ProcessingStatus } from "../domain/files";
 import { MAX_TUTOR_TYPES, TUTOR_TYPES } from "../domain/pedagogy";
-import { FINAL_QUESTION_MAX, MAX_CONSIGNAS } from "../domain/consignas";
+import { CLOSING_MESSAGE_MAX, FINAL_QUESTION_MAX, MAX_CONSIGNAS } from "../domain/consignas";
 import type { ActivityLanguage } from "../domain/language";
-import { MAX_TUTOR_RULES } from "../domain/tutors";
+import { MAX_TUTOR_RULES, MAX_TUTOR_RULES_WORDS, countWords } from "../domain/tutors";
 
 export type ActivityStatus = "draft" | "published" | "archived";
 export type HelpLevel = "autonomous" | "moderate" | "intensive";
@@ -80,6 +80,11 @@ export interface ActivityDetail {
   finalQuestion: string;
   /** Language of the student's screens and the tutor. */
   language: ActivityLanguage;
+  /** Ask the reflection questions when closing (off: they are kept, not asked). */
+  askReflection: boolean;
+  /** Show the closing message (something to read, nothing to answer). */
+  closingMessageOn: boolean;
+  closingMessage: string;
   voiceLanguage: VoiceLanguage;
   /** Whether students hand in a file when they finish. */
   deliverableMode: DeliverableMode;
@@ -188,12 +193,15 @@ export const activityPatch = z
     tutorType: tutorTypeSchema,
     extraTutorTypes: z.array(tutorTypeSchema).max(MAX_TUTOR_TYPES - 1, `Podés combinar hasta ${MAX_TUTOR_TYPES} tipos de tutor.`),
     helpLevel: helpLevelSchema,
-    tutorRules: text(ACTIVITY_LIMITS.tutorRules),
+    tutorRules: text(ACTIVITY_LIMITS.tutorRules).refine((v) => countWords(v) <= MAX_TUTOR_RULES_WORDS, `Usá hasta ${MAX_TUTOR_RULES_WORDS} palabras.`),
     /** Only `null` is accepted here (unlink the saved tutor); to apply one use POST /:id/tutor. */
     tutorId: z.null(),
     requireInitialAnswer: z.boolean(),
     askFinalAnswer: z.boolean(),
     language: z.enum(["es", "en"], { message: "Elegí el idioma de la actividad." }),
+    askReflection: z.boolean(),
+    closingMessageOn: z.boolean(),
+    closingMessage: text(CLOSING_MESSAGE_MAX),
     finalQuestion: text(FINAL_QUESTION_MAX),
     voiceLanguage: voiceSchema,
     deliverableMode: z.enum(["off", "optional", "required"], { message: "Elegí si pedís un archivo en la entrega." }),

@@ -432,8 +432,12 @@ export async function refreshSession(ctx: StudentCtx): Promise<StudentCtx> {
  * The activity's reflection questions exactly as the teacher left them. New activities start
  * with DEFAULT_REFLECTION_QUESTIONS; an empty list is a deliberate choice (no reflection step).
  */
-/** The activity's reflection questions; the default ones read in English in English activities. */
+/**
+ * The reflection questions the student answers (none when the teacher turned the reflection off);
+ * the default ones read in English in English activities.
+ */
 export function reflectionQuestionsOf(activity: Activity): ReflectionQuestion[] {
+  if (!activity.askReflection) return [];
   return reflectionQuestionsIn(sanitizeReflectionQuestions(activity.reflectionQuestions), languageOf(activity.language));
 }
 
@@ -550,6 +554,7 @@ export async function buildWorkspace(ctx: StudentCtx, opts: { files?: boolean } 
       askFinalAnswer: activity.askFinalAnswer,
       finalQuestion: activity.finalQuestion.trim() || DEFAULT_FINAL_QUESTION_BY_LANGUAGE[languageOf(activity.language)],
       language: languageOf(activity.language),
+      closingMessage: activity.closingMessageOn && activity.closingMessage.trim() ? activity.closingMessage.trim() : null,
       voiceLanguage: isVoiceLanguage(activity.voiceLanguage) ? activity.voiceLanguage : "off",
       reflectionQuestions: questions,
       deliverableMode: isDeliverableMode(activity.deliverableMode) ? activity.deliverableMode : "off",

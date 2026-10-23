@@ -24,6 +24,9 @@ export interface ActivityDraft {
   askFinalAnswer: boolean;
   finalQuestion: string;
   language: ActivityLanguage;
+  askReflection: boolean;
+  closingMessageOn: boolean;
+  closingMessage: string;
   voiceLanguage: VoiceLanguage;
   deliverableMode: DeliverableMode;
   deliverablePrompt: string;
@@ -45,6 +48,9 @@ export const DRAFT_KEYS = [
   "askFinalAnswer",
   "finalQuestion",
   "language",
+  "askReflection",
+  "closingMessageOn",
+  "closingMessage",
   "voiceLanguage",
   "deliverableMode",
   "deliverablePrompt",
@@ -70,6 +76,9 @@ export function draftFrom(a: ActivityEditorData): ActivityDraft {
     askFinalAnswer: a.askFinalAnswer,
     finalQuestion: a.finalQuestion,
     language: a.language,
+    askReflection: a.askReflection,
+    closingMessageOn: a.closingMessageOn,
+    closingMessage: a.closingMessage,
     voiceLanguage: a.voiceLanguage,
     deliverableMode: a.deliverableMode,
     deliverablePrompt: a.deliverablePrompt,

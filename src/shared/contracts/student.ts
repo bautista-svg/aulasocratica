@@ -182,6 +182,8 @@ export interface StudentWorkspace {
     finalQuestion: string;
     /** Language of the student's screens and the tutor. */
     language: ActivityLanguage;
+    /** The teacher's message for the end (nothing to answer), or null. */
+    closingMessage: string | null;
     material: string;
     requireInitialAnswer: boolean;
     voiceLanguage: VoiceLanguage;

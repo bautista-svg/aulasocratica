@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { KeyRound, LogOut, Lock, Mail, Smartphone } from "lucide-react";
-import { Button } from "@client/components/ui/button";
+import { KeyRound, LogIn, LogOut, Lock, Mail, Smartphone } from "lucide-react";
+import { Button, buttonClass } from "@client/components/ui/button";
 import { Dialog, ConfirmDialog } from "@client/components/ui/dialog";
 import { Field, FormError, Input } from "@client/components/ui/field";
 import { ApiError, errorMessage } from "@client/lib/api";
@@ -51,6 +51,16 @@ function CreateAccount({ me, onCreated }: { me: Me; onCreated: (code: string) =>
 
   return (
     <div>
+      <div className="mb-4 flex flex-col gap-3 rounded-[14px] border border-lilac/40 bg-lilac-soft/60 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm leading-6 text-text-2">
+          <span className="font-semibold text-ink">¿Ya tenés una cuenta?</span> Entrá con tu correo: lo que hiciste en este dispositivo se suma a tu
+          cuenta.
+        </p>
+        <Link to="/ingresar" className={buttonClass("secondary", "sm", "shrink-0")}>
+          <LogIn className="size-4" aria-hidden="true" />
+          Entrar con mi cuenta
+        </Link>
+      </div>
       <div className="flex items-start gap-3 rounded-md bg-sunken px-4 py-3.5">
         <Smartphone className="mt-0.5 size-5 shrink-0 text-ink" aria-hidden="true" />
         <div className="text-sm leading-6 text-text-2">

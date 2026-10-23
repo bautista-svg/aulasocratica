@@ -230,6 +230,7 @@ const es = {
     finishFailed: "No pudimos enviar tu trabajo. Probá de nuevo.",
     backToChat: "Volver a la conversación",
     toFinish: "Para terminar",
+    teacherNote: "Un mensaje de tu docente",
     beforeSend: "Antes de enviar tu trabajo",
     closingIntroAsk:
       "Escribí tu respuesta final con tus palabras y contá cómo lo pensaste. Cuando la envíes ya no vas a poder cambiarla, y tu docente va a poder leerla.",
@@ -719,6 +720,7 @@ const en: StudentStrings = {
     finishFailed: "We couldn't send your work. Try again.",
     backToChat: "Back to the chat",
     toFinish: "To finish",
+    teacherNote: "A note from your teacher",
     beforeSend: "Before you send your work",
     closingIntroAsk:
       "Write your final answer in your own words and explain how you thought about it. Once you send it, you won't be able to change it, and your teacher will be able to read it.",

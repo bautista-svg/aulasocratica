@@ -1,7 +1,7 @@
 // Initial answer, closing (final answer + reflection) and the completed / closed views.
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CheckCircle2, KeyRound, Lock } from "lucide-react";
+import { ArrowLeft, CheckCircle2, KeyRound, Lock, MessageSquareText } from "lucide-react";
 import { Button } from "@client/components/ui/button";
 import { cn } from "@client/lib/cn";
 import { Field, FormError, Textarea } from "@client/components/ui/field";
@@ -270,6 +270,8 @@ export function ClosingStep({
             </Field>
           )}
 
+          {workspace.activity.closingMessage ? <TeacherNote text={workspace.activity.closingMessage} label={t.steps.teacherNote} /> : null}
+
           {workspace.activity.reflectionQuestions.length ? (
             <fieldset className="space-y-4 border-t border-line pt-5">
               <legend className="float-left w-full font-display text-lg font-semibold text-ink">{t.steps.reflection}</legend>
@@ -398,6 +400,12 @@ export function DoneStep({
           ) : null}
         </div>
 
+        {workspace.activity.closingMessage ? (
+          <div className="mt-6">
+            <TeacherNote text={workspace.activity.closingMessage} label={t.steps.teacherNote} />
+          </div>
+        ) : null}
+
         {workspace.deliverable ? (
           <div className="mt-6 border-t border-line pt-5">
             <h3 className="font-display text-lg font-semibold text-ink">{t.done.deliverable}</h3>
@@ -440,5 +448,20 @@ export function DoneStep({
         </div>
       </details>
     </section>
+  );
+}
+
+/** The teacher's message for the end: something to read, nothing to answer. */
+function TeacherNote({ text, label }: { text: string; label: string }) {
+  return (
+    <aside aria-label={label} className="flex gap-3 rounded-[14px] border border-lilac/40 bg-lilac-soft/60 px-4 py-3.5">
+      <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-surface text-lilac-ink shadow-1" aria-hidden="true">
+        <MessageSquareText className="size-4" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs font-semibold tracking-wide text-lilac-ink uppercase">{label}</p>
+        <p className="mt-1 text-[15px] leading-6 whitespace-pre-wrap text-text">{text}</p>
+      </div>
+    </aside>
   );
 }

@@ -12,7 +12,7 @@ import { ApiError, errorMessage } from "@client/lib/api";
 import { VOICE_LANGUAGE_LABELS, type VoiceLanguage } from "@shared/domain/voice";
 import { DELIVERABLE_MODES, DELIVERABLE_PROMPT_MAX, MAX_DELIVERABLE_LABEL, type DeliverableMode } from "@shared/domain/deliverables";
 import { ACTIVITY_LIMITS, type ActivityEditorData } from "@shared/contracts/activities";
-import { DEFAULT_FINAL_QUESTION, FINAL_QUESTION_MAX, MAX_CONSIGNAS } from "@shared/domain/consignas";
+import { CLOSING_MESSAGE_MAX, DEFAULT_FINAL_QUESTION, FINAL_QUESTION_MAX, MAX_CONSIGNAS } from "@shared/domain/consignas";
 import { DEFAULT_FINAL_QUESTION_BY_LANGUAGE } from "@shared/domain/language";
 import { LanguageSwitch } from "./language-switch";
 import { useSaveActivity } from "./api";
@@ -34,7 +34,8 @@ export const SECTIONS: { id: string; title: string; keys: DraftKey[] }[] = [
   { id: "respuesta-final", title: "Respuesta final", keys: ["askFinalAnswer", "finalQuestion"] },
   { id: "voz", title: "Voz", keys: ["voiceLanguage"] },
   { id: "rubrica", title: "Rúbrica", keys: ["rubric"] },
-  { id: "reflexion", title: "Reflexión final", keys: ["reflectionQuestions"] },
+  { id: "reflexion", title: "Reflexión final", keys: ["askReflection", "reflectionQuestions"] },
+  { id: "mensaje-final", title: "Mensaje final", keys: ["closingMessageOn", "closingMessage"] },
   { id: "entrega", title: "Entrega (archivo o enlace)", keys: ["deliverableMode", "deliverablePrompt"] },
 ];
 
@@ -317,7 +318,56 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
           description="Preguntas que el alumno responde al terminar, junto con su respuesta final. Podés dejar pocas, cambiarlas o no poner ninguna."
           {...meta("reflexion")}
         >
-          <ReflectionEditor activityId={activity.id} form={form} context={aiContext} />
+          <Switch
+            checked={draft.askReflection}
+            onCheckedChange={(v) => set("askReflection", v)}
+            label="Pedir una reflexión al terminar"
+            description={
+              draft.askReflection
+                ? "Al terminar, cada alumno responde estas preguntas (las que quiera)."
+                : "Los alumnos no ven la reflexión. Las preguntas quedan guardadas por si la volvés a activar."
+            }
+          />
+          {draft.askReflection ? (
+            <div className="mt-5">
+              <ReflectionEditor activityId={activity.id} form={form} context={aiContext} />
+            </div>
+          ) : null}
+        </EditorSection>
+
+        <EditorSection
+          id="mensaje-final"
+          title="Mensaje final"
+          description="Un mensaje o una indicación que los alumnos leen al terminar, sin tener que responder nada. Por ejemplo: «Con otro color, sumá una pregunta nueva a tus notas Cornell»."
+          {...meta("mensaje-final")}
+        >
+          <Switch
+            checked={draft.closingMessageOn}
+            onCheckedChange={(v) => set("closingMessageOn", v)}
+            label="Mostrar un mensaje al terminar"
+            description={draft.closingMessageOn ? "Lo ven en el cierre y después de enviar su trabajo." : "No se muestra ningún mensaje al terminar."}
+          />
+          {draft.closingMessageOn ? (
+            <Field
+              className="mt-4"
+              label="Mensaje"
+              error={errors.closingMessage}
+              counter={{ value: draft.closingMessage.length, max: CLOSING_MESSAGE_MAX }}
+            >
+              {(p) => (
+                <Textarea
+                  id={p.id}
+                  aria-describedby={p.describedBy}
+                  invalid={p.invalid}
+                  value={draft.closingMessage}
+                  maxLength={CLOSING_MESSAGE_MAX}
+                  onChange={(e) => set("closingMessage", e.target.value)}
+                  minRows={3}
+                  placeholder="Ej.: Antes de irte, revisá tus notas y marcá con otro color lo que aprendiste hoy."
+                />
+              )}
+            </Field>
+          ) : null}
         </EditorSection>
 
         <EditorSection

@@ -1,5 +1,7 @@
 import {
   forwardRef,
+  useCallback,
+  useEffect,
   useId,
   useLayoutEffect,
   useRef,
@@ -71,7 +73,7 @@ export const Textarea = forwardRef<
   TextareaHTMLAttributes<HTMLTextAreaElement> & { invalid?: boolean; minRows?: number; maxRows?: number }
 >(function Textarea({ className, invalid, minRows = 3, maxRows = 14, value, ...rest }, forwarded) {
   const inner = useRef<HTMLTextAreaElement | null>(null);
-  useLayoutEffect(() => {
+  const fit = useCallback(() => {
     const el = inner.current;
     if (!el) return;
     el.style.height = "auto";
@@ -79,7 +81,21 @@ export const Textarea = forwardRef<
     const min = minRows * line + 20;
     const max = maxRows * line + 20;
     el.style.height = `${Math.min(max, Math.max(min, el.scrollHeight))}px`;
-  }, [value, minRows, maxRows]);
+  }, [minRows, maxRows]);
+  useLayoutEffect(fit, [value, fit]);
+  // A textarea inside a hidden tab measures 0: fit it again when it gets its width (shown or resized).
+  useEffect(() => {
+    const el = inner.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    let width = el.clientWidth;
+    const ro = new ResizeObserver(() => {
+      if (el.clientWidth === width) return;
+      width = el.clientWidth;
+      fit();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [fit]);
   return (
     <textarea
       ref={(el) => {

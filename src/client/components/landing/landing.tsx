@@ -6,6 +6,8 @@ import { buttonClass } from "../ui/button";
 
 export interface LandingProps {
   hasWorkspace?: boolean;
+  /** The workspace open on this device has an account (email + password). */
+  hasAccount?: boolean;
   starting?: boolean;
   startError?: string | null;
   onStart?: (e: FormEvent<HTMLFormElement>) => void;
@@ -38,7 +40,7 @@ const STEPS = [
   },
 ];
 
-export function Landing({ hasWorkspace, starting, startError, onStart }: LandingProps) {
+export function Landing({ hasWorkspace, hasAccount, starting, startError, onStart }: LandingProps) {
   return (
     <div className="min-h-dvh bg-paper">
       <header className="mx-auto flex h-16 max-w-[1120px] items-center justify-between px-5 sm:px-8">
@@ -46,6 +48,12 @@ export function Landing({ hasWorkspace, starting, startError, onStart }: Landing
           <Logo />
         </a>
         <nav aria-label="Cuenta" className="flex items-center gap-1">
+          {/* A workspace without an account on this device must not hide signing in to an existing account. */}
+          {hasWorkspace && !hasAccount ? (
+            <a href="/ingresar" className={buttonClass("ghost", "sm")}>
+              Entrar con mi cuenta
+            </a>
+          ) : null}
           {hasWorkspace ? (
             <a href="/app" className={buttonClass("ghost", "sm")}>
               Mi espacio
@@ -82,9 +90,15 @@ export function Landing({ hasWorkspace, starting, startError, onStart }: Landing
                   </button>
                 </form>
               )}
-              <a href="#como-funciona" className={buttonClass("secondary", "lg")}>
-                Cómo funciona
-              </a>
+              {hasWorkspace && !hasAccount ? (
+                <a href="/ingresar" className={buttonClass("secondary", "lg")}>
+                  Entrar con mi cuenta
+                </a>
+              ) : (
+                <a href="#como-funciona" className={buttonClass("secondary", "lg")}>
+                  Cómo funciona
+                </a>
+              )}
             </div>
             {startError ? (
               <p role="alert" className="mt-3 text-sm font-medium text-rose">

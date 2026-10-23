@@ -8,7 +8,12 @@ export const DIFFICULTIES: Record<string, string> = {
   avanzada: "Avanzada",
 };
 
-export const MAX_TUTOR_RULES = 3000;
+/** Teachers write long indications for the tutor: up to 4000 words (asked for on 23-10). */
+export const MAX_TUTOR_RULES_WORDS = 4000;
+/** Character ceiling that fits 4000 words with room (what the tutor prompt receives at most). */
+export const MAX_TUTOR_RULES = 40_000;
+
+export const countWords = (s: string): number => (s.trim().match(/\S+/g) ?? []).length;
 
 export interface TutorConfig {
   name: string;

@@ -799,6 +799,29 @@ describe("closing question", () => {
   });
 });
 
+describe("reflection and closing message", () => {
+  it("without reflection the student is not asked it; the closing message shows only when it is on", async () => {
+    const s = await joined({ requireInitialAnswer: false, askReflection: false, closingMessage: "Con otro color, sumá una pregunta a tus notas.", closingMessageOn: true });
+    expect(s.workspace.activity.reflectionQuestions).toEqual([]);
+    expect(s.workspace.activity.closingMessage).toBe("Con otro color, sumá una pregunta a tus notas.");
+    const r = await call("POST", `/api/s/${s.token}/finish`, {
+      cookie: s.cookie,
+      body: { finalAnswer: "Son iguales porque es la mitad.", reflection: [{ key: "discovered", answer: "No debería guardarse." }] },
+    });
+    expect(r.status).toBe(200);
+    expect(r.body.workspace.session.reflection).toEqual([]);
+
+    const off = await joined({
+      requireInitialAnswer: false,
+      closingMessage: "Texto guardado",
+      closingMessageOn: false,
+      reflectionQuestions: [{ key: "discovered", question: "¿Qué descubriste durante la actividad?" }],
+    });
+    expect(off.workspace.activity.closingMessage).toBeNull();
+    expect(off.workspace.activity.reflectionQuestions.length).toBeGreaterThan(0);
+  });
+});
+
 describe("English activities", () => {
   it("the student gets the activity in English: closing and reflection questions, availability and help buttons", async () => {
     const s = await joined({ requireInitialAnswer: false, language: "en", reflectionQuestions: [{ key: "discovered", question: "¿Qué descubriste durante la actividad?" }] });

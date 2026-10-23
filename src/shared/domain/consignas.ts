@@ -9,6 +9,8 @@ export const MAX_CONSIGNAS = 8;
 /** The closing question; the teacher can rewrite it or not ask for a final answer at all. */
 export const DEFAULT_FINAL_QUESTION = "¿Qué pensás ahora?";
 export const FINAL_QUESTION_MAX = 160;
+/** A message the teacher leaves for the end (an instruction to read, nothing to answer). */
+export const CLOSING_MESSAGE_MAX = 2000;
 
 /** The extra consignas as stored: trimmed, non-empty, at most MAX_CONSIGNAS - 1. */
 export function sanitizeMoreInstructions(raw: unknown, maxChars: number): string[] {

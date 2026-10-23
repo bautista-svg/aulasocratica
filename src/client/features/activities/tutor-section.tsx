@@ -13,6 +13,7 @@ import { useTutors } from "@client/features/tutors/api";
 import { tutorOptionLabel } from "@client/features/tutors/tutor-visual";
 import { HELP_LEVELS, MAX_TUTOR_TYPES, TUTOR_FOCUS_TYPES, TUTOR_FORMAT_TYPES, TUTOR_TYPE_INFO, TUTOR_TYPES } from "@shared/domain/pedagogy";
 import { ACTIVITY_LIMITS, type ActivityEditorData, type HelpLevel } from "@shared/contracts/activities";
+import { MAX_TUTOR_RULES_WORDS, countWords } from "@shared/domain/tutors";
 import { useApplyTutor } from "./api";
 import { RadioCards } from "./parts";
 import type { ActivityForm } from "./use-activity-form";
@@ -140,8 +141,8 @@ export function TutorSection({ activity, form }: { activity: ActivityEditorData;
         label="Indicaciones para el tutor"
         optional
         error={errors.tutorRules}
-        counter={{ value: draft.tutorRules.length, max: ACTIVITY_LIMITS.tutorRules }}
-        hint="Se agregan debajo de las reglas fijas del tutor, que tienen prioridad: guiar con preguntas y no dar la respuesta."
+        counter={{ value: countWords(draft.tutorRules), max: MAX_TUTOR_RULES_WORDS }}
+        hint={`Hasta ${MAX_TUTOR_RULES_WORDS.toLocaleString("es-AR")} palabras. Se agregan debajo de las reglas fijas del tutor, que tienen prioridad: guiar con preguntas y no dar la respuesta.`}
       >
         {(p) => (
           <Textarea
@@ -150,7 +151,8 @@ export function TutorSection({ activity, form }: { activity: ActivityEditorData;
             invalid={p.invalid}
             value={draft.tutorRules}
             onChange={(e) => set("tutorRules", e.target.value)}
-            minRows={3}
+            minRows={8}
+            maxRows={26}
             placeholder="Ej.: Pedí siempre que prueben la regla con otro número antes de cerrar."
           />
         )}

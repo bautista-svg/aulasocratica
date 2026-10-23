@@ -73,6 +73,28 @@ describe("create", () => {
     expect(applied.body.activity.tutorRules).toContain("Que tomen postura.");
   });
 
+  it("takes tutor indications up to 4000 words", async () => {
+    const t = await newTeacher();
+    const room = await newClassroom(t.cookie);
+    const a = await newActivity(t.cookie, room);
+    const words = (n: number) => Array.from({ length: n }, (_, i) => `idea${i % 50}`).join(" ");
+    const ok = await call("PATCH", `/api/activities/${a.id}`, { cookie: t.cookie, body: { tutorRules: words(3900) } });
+    expect(ok.status).toBe(200);
+    expect(ok.body.activity.tutorRules.length).toBeGreaterThan(3000);
+    const tooMany = await call("PATCH", `/api/activities/${a.id}`, { cookie: t.cookie, body: { tutorRules: words(4001) } });
+    expect(tooMany.status).toBe(400);
+    expect(tooMany.body.error.fields.tutorRules).toContain("4000 palabras");
+  });
+
+  it("saves the reflection switch and the closing message", async () => {
+    const t = await newTeacher();
+    const room = await newClassroom(t.cookie);
+    const a = await newActivity(t.cookie, room);
+    expect(a).toMatchObject({ askReflection: true, closingMessageOn: false, closingMessage: "" });
+    const r = await call("PATCH", `/api/activities/${a.id}`, { cookie: t.cookie, body: { askReflection: false, closingMessageOn: true, closingMessage: "Revisá tus notas." } });
+    expect(r.body.activity).toMatchObject({ askReflection: false, closingMessageOn: true, closingMessage: "Revisá tus notas." });
+  });
+
   it("is created in Castellano or English and the language can change", async () => {
     const t = await newTeacher();
     const room = await newClassroom(t.cookie);
@@ -212,7 +234,7 @@ describe("edit", () => {
     const a = await newActivity(t.cookie, room);
     const patch = (body: unknown) => call("PATCH", `/api/activities/${a.id}`, { cookie: t.cookie, body });
 
-    const long = await patch({ material: "x".repeat(20_001), tutorRules: "y".repeat(3001) });
+    const long = await patch({ material: "x".repeat(20_001), tutorRules: "y ".repeat(4001) });
     expect(long.status).toBe(400);
     expect(long.body.error.fields.material).toBeTruthy();
     expect(long.body.error.fields.tutorRules).toBeTruthy();
