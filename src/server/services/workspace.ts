@@ -1,7 +1,7 @@
 // Workspace lifecycle: create, merge an anonymous workspace into an account, delete.
 import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { db, schema } from "../db/client";
-import { deleteFile } from "../lib/storage";
+import { deleteFile, deletePrefix } from "../lib/storage";
 import { log } from "../lib/logger";
 import type { Me } from "@shared/contracts/auth";
 
@@ -13,6 +13,7 @@ export function toMe(t: typeof schema.teachers.$inferSelect): Me {
     hasAccount: Boolean(t.email && t.passwordHash),
     createdAt: t.createdAt.toISOString(),
     newsSeen: t.newsSeen,
+    canRequestChanges: t.canRequestChanges,
   };
 }
 
@@ -61,6 +62,7 @@ export async function mergeWorkspaces(fromId: string, intoId: string): Promise<v
           sql`${schema.tutors.updatedAt} > ${schema.tutors.createdAt} + interval '1 second'`,
         ),
       );
+    await tx.update(schema.changeRequests).set({ teacherId: intoId }).where(eq(schema.changeRequests.teacherId, fromId));
     await tx.update(schema.aiUsage).set({ teacherId: intoId }).where(eq(schema.aiUsage.teacherId, fromId));
     await tx.update(schema.auditLogs).set({ teacherId: intoId }).where(eq(schema.auditLogs.teacherId, fromId));
     await tx.delete(schema.teachers).where(eq(schema.teachers.id, fromId));
@@ -73,6 +75,7 @@ export async function deleteWorkspace(teacherId: string): Promise<void> {
   const fileKeys = await collectWorkspaceFileKeys(teacherId);
   await db.delete(schema.teachers).where(eq(schema.teachers.id, teacherId));
   for (const key of fileKeys) await deleteFile(key);
+  await deletePrefix(`requests/${teacherId}`).catch(() => {});
   log.info("workspace_deleted", { teacherId, files: fileKeys.length });
 }
 

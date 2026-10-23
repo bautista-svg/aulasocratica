@@ -49,8 +49,9 @@ export function Landing({ hasWorkspace, hasAccount, starting, startError, onStar
         </a>
         <nav aria-label="Cuenta" className="flex items-center gap-1">
           {/* A workspace without an account on this device must not hide signing in to an existing account. */}
+          {/* On phones the hero already shows this button right below. */}
           {hasWorkspace && !hasAccount ? (
-            <a href="/ingresar" className={buttonClass("ghost", "sm")}>
+            <a href="/ingresar" className={buttonClass("ghost", "sm", "max-sm:hidden")}>
               Entrar con mi cuenta
             </a>
           ) : null}

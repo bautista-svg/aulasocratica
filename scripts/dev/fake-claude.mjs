@@ -60,11 +60,28 @@ function aspects(keys, body) {
   return { items: [item(at(0), "strength"), item(at(1), "strength"), item(at(4), "strength"), item(at(3), "reinforce"), item(at(6), "reinforce")] };
 }
 
+// "Pedidos de cambios": one question first, then the request is clear.
+function interview(body) {
+  const turns = (JSON.stringify(body.messages ?? "").match(/DOCENTE:/g) ?? []).length;
+  const summary = {
+    kind: "change",
+    title: "Poder sacar la reflexión final de una actividad",
+    screen: "Actividad → Configuración → Reflexión final",
+    today: "Al terminar, todos los alumnos tienen que responder las preguntas de la reflexión.",
+    desired: turns > 1 ? "Un interruptor para apagar la reflexión en cada actividad, sin perder las preguntas." : "Poder sacar la reflexión final.",
+    details: turns > 1 ? ["Se elige actividad por actividad.", "Las preguntas quedan guardadas por si se vuelve a activar.", "Los alumnos no ven la reflexión cuando está apagada."] : [],
+  };
+  return turns > 1
+    ? { reply: "¡Perfecto, ya lo entendí! Revisá el resumen y, si está bien, envialo.", ready: true, summary }
+    : { reply: "¿Querés sacarla en todas tus actividades o elegir en cuáles? ¿Y las preguntas que ya escribiste deberían quedar guardadas?", ready: false, summary };
+}
+
 function reply(body) {
   const format = body.output_config?.format;
   if (format?.schema) {
     const s = format.schema;
     const defs = s.$defs ?? s.definitions ?? {};
+    if (s.properties?.reply && s.properties?.summary) return JSON.stringify(interview(body));
     // The aspects request: its keys are listed in the prompt, the schema only has strings.
     const keys = s.properties?.items?.items?.properties?.aspect ? Object.keys(ASPECT_TEXT) : null;
     if (keys) return JSON.stringify(aspects(keys, body));

@@ -36,6 +36,8 @@ export const teachers = pgTable(
     recoveryCodeHash: text("recovery_code_hash"),
     isSuspended: boolean("is_suspended").notNull().default(false),
     tutorsSeededAt: timestamp("tutors_seeded_at", { withTimezone: true }),
+    /** Can send change requests ("Pedidos de cambios"); granted by the admin. */
+    canRequestChanges: boolean("can_request_changes").notNull().default(false),
     /** Id of the last "Novedades" notice shown (each one appears once, never again). */
     newsSeen: text("news_seen").notNull().default(""),
     createdAt: createdAt(),
@@ -558,4 +560,31 @@ export const aiUsage = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("ai_usage_teacher_created_idx").on(t.teacherId, t.createdAt), index("ai_usage_created_idx").on(t.createdAt)],
+);
+
+/** "Pedidos de cambios": a teacher's request, written with an AI that asks until it understands. */
+export const changeRequests = pgTable(
+  "change_requests",
+  {
+    id: id(),
+    teacherId: uuid("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("draft"),
+    title: text("title").notNull().default(""),
+    /** What the AI understood (see contracts/requests.ts RequestSummary). */
+    summary: jsonb("summary"),
+    ready: boolean("ready").notNull().default(false),
+    messages: jsonb("messages").notNull().default(sql`'[]'::jsonb`),
+    /** Screenshots: [{ id, key, name }] (stored under requests/<teacher>/). */
+    images: jsonb("images").notNull().default(sql`'[]'::jsonb`),
+    note: text("note").notNull().default(""),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("change_requests_teacher_idx").on(t.teacherId, t.createdAt),
+    index("change_requests_status_idx").on(t.status, t.submittedAt),
+    check("change_requests_status", sql`${t.status} in ('draft','pending','in_progress','done','discarded')`),
+  ],
 );

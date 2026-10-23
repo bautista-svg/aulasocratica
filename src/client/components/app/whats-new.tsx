@@ -6,7 +6,24 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as RD from "@radix-ui/react-dialog";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Bell, Bot, FileUp, Languages, Link2, ListOrdered, MessageCircleQuestion, ScanText, Scale, Sprout, X, type LucideIcon } from "lucide-react";
+import {
+  ArrowRight,
+  Bell,
+  Bot,
+  FileUp,
+  Languages,
+  Link2,
+  ListOrdered,
+  LogIn,
+  MessageCircleQuestion,
+  MessageSquareText,
+  PenLine,
+  ScanText,
+  Scale,
+  Sprout,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "@client/lib/cn";
 import { api } from "@client/lib/api";
 import { meKey } from "@client/lib/session";
@@ -26,6 +43,9 @@ const ICONS: Record<NewsKey, { icon: LucideIcon; tile: string }> = {
   english: { icon: Languages, tile: "bg-leaf-soft text-leaf" },
   consignas: { icon: ListOrdered, tile: "bg-amber-soft text-amber" },
   closing: { icon: MessageCircleQuestion, tile: "bg-lilac-soft text-lilac-ink" },
+  ending: { icon: MessageSquareText, tile: "bg-lilac-soft text-lilac-ink" },
+  tutorRules: { icon: PenLine, tile: "bg-ink-soft text-ink" },
+  signin: { icon: LogIn, tile: "bg-leaf-soft text-leaf" },
 };
 
 export function WhatsNew({ me }: { me: Me }) {

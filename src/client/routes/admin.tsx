@@ -12,6 +12,7 @@ import { focusFirstInvalid } from "@client/lib/forms";
 import { useAdminLogin, useAdminLogout, useAdminOverview, useAdminSession } from "@client/features/admin/api";
 import { AdminOverviewPanel } from "@client/features/admin/overview";
 import { WorkspacesPanel } from "@client/features/admin/workspaces";
+import { RequestsPanel } from "@client/features/admin/requests";
 import { PasswordInput } from "@client/features/account/password-input";
 import { usePageTitle } from "@client/lib/page-title";
 
@@ -135,9 +136,10 @@ function Dashboard() {
           <ShieldAlert className="mt-0.5 size-4 shrink-0 text-ink" aria-hidden="true" />
           <span>
             Panel para supervisar el servicio y frenar abusos: muestra cantidades y te deja suspender o reactivar un espacio. No muestra nombres de
-            alumnos, conversaciones ni contenido de las actividades.
+            alumnos, conversaciones ni contenido de las actividades. Sí muestra los pedidos de cambios, que las docentes envían al equipo.
           </span>
         </p>
+        <RequestsPanel />
         <AdminOverviewPanel />
         <WorkspacesPanel dailyLimit={overview.data?.ai.dailyUsdPerWorkspace ?? null} />
       </main>

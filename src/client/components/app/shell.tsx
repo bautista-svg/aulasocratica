@@ -11,6 +11,7 @@ import {
   ScanSearch,
   FileText,
   Menu as MenuIcon,
+  MessageSquarePlus,
   UserRound,
   X,
 } from "lucide-react";
@@ -36,6 +37,9 @@ const NAV: NavItem[] = [
   { to: "/app/radiografia", label: "Radiografía", icon: ScanSearch },
   { to: "/app/informes", label: "Informes", icon: FileText },
 ];
+
+/** Only for workspaces the admin enabled (teachers.can_request_changes). */
+const REQUESTS_ITEM: NavItem = { to: "/app/pedidos", label: "Pedidos de cambios", icon: MessageSquarePlus };
 
 // Alerts are time-sensitive, so they get a tab of their own on phones; the rest go under "Más".
 const MOBILE_TABS = ["/app", "/app/aulas", "/app/alertas", "/app/crear"];
@@ -86,6 +90,7 @@ export function AppShell({ me, children }: { me: Me; children: ReactNode }) {
   const alerts = useAlertCount();
   const openAlerts = alerts.data?.open ?? 0;
   const immediateAlerts = alerts.data?.immediate ?? 0;
+  const nav = me.canRequestChanges ? [...NAV, REQUESTS_ITEM] : NAV;
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[256px_1fr]">
@@ -93,7 +98,7 @@ export function AppShell({ me, children }: { me: Me; children: ReactNode }) {
       <aside className="sticky top-0 hidden h-dvh flex-col border-r border-line bg-surface/70 px-4 py-5 lg:flex">
         <HomeLogoLink className="mb-6 self-start px-2" />
         <nav aria-label="Principal" className="flex flex-col gap-0.5">
-          {NAV.map((item) => (
+          {nav.map((item) => (
             <Link
               key={item.to}
               to={item.to}
@@ -102,6 +107,8 @@ export function AppShell({ me, children }: { me: Me; children: ReactNode }) {
               className={cn(
                 "flex h-10 items-center gap-3 rounded-md px-3 text-[15px] font-semibold transition-colors",
                 isActive(item) ? "bg-ink-soft text-ink" : "text-text-2 hover:bg-sunken hover:text-ink",
+                // Set apart from the teaching sections: it is about the app itself.
+                item === REQUESTS_ITEM && "mt-4 before:absolute before:inset-x-3 before:-top-2.5 before:h-px before:bg-line relative",
               )}
             >
               <item.icon className="size-[18px] shrink-0" aria-hidden="true" />
@@ -158,7 +165,7 @@ export function AppShell({ me, children }: { me: Me; children: ReactNode }) {
           )}
         >
           <div className="mx-auto grid h-16 max-w-lg grid-cols-5">
-            {NAV.filter((n) => MOBILE_TABS.includes(n.to)).map((item) => (
+            {nav.filter((n) => MOBILE_TABS.includes(n.to)).map((item) => (
               <Link
                 key={item.to}
                 to={item.to}
@@ -193,7 +200,7 @@ export function AppShell({ me, children }: { me: Me; children: ReactNode }) {
                   </div>
                   <RD.Description className="sr-only">Otras secciones de Aula Socrática</RD.Description>
                   <div className="grid gap-1">
-                    {[...NAV.filter((n) => !MOBILE_TABS.includes(n.to)), { to: "/app/cuenta", label: "Mi espacio", icon: UserRound }].map((item) => (
+                    {[...nav.filter((n) => !MOBILE_TABS.includes(n.to)), { to: "/app/cuenta", label: "Mi espacio", icon: UserRound }].map((item) => (
                       <Link
                         key={item.to}
                         to={item.to}

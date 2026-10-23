@@ -23,6 +23,10 @@ import {
 } from "../services/admin/session";
 import { adminOverview, adminWorkspaces } from "../services/admin/stats";
 import { adminLoginBody } from "@shared/contracts/admin";
+import { adminRequestPatch, requestAccessBody } from "@shared/contracts/requests";
+import { adminListRequests, adminRequest, adminUpdateRequest, imageOf, setRequestAccess } from "../services/requests";
+import { fileSize, fileStream } from "../lib/storage";
+import { Readable } from "node:stream";
 
 async function setSuspended(c: Parameters<typeof audit>[0], id: string, suspended: boolean) {
   if (!isUuid(id)) throw notFound("El espacio");
@@ -70,6 +74,34 @@ export const adminRoutes = new Hono<AppEnv>()
   .get("/overview", requireAdmin, async (c) => c.json(await adminOverview()))
 
   .get("/workspaces", requireAdmin, async (c) => c.json(await adminWorkspaces(c.req.query("cursor"))))
+
+  // "Pedidos de cambios": what teachers asked for (pending and in progress unless ?status=all|done|…).
+  .get("/requests", requireAdmin, async (c) => c.json({ requests: await adminListRequests(c.req.query("status")) }))
+
+  .patch("/requests/:id", requireAdmin, async (c) => {
+    const body = await readJson(c, adminRequestPatch);
+    const r = await adminRequest(c.req.param("id"));
+    const request = await adminUpdateRequest(r, body);
+    await audit(c, r.teacherId, "change_request_updated", "change_request", r.id, { by: "admin", status: request.status });
+    return c.json({ request });
+  })
+
+  .get("/requests/:id/images/:imageId", requireAdmin, async (c) => {
+    const r = await adminRequest(c.req.param("id"));
+    const img = imageOf(r, c.req.param("imageId"));
+    const size = await fileSize(img.key);
+    if (size === null) throw notFound("La captura");
+    const body = Readable.toWeb(fileStream(img.key)) as unknown as ReadableStream;
+    return c.body(body, 200, { "Content-Type": img.mime, "Content-Length": String(size), "Cache-Control": "private, no-store" });
+  })
+
+  // Turns the section on or off for one account (by email). Changes nothing else in it.
+  .post("/requests-access", requireAdmin, async (c) => {
+    const body = await readJson(c, requestAccessBody);
+    const row = await setRequestAccess(body.email, body.enabled);
+    await audit(c, row.id, body.enabled ? "change_requests_enabled" : "change_requests_disabled", "teacher", row.id, { by: "admin" });
+    return c.json({ ok: true, teacher: row });
+  })
 
   .post("/workspaces/:id/suspend", requireAdmin, async (c) => {
     const row = await setSuspended(c, c.req.param("id"), true);

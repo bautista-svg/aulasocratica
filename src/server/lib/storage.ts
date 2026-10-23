@@ -15,7 +15,7 @@ export function ensureStorage() {
 const SAFE_EXT = /^[a-z0-9]{1,8}$/;
 
 /** New storage key like `activities/<activityId>/<uuid>.pdf`. */
-export function newKey(scope: "activities" | "library" | "tmp", ownerId: string, ext: string): string {
+export function newKey(scope: "activities" | "library" | "tmp" | "requests", ownerId: string, ext: string): string {
   if (!/^[0-9a-f-]{36}$/.test(ownerId)) throw new Error("invalid owner id");
   const e = SAFE_EXT.test(ext) ? `.${ext}` : "";
   return `${scope}/${ownerId}/${randomUUID()}${e}`;

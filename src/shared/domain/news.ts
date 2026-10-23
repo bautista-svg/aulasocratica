@@ -2,10 +2,23 @@
 // release. The server remembers the last release the teacher saw (teachers.news_seen), so the
 // notice never comes back, on any device; after a new release it shows only what is new to them.
 
-export type NewsKey = "alerts" | "deliverables" | "aspects" | "rubric" | "links" | "tutors" | "scans" | "english" | "consignas" | "closing";
+export type NewsKey =
+  | "alerts"
+  | "deliverables"
+  | "aspects"
+  | "rubric"
+  | "links"
+  | "tutors"
+  | "scans"
+  | "english"
+  | "consignas"
+  | "closing"
+  | "ending"
+  | "tutorRules"
+  | "signin";
 
 /** Releases in order; adding one shows its items to everyone who has not seen them. */
-export const NEWS_RELEASES = ["2026-10-22", "2026-10-22b", "2026-10-22c"] as const;
+export const NEWS_RELEASES = ["2026-10-22", "2026-10-22b", "2026-10-22c", "2026-10-23"] as const;
 export type NewsRelease = (typeof NEWS_RELEASES)[number];
 
 export interface NewsItem {
@@ -81,6 +94,24 @@ export const NEWS_ITEMS: NewsItem[] = [
     release: "2026-10-22b",
     title: "Libros escaneados y fotos",
     text: "Si subís páginas de un libro, la IA arma apuntes completos con sus palabras para que el tutor los use.",
+  },
+  {
+    key: "ending",
+    release: "2026-10-23",
+    title: "Un cierre a tu manera",
+    text: "Apagá la reflexión final si no la necesitás, y dejales a tus alumnos un mensaje para leer al terminar, sin nada que responder. En Configuración → Reflexión final y Mensaje final.",
+  },
+  {
+    key: "tutorRules",
+    release: "2026-10-23",
+    title: "Indicaciones largas para el tutor",
+    text: "Ahora entran hasta 4.000 palabras, en un cuadro más grande para leer lo que escribiste.",
+  },
+  {
+    key: "signin",
+    release: "2026-10-23",
+    title: "Entrá con tu cuenta",
+    text: "Si ya tenés cuenta, tocá «Entrar con mi cuenta» desde cualquier dispositivo: lo que hayas hecho en ese dispositivo se suma a tu cuenta.",
   },
 ];
 

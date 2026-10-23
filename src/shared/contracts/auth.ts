@@ -36,6 +36,8 @@ export interface Me {
   createdAt: string;
   /** Id of the last "Novedades" notice this teacher already saw. */
   newsSeen: string;
+  /** Has the "Pedidos de cambios" section. */
+  canRequestChanges: boolean;
 }
 
 export interface MeResponse {

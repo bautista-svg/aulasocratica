@@ -28,6 +28,7 @@ import { reportRoutes } from "./routes/reports";
 import { dashboardRoutes } from "./routes/dashboard";
 import { publicStudentRoutes } from "./routes/public-student";
 import { adminRoutes } from "./routes/admin";
+import { requestRoutes } from "./routes/requests";
 import { alertRoutes } from "./routes/alerts";
 
 export const MAX_UPLOAD_BYTES = 60 * 1024 * 1024;
@@ -89,6 +90,7 @@ export function createApp(opts: { staticDir?: string | null } = {}) {
   api.route("/planning", planningRoutes);
   api.route("/reports", reportRoutes);
   api.route("/s", publicStudentRoutes);
+  api.route("/requests", requestRoutes);
   api.route("/admin", adminRoutes);
   api.all("*", (c) => c.json({ error: { code: "not_found", message: "Ruta inexistente." } }, 404));
 

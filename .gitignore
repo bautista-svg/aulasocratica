@@ -14,12 +14,11 @@ coverage/
 src/client/routeTree.gen.ts
 data-test*/
 data-audit/
-<<<<<<< HEAD
 .claude/worktrees/
 docs/informes/auditoria-ui/scripts/archivos/
 docs/informes/auditoria-ui/evidencia/*.webm
 docs/informes/auditoria-ui/scripts/data/
 docs/informes/**/*.zip
-=======
 data-perf/
->>>>>>> worktree-agent-a81c7fbdb58ede1c7
+# Screenshots downloaded by scripts/dev/pedidos.mjs (teachers' requests).
+.pedidos/
