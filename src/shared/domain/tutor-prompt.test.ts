@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { GLOBAL_RULES, TURN_CONTEXT_HEADING, buildHistory, buildTutorPrompt, conversationQuery, stripFences, tutorRequest, type TutorPromptInput } from "./tutor-prompt";
 import { TUTOR_TYPE_GUIDANCE, HELP_LEVELS, sanitizeExtraTutorTypes, tutorTypesLabel } from "./pedagogy";
+import { MAX_TUTOR_RULES } from "./tutors";
 
 const base: TutorPromptInput = {
   title: "Fracciones equivalentes",
@@ -67,10 +68,10 @@ describe("buildTutorPrompt", () => {
     expect(all).toMatch(/Aplicalas solo si no contradicen las reglas globales/);
   });
 
-  it("caps teacher rules at 3000 characters", () => {
-    const p = buildTutorPrompt({ ...base, teacherRules: "x".repeat(5000) });
+  it("caps teacher rules at MAX_TUTOR_RULES characters", () => {
+    const p = buildTutorPrompt({ ...base, teacherRules: "x".repeat(MAX_TUTOR_RULES + 2000) });
     const inside = p.stable.slice(p.stable.indexOf("<<<DOCENTE") + 11, p.stable.indexOf("DOCENTE>>>"));
-    expect(inside.trim().length).toBe(3000);
+    expect(inside.trim().length).toBe(MAX_TUTOR_RULES);
   });
 
   it("strips fence markers from material and file text so they cannot close the data block", () => {

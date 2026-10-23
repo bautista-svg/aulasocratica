@@ -48,7 +48,8 @@ describe("composeActivityRules", () => {
   });
 
   it("never cuts silently: reports what does not fit", () => {
-    const r = composeActivityRules({ guidance: "a".repeat(2000), tutorRules: "b".repeat(2000), teacherNotes: "c" });
+    const half = Math.ceil(MAX_TUTOR_RULES * 0.6);
+    const r = composeActivityRules({ guidance: "a".repeat(half), tutorRules: "b".repeat(half), teacherNotes: "c" });
     expect(r.text.length).toBeLessThanOrEqual(MAX_TUTOR_RULES);
     expect(r.dropped).toEqual(["tutor"]);
     expect(r.text).toContain("Notas del docente: c");
