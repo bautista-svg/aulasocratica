@@ -9,6 +9,9 @@ import { clientIp } from "../lib/request";
 import { createTeacherSession, clearTeacherCookie, requireTeacher, teacherOf } from "../auth/teacher";
 import { toMe, getTeacher, workspaceHasContent, mergeWorkspaces, deleteWorkspace } from "../services/workspace";
 import { audit } from "../services/audit";
+import { GoogleError, googleEnabled, profileFromCode, startFlow, takeFlow } from "../auth/google";
+import { signInWithGoogle } from "../services/google-sign-in";
+import { log, errorFields } from "../lib/logger";
 import {
   startWorkspaceBody,
   updateMeBody,
@@ -32,7 +35,40 @@ function decoyHash(): Promise<string> {
   return decoy;
 }
 
+/** Why Google sign-in did not finish, shown on /ingresar (?google=…). */
+const googleFailure = (reason: string) => `/ingresar?google=${reason}`;
+
 export const authRoutes = new Hono<AppEnv>()
+  /** Ways to sign in that this server offers (the button only shows when Google is configured). */
+  .get("/providers", (c) => c.json({ google: googleEnabled() }))
+
+  // "Continuar con Google": plain links and redirects (no JS needed), back to `next` inside the app.
+  .get("/google/start", rateLimit("google-start", 30, 15 * 60_000), (c) => {
+    if (!googleEnabled()) return c.redirect(googleFailure("no-disponible"), 302);
+    return c.redirect(startFlow(c, c.req.query("next") ?? "/app"), 302);
+  })
+
+  .get("/google/callback", rateLimit("google-callback", 30, 15 * 60_000), async (c) => {
+    if (!googleEnabled()) return c.redirect(googleFailure("no-disponible"), 302);
+    const flow = takeFlow(c, c.req.query("state"));
+    const denied = c.req.query("error");
+    if (denied) return c.redirect(googleFailure(denied === "access_denied" ? "cancelado" : "error"), 302);
+    const code = c.req.query("code");
+    if (!flow || !code) return c.redirect(googleFailure("vencido"), 302);
+    let profile;
+    try {
+      profile = await profileFromCode(code, flow);
+    } catch (err) {
+      log.warn("google_sign_in_failed", errorFields(err));
+      return c.redirect(googleFailure(err instanceof GoogleError && err.reason === "unverified" ? "sin-verificar" : "error"), 302);
+    }
+    const result = await signInWithGoogle(c, profile);
+    if (result === "suspended") return c.redirect(googleFailure("suspendido"), 302);
+    if (result === "other_google") return c.redirect(googleFailure("otra-cuenta"), 302);
+    if (result === "busy") return c.redirect(googleFailure("ocupado"), 302);
+    return c.redirect(flow.next, 302);
+  })
+
   .get("/me", async (c) => {
     const t = c.get("teacher");
     if (!t) return c.json({ teacher: null });

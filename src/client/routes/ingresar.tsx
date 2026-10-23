@@ -13,15 +13,31 @@ import { useLogin, useRecover } from "@client/features/account/api";
 import { PasswordInput, PASSWORD_MIN, StrengthMeter } from "@client/features/account/password-input";
 import { RecoveryCodePanel } from "@client/features/account/recovery-code-panel";
 import { PublicLayout } from "@client/features/account/public-layout";
+import { GoogleButton, OrDivider, useAuthProviders } from "@client/features/account/google-button";
 import { usePageTitle } from "@client/lib/page-title";
 
+const GOOGLE_FAILURES = ["cancelado", "vencido", "sin-verificar", "otra-cuenta", "suspendido", "ocupado", "no-disponible", "error"] as const;
+type GoogleFailure = (typeof GOOGLE_FAILURES)[number];
+
+/** Why "Continuar con Google" came back here (the server redirects with ?google=…). */
+const GOOGLE_MESSAGES: Record<GoogleFailure, string> = {
+  cancelado: "Cancelaste el ingreso con Google. Podés probar de nuevo o entrar con tu correo.",
+  vencido: "El ingreso con Google tardó demasiado o empezó en otra pestaña. Probá de nuevo.",
+  "sin-verificar": "Tu cuenta de Google no tiene el correo verificado. Verificalo en Google o entrá con tu correo y contraseña.",
+  "otra-cuenta": "Ese correo ya está vinculado a otra cuenta de Google. Entrá con esa cuenta o con tu correo y contraseña.",
+  suspendido: "Este espacio fue suspendido por el administrador del sitio.",
+  ocupado: "Se están creando muchas cuentas en este momento. Probá de nuevo en unos minutos.",
+  "no-disponible": "El ingreso con Google no está disponible por ahora. Entrá con tu correo y contraseña.",
+  error: "No pudimos completar el ingreso con Google. Probá de nuevo en un momento.",
+};
+
 export const Route = createFileRoute("/ingresar")({
-  validateSearch: searchParams({ modo: optionalEnum(["recuperar"]) }),
+  validateSearch: searchParams({ modo: optionalEnum(["recuperar"]), google: optionalEnum(GOOGLE_FAILURES) }),
   component: SignInPage,
 });
 
 function SignInPage() {
-  const { modo } = Route.useSearch();
+  const { modo, google } = Route.useSearch();
   const recovering = modo === "recuperar";
   usePageTitle(recovering ? "Recuperar la cuenta" : "Ingresar");
   const me = useMe();
@@ -40,6 +56,11 @@ function SignInPage() {
       }
     >
       <div className="mx-auto w-full max-w-md px-5 pt-6 pb-16 sm:pt-12">
+        {google && !teacher?.hasAccount ? (
+          <Notice tone={google === "cancelado" ? "neutral" : "amber"} className="mb-6" title="No se completó el ingreso con Google">
+            {GOOGLE_MESSAGES[google]}
+          </Notice>
+        ) : null}
         {recovered ? (
           <NewCode code={recovered.code} email={recovered.email} />
         ) : teacher?.hasAccount ? (
@@ -77,6 +98,7 @@ function LoginForm({ anonymousHere }: { anonymousHere: boolean }) {
   const formRef = useRef<HTMLFormElement>(null);
   const login = useLogin();
   const navigate = useNavigate();
+  const google = Boolean(useAuthProviders().data?.google);
   const fields = login.error instanceof ApiError ? login.error.fields : {};
   // Editing a field hides the messages about the previous attempt (they would be stale).
   const edited = (key: "email" | "password") => {
@@ -87,12 +109,16 @@ function LoginForm({ anonymousHere }: { anonymousHere: boolean }) {
   return (
     <>
       <h1 className="font-display text-[32px] leading-tight font-semibold text-ink">Entrar a tu cuenta</h1>
-      <p className="mt-3 leading-7 text-text-2">Con el correo y la contraseña que agregaste a tu espacio.</p>
+      <p className="mt-3 leading-7 text-text-2">
+        {google ? "Con Google o con el correo y la contraseña de tu cuenta." : "Con el correo y la contraseña que agregaste a tu espacio."}
+      </p>
       {anonymousHere ? (
         <Notice tone="lilac" className="mt-5">
           En este dispositivo ya tenés un espacio sin cuenta. Si entrás, lo que hiciste acá se suma a tu cuenta: no se pierde nada.
         </Notice>
       ) : null}
+      <GoogleButton className="mt-6" />
+      <OrDivider label="o con tu correo" className="mt-6" />
       <form
         ref={formRef}
         noValidate

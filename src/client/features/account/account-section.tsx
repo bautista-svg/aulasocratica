@@ -5,12 +5,14 @@ import { KeyRound, LogIn, LogOut, Lock, Mail, Smartphone } from "lucide-react";
 import { Button, buttonClass } from "@client/components/ui/button";
 import { Dialog, ConfirmDialog } from "@client/components/ui/dialog";
 import { Field, FormError, Input } from "@client/components/ui/field";
+import { Badge } from "@client/components/ui/misc";
 import { ApiError, errorMessage } from "@client/lib/api";
 import { compactErrors, emailError, focusFirstInvalid } from "@client/lib/forms";
 import type { Me } from "@shared/contracts/auth";
 import { useChangePassword, useForgetWorkspace, useLogout, useNewRecoveryCode, useRegister } from "./api";
 import { PasswordInput, PASSWORD_MIN, StrengthMeter } from "./password-input";
 import { RecoveryCodePanel } from "./recovery-code-panel";
+import { GoogleButton, OrDivider } from "./google-button";
 
 /** Retention rules, as implemented in src/server/services/retention.ts. */
 export function RetentionNote() {
@@ -53,8 +55,8 @@ function CreateAccount({ me, onCreated }: { me: Me; onCreated: (code: string) =>
     <div>
       <div className="mb-4 flex flex-col gap-3 rounded-[14px] border border-lilac/40 bg-lilac-soft/60 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm leading-6 text-text-2">
-          <span className="font-semibold text-ink">¿Ya tenés una cuenta?</span> Entrá con tu correo: lo que hiciste en este dispositivo se suma a tu
-          cuenta.
+          <span className="font-semibold text-ink">¿Ya tenés una cuenta?</span> Entrá a tu cuenta: lo que hiciste en este dispositivo se suma a
+          ella.
         </p>
         <Link to="/ingresar" className={buttonClass("secondary", "sm", "shrink-0")}>
           <LogIn className="size-4" aria-hidden="true" />
@@ -75,8 +77,11 @@ function CreateAccount({ me, onCreated }: { me: Me; onCreated: (code: string) =>
 
       <h3 className="mt-6 font-display text-lg font-semibold text-ink">Crear una cuenta</h3>
       <p className="mt-1 text-sm leading-6 text-text-2">
-        Con un correo y una contraseña podés abrir este mismo espacio desde cualquier dispositivo. No se pierde nada de lo que ya hiciste.
+        Con tu cuenta de Google, o con un correo y una contraseña, podés abrir este mismo espacio desde cualquier dispositivo. No se pierde nada de lo
+        que ya hiciste.
       </p>
+      <GoogleButton next="/app/cuenta" label="Crear cuenta con Google" className="mt-4 sm:w-auto" />
+      <OrDivider label="o con correo y contraseña" className="mt-5" />
       <form
         ref={formRef}
         noValidate
@@ -186,24 +191,36 @@ function WithAccount({ me, onNewCode }: { me: Me; onNewCode: (code: string) => v
     <div>
       <dl className="grid gap-1">
         <dt className="text-xs font-semibold text-text-3">Correo de la cuenta</dt>
-        <dd className="flex items-center gap-2 text-[16px] font-semibold break-all text-text">
+        <dd className="flex flex-wrap items-center gap-2 text-[16px] font-semibold break-all text-text">
           <Mail className="size-4 shrink-0 text-text-3" aria-hidden="true" />
           {me.email}
+          {me.google ? <Badge tone="ink">Con Google</Badge> : null}
         </dd>
       </dl>
-      <p className="mt-2 text-sm leading-6 text-text-2">Podés abrir tu espacio desde cualquier dispositivo con este correo y tu contraseña.</p>
+      <p className="mt-2 text-sm leading-6 text-text-2">
+        {me.hasPassword && me.google
+          ? "Podés abrir tu espacio desde cualquier dispositivo con «Continuar con Google» o con este correo y tu contraseña."
+          : me.google
+            ? "Podés abrir tu espacio desde cualquier dispositivo con «Continuar con Google»."
+            : "Podés abrir tu espacio desde cualquier dispositivo con este correo y tu contraseña."}
+      </p>
       <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-        <Button variant="secondary" icon={<Lock className="size-4" />} onClick={() => setChanging(true)}>
-          Cambiar contraseña
-        </Button>
-        <Button
-          variant="secondary"
-          className="h-auto min-h-11 py-2.5 whitespace-normal"
-          icon={<KeyRound className="size-4 shrink-0" />}
-          onClick={() => setConfirmCode(true)}
-        >
-          Generar un código de recuperación nuevo
-        </Button>
+        {/* A Google-only account has no password to change: Google is how it signs in and recovers. */}
+        {me.hasPassword ? (
+          <>
+            <Button variant="secondary" icon={<Lock className="size-4" />} onClick={() => setChanging(true)}>
+              Cambiar contraseña
+            </Button>
+            <Button
+              variant="secondary"
+              className="h-auto min-h-11 py-2.5 whitespace-normal"
+              icon={<KeyRound className="size-4 shrink-0" />}
+              onClick={() => setConfirmCode(true)}
+            >
+              Generar un código de recuperación nuevo
+            </Button>
+          </>
+        ) : null}
         <Button
           variant="ghost"
           icon={<LogOut className="size-4" />}

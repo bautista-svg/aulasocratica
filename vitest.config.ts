@@ -44,6 +44,8 @@ export default defineConfig({
             ANTHROPIC_API_KEY: "test-key",
             ANTHROPIC_BASE_URL: `http://127.0.0.1:${mockPort}`,
             ADMIN_PASSWORD: "test-admin-password-123456",
+            GOOGLE_CLIENT_ID: "test-client.apps.googleusercontent.com",
+            GOOGLE_CLIENT_SECRET: "test-google-secret",
             AI_DAILY_USD_PER_WORKSPACE: "3",
             AI_DAILY_USD_GLOBAL: "40",
           },

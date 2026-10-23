@@ -39,7 +39,7 @@ export async function adminOverview(): Promise<AdminOverview> {
     db.execute<Record<keyof AdminOverview["totals"], number>>(sql`
       select
         (select count(*)::int from teachers) as "workspaces",
-        (select count(*)::int from teachers where password_hash is not null) as "withAccount",
+        (select count(*)::int from teachers where password_hash is not null or google_sub is not null) as "withAccount",
         (select count(*)::int from teachers where last_seen_at > now() - interval '7 days') as "active7",
         (select count(*)::int from teachers where last_seen_at > now() - interval '30 days') as "active30",
         (select count(*)::int from teachers where is_suspended) as "suspended",
@@ -145,7 +145,7 @@ export async function adminWorkspaces(cursorRaw: string | undefined): Promise<Ad
   const rows = await db.execute<WorkspaceRow>(sql`
     select t.id, t.created_at, t.last_seen_at, t.email, t.is_suspended,
       to_char(t.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as cursor_ts,
-      (t.password_hash is not null) as has_account,
+      (t.password_hash is not null or t.google_sub is not null) as has_account,
       (select count(*)::int from classrooms c where c.teacher_id = t.id) as classrooms,
       (select count(*)::int from activities a where a.teacher_id = t.id) as activities,
       (select count(*)::int from learning_sessions ls join activities a on a.id = ls.activity_id where a.teacher_id = t.id) as sessions,

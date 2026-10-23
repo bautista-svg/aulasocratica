@@ -53,6 +53,7 @@ const sessionByToken = db
     displayName: schema.teachers.displayName,
     email: schema.teachers.email,
     passwordHash: schema.teachers.passwordHash,
+    googleSub: schema.teachers.googleSub,
     isSuspended: schema.teachers.isSuspended,
     lastSeenAt: schema.teachers.lastSeenAt,
   })
@@ -78,7 +79,7 @@ export const loadTeacher: MiddlewareHandler<AppEnv> = async (c, next) => {
         id: row.teacherId,
         displayName: row.displayName,
         email: row.email,
-        hasAccount: Boolean(row.email && row.passwordHash),
+        hasAccount: Boolean(row.email && (row.passwordHash || row.googleSub)),
         sessionId: row.sessionId,
       });
       const now = Date.now();

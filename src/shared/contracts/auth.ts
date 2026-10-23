@@ -33,6 +33,10 @@ export interface Me {
   displayName: string;
   email: string | null;
   hasAccount: boolean;
+  /** The account has a password (an account may sign in only with Google). */
+  hasPassword: boolean;
+  /** Signs in with Google. */
+  google: boolean;
   createdAt: string;
   /** Id of the last "Novedades" notice this teacher already saw. */
   newsSeen: string;

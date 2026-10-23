@@ -33,6 +33,8 @@ export const teachers = pgTable(
     displayName: text("display_name").notNull().default(""),
     email: text("email"),
     passwordHash: text("password_hash"),
+    /** Google account id ("sub") when the teacher signs in with Google. */
+    googleSub: text("google_sub"),
     recoveryCodeHash: text("recovery_code_hash"),
     isSuspended: boolean("is_suspended").notNull().default(false),
     tutorsSeededAt: timestamp("tutors_seeded_at", { withTimezone: true }),
@@ -46,6 +48,7 @@ export const teachers = pgTable(
   },
   (t) => [
     uniqueIndex("teachers_email_unique").on(sql`lower(${t.email})`),
+    uniqueIndex("teachers_google_sub_unique").on(t.googleSub),
     index("teachers_last_seen_idx").on(t.lastSeenAt),
     check("teachers_display_name_len", sql`char_length(${t.displayName}) <= 80`),
   ],

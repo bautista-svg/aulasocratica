@@ -24,7 +24,9 @@ export async function runRetention(now = Date.now()) {
   const candidates = await db
     .select({ id: schema.teachers.id, lastSeenAt: schema.teachers.lastSeenAt })
     .from(schema.teachers)
-    .where(and(isNull(schema.teachers.passwordHash), lt(schema.teachers.lastSeenAt, new Date(now - 30 * DAY))))
+    .where(
+      and(isNull(schema.teachers.passwordHash), isNull(schema.teachers.googleSub), lt(schema.teachers.lastSeenAt, new Date(now - 30 * DAY))),
+    )
     .limit(500);
   let removed = 0;
   for (const t of candidates) {
@@ -47,6 +49,6 @@ registerJob({ name: "retention", everyMs: 6 * 60 * 60_000, run: () => runRetenti
 /** Used by /admin: how many workspaces of each kind exist. */
 export async function workspaceCounts() {
   const [r] = await db.execute<{ total: number; accounts: number }>(sql`
-    select count(*)::int as total, count(password_hash)::int as accounts from teachers`);
+    select count(*)::int as total, count(*) filter (where password_hash is not null or google_sub is not null)::int as accounts from teachers`);
   return r ?? { total: 0, accounts: 0 };
 }

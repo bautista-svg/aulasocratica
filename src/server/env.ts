@@ -30,6 +30,9 @@ const schema = z.object({
   AI_DAILY_REPLIES_PER_STUDENT: z.coerce.number().int().positive().default(150),
   /** Disk quota for uploaded files per teacher workspace, in MB. */
   STORAGE_QUOTA_MB_PER_WORKSPACE: z.coerce.number().int().positive().default(2048),
+  /** "Continuar con Google" (OAuth web client). Both empty = the button is not shown. */
+  GOOGLE_CLIENT_ID: z.string().default(""),
+  GOOGLE_CLIENT_SECRET: z.string().default(""),
   /** Shared password for the read-only /admin overview. Empty = /admin disabled. */
   ADMIN_PASSWORD: z.string().default(""),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
