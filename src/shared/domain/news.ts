@@ -15,10 +15,11 @@ export type NewsKey =
   | "closing"
   | "ending"
   | "tutorRules"
-  | "signin";
+  | "signin"
+  | "google";
 
 /** Releases in order; adding one shows its items to everyone who has not seen them. */
-export const NEWS_RELEASES = ["2026-10-22", "2026-10-22b", "2026-10-22c", "2026-10-23"] as const;
+export const NEWS_RELEASES = ["2026-10-22", "2026-10-22b", "2026-10-22c", "2026-10-23", "2026-10-23b"] as const;
 export type NewsRelease = (typeof NEWS_RELEASES)[number];
 
 export interface NewsItem {
@@ -112,6 +113,13 @@ export const NEWS_ITEMS: NewsItem[] = [
     release: "2026-10-23",
     title: "Entrá con tu cuenta",
     text: "Si ya tenés cuenta, tocá «Entrar con mi cuenta» desde cualquier dispositivo: lo que hayas hecho en ese dispositivo se suma a tu cuenta.",
+    coveredBy: "google",
+  },
+  {
+    key: "google",
+    release: "2026-10-23b",
+    title: "Entrá con Google",
+    text: "Con «Continuar con Google» entrás o creás tu cuenta sin contraseña, desde cualquier dispositivo. Si ya tenías cuenta con ese correo, entrás a la misma y no se pierde nada.",
   },
 ];
 
