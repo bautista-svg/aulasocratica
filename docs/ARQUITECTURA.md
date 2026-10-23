@@ -114,6 +114,11 @@ docs/                Arquitectura, auditoría, informes
   poder contarlas por actividad y por alumno; las que marca el docente sobreviven a un nuevo análisis).
 - `teachers.news_seen`: id del último aviso de «Novedades» mostrado (`shared/domain/news.ts`). Se marca apenas se abre,
   así aparece una sola vez en cualquier dispositivo; un aviso nuevo es un id nuevo.
+- `change_requests` («Pedidos de cambios», solo si `teachers.can_request_changes`, que habilita el admin por correo):
+  conversación con la IA (`services/requests/prompt.ts` tiene el mapa de la app: actualizalo cuando cambien pantallas),
+  resumen, capturas en `requests/<teacher>/` y estado + nota del equipo. El mensaje se guarda y la IA responde en un
+  segundo pedido (`/reply`), así un error de la IA no pierde lo que escribió. Se leen desde la terminal con
+  `node scripts/dev/pedidos.mjs` (y `estado <id> done "nota"` para responder).
 - `students` pertenecen a un aula (`name_key` único por aula). Se crean solos al entrar a una actividad o los carga
   el docente. **Los participantes de una actividad son sus `learning_sessions`**, nunca "todos los del aula".
 - `tutors` (presets copiados a cada espacio con `preset_key` + tutores propios), `materials` (biblioteca),
