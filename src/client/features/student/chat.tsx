@@ -39,14 +39,19 @@ const fmtSec = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2
 export function ChatStep({
   token,
   workspace,
+  consigna,
   onFinish,
   focusHeading,
 }: {
   token: string;
   workspace: StudentWorkspace;
+  /** The consigna the student is on: the tutor accompanies that one. */
+  consigna?: number;
   onFinish: () => void;
   focusHeading?: boolean;
 }) {
+  const consignaRef = useRef(consigna);
+  consignaRef.current = consigna;
   const qc = useQueryClient();
   const t = useT();
   const uiLang = useStudentLang();
@@ -119,7 +124,7 @@ export function ChatStep({
             ]
           : [];
       try {
-        await streamChat(token, body, {
+        await streamChat(token, consignaRef.current !== undefined ? { ...body, consigna: consignaRef.current } : body, {
           onStart: (id) => {
             started = true;
             userMessageId = id;

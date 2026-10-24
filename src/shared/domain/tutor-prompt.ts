@@ -23,6 +23,12 @@ export interface TutorPromptInput {
   moreInstructions?: readonly string[];
   /** false when the closing step does not ask for a final answer. */
   askFinalAnswer?: boolean;
+  /** The consignas with their titles and whether each asks for a written answer (the student sees one at a time). */
+  consignaItems?: readonly { title: string; text: string; answer: boolean }[];
+  /** What the student read before starting. */
+  presentation?: string;
+  /** The consigna the student is on now, and what they wrote in its answer box. */
+  current?: { index: number; answerSoFar: string } | null;
   /** "en": the activity runs in English (the student's screens are in English too). */
   language?: "es" | "en";
   /** Material written by the teacher on the activity. */
@@ -124,6 +130,7 @@ export function buildTutorPrompt(input: TutorPromptInput): TutorPrompt {
     section("Título", input.title),
     section("Asignatura", input.subject),
     section("Objetivos de aprendizaje", input.objectives),
+    section("Presentación que leyó el estudiante antes de empezar", input.presentation ?? ""),
     consignasSection(input),
   );
   if (selection.mode === "full") {
@@ -159,6 +166,19 @@ export function buildTutorPrompt(input: TutorPromptInput): TutorPrompt {
         "Si todavía no sabés qué piensa el estudiante, empezá con una pregunta breve y abierta sobre la consigna.",
     );
   }
+  const items = input.consignaItems ?? [];
+  const cur = input.current && items.length > 1 ? items[input.current.index] : undefined;
+  if (input.current && cur) {
+    volatile.push(`El estudiante está trabajando ahora en la consigna ${input.current.index + 1} de ${items.length}: «${cur.title}». Acompañalo en esa.`);
+    if (cur.answer) {
+      const so = input.current.answerSoFar.trim();
+      volatile.push(
+        so
+          ? "Lo que escribió hasta ahora en su cuadro de respuesta de esta consigna (es su producción: no la escribas por él):\n" + fence("RESPUESTA", so.slice(0, 2500))
+          : "Esta consigna pide una respuesta escrita y todavía no escribió nada en su cuadro de respuesta.",
+      );
+    }
+  }
   volatile.push(`Pistas solicitadas hasta ahora: ${Math.max(0, input.hintCount)}.`);
 
   return {
@@ -170,6 +190,26 @@ export function buildTutorPrompt(input: TutorPromptInput): TutorPrompt {
 
 /** One consigna as before; several numbered, with how to go through them. */
 function consignasSection(input: TutorPromptInput): string {
+  const items = (input.consignaItems ?? []).filter((c) => c.text.trim());
+  if (items.length === 1) {
+    const c = items[0]!;
+    return (
+      section(c.title ? `Consigna: ${c.title}` : "Consigna", c.text) +
+      (c.answer ? "\nEl estudiante escribe su respuesta en un cuadro aparte: guialo con preguntas para que la construya él; nunca la escribas por él." : "")
+    );
+  }
+  if (items.length > 1) {
+    const writes = items.some((c) => c.answer);
+    return (
+      `\n### CONSIGNAS (${items.length}, en orden)\n` +
+      "El estudiante ve una consigna por vez y decide cuándo pasar a la siguiente o volver a una anterior; en cada turno, la sección ESTADO DEL ESTUDIANTE dice en cuál está. Acompañalo en esa, en la misma conversación. " +
+      (writes
+        ? "Las consignas marcadas «con respuesta escrita» tienen un cuadro donde el estudiante escribe su respuesta: guialo con preguntas para que la construya él y nunca la escribas por él. Las otras solo orientan la conversación. "
+        : "Las consignas orientan la conversación: el estudiante no escribe respuestas aparte. ") +
+      (input.askFinalAnswer === false ? "" : "Al final, en el cierre, escribe su producción final.") +
+      items.map((c, i) => section(`Consigna ${i + 1}: ${c.title}${c.answer ? " (con respuesta escrita)" : ""}`, c.text)).join("")
+    );
+  }
   const all = [input.instructions, ...(input.moreInstructions ?? [])].map((c) => c.trim()).filter(Boolean);
   if (all.length <= 1) return section("Consigna", input.instructions);
   return (

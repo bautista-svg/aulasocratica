@@ -1,6 +1,7 @@
 // Activity editor API: create, edit, files, sharing (link), lifecycle and AI design helpers.
 // Every route is teacher-only and resolves the activity through ownedActivity (404 for
 // activities of other workspaces).
+import { legacyFields, sanitizeConsignas, structuredConsignas } from "@shared/domain/structure";
 import { Readable } from "node:stream";
 import { Hono, type Context } from "hono";
 import { eq } from "drizzle-orm";
@@ -53,7 +54,7 @@ import {
 } from "@shared/contracts/activities";
 import { sanitizeReflectionQuestions, sanitizeRubric } from "@shared/domain/activity-design";
 import { sanitizeExtraTutorTypes } from "@shared/domain/pedagogy";
-import { sanitizeMoreInstructions } from "@shared/domain/consignas";
+import { MAX_CONSIGNAS, sanitizeMoreInstructions } from "@shared/domain/consignas";
 
 /** AI design helpers per workspace: generous for real use, bounded against loops. */
 function assertAiRate(teacherId: string) {
@@ -122,9 +123,22 @@ export const activityRoutes = new Hono<AppEnv>()
   .patch("/:id", async (c) => {
     const { t, activity } = await owned(c);
     const body = await readJson(c, activityPatch);
-    const { rubric, reflectionQuestions, extraTutorTypes, moreInstructions, ...rest } = body;
+    const { rubric, reflectionQuestions, extraTutorTypes, moreInstructions, consignas, ...rest } = body;
     const values: Partial<typeof schema.activities.$inferInsert> = { ...rest };
     if (moreInstructions !== undefined) values.moreInstructions = sanitizeMoreInstructions(moreInstructions, ACTIVITY_LIMITS.instructions);
+    if (consignas !== undefined) {
+      const list = sanitizeConsignas(consignas, ACTIVITY_LIMITS.instructions, MAX_CONSIGNAS);
+      Object.assign(values, { consignas: list }, legacyFields(list));
+    } else if ((body.instructions !== undefined || moreInstructions !== undefined) && Array.isArray(activity.consignas) && activity.consignas.length) {
+      // Written through the old fields (e.g. a script): keep each consigna's title and answer by position.
+      const current = structuredConsignas(activity, ACTIVITY_LIMITS.instructions, MAX_CONSIGNAS);
+      const texts = [body.instructions ?? activity.instructions, ...((values.moreInstructions as string[] | undefined) ?? sanitizeMoreInstructions(activity.moreInstructions, ACTIVITY_LIMITS.instructions))];
+      values.consignas = sanitizeConsignas(
+        texts.map((text, i) => ({ id: current[i]?.id ?? `c${i + 1}`, title: current[i]?.title ?? "", text, answer: current[i]?.answer ?? false })),
+        ACTIVITY_LIMITS.instructions,
+        MAX_CONSIGNAS,
+      );
+    }
     // The combined types never repeat the main one (also when only the main one changes).
     if (extraTutorTypes !== undefined || body.tutorType !== undefined) {
       values.extraTutorTypes = sanitizeExtraTutorTypes(extraTutorTypes ?? activity.extraTutorTypes, body.tutorType ?? activity.tutorType);

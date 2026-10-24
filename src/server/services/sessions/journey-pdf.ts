@@ -114,9 +114,9 @@ export async function buildJourneyPdf(d: SessionDetail): Promise<Buffer> {
 
   // Activities that do not ask for a final answer leave the section out.
   if (d.activity.askFinalAnswer || d.session.finalAnswer?.trim()) {
-    w.section(d.session.finalAnswers.length > 1 ? "Respuestas finales" : "Respuesta final");
-    if (d.session.finalAnswers.length > 1) d.session.finalAnswers.forEach((a, i) => w.labelled(`Consigna ${i + 1}`, a.trim() || "(sin respuesta)"));
-    else if (d.session.finalAnswer?.trim()) w.paragraph(d.session.finalAnswer);
+    // The final answer keeps every consigna's answer under its number and title, and the final production.
+    w.section(d.session.finalAnswers.filter(Boolean).length > 1 ? "Respuestas" : "Respuesta final");
+    if (d.session.finalAnswer?.trim()) w.paragraph(d.session.finalAnswer);
     else
       w.paragraph(d.session.endedByTeacher ? "No la escribió: el docente terminó la actividad antes." : "Todavía no la escribió.", {
         italic: true,

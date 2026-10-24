@@ -30,6 +30,11 @@ export interface SkillsAnalyzeResult extends SkillsView {
   droppedQuotes: number;
 }
 
+/** The teacher rewrites the recommendations of one work (one per line in the editor). */
+export const recommendationsBody = z.object({
+  recommendations: z.array(z.string().trim().max(400, "Cada recomendación, hasta 400 caracteres.")).max(6, "Hasta 6 recomendaciones."),
+});
+
 /** The teacher corrects the level of one skill in one work. */
 export const skillLevelBody = z.object({
   status: z.enum(SKILL_STATUSES as [SkillStatus, ...SkillStatus[]], { error: "Elegí un nivel." }),

@@ -211,6 +211,13 @@ export async function analyzeSkills(row: OwnedSessionRow, teacherId: string): Pr
   return { ...skillsView(saved, catalog), droppedQuotes: ev.droppedQuotes };
 }
 
+/** The teacher rewrites the recommendations of a work. */
+export async function setRecommendations(row: OwnedSessionRow, list: string[]): Promise<SkillsView> {
+  const catalog = enabledSkills(await skillSettingsOf(row.activity.teacherId));
+  const saved = await save(row.session.id, { recommendations: list.map((r) => r.trim()).filter(Boolean).slice(0, 6) });
+  return skillsView(saved, catalog);
+}
+
 /** The teacher sets the level of a skill (kept on a new analysis). */
 export async function setSkillLevel(row: OwnedSessionRow, skill: string, status: SkillStatus): Promise<SkillsView> {
   const settings = await skillSettingsOf(row.activity.teacherId);

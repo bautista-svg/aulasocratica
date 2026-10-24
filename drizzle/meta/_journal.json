@@ -120,6 +120,13 @@
       "when": 1792800719597,
       "tag": "0016_activity_trash",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792801351113,
+      "tag": "0017_activity_structure",
+      "breakpoints": true
     }
   ]
 }

@@ -174,22 +174,9 @@ export function RecorridoTab({ detail }: { detail: SessionDetail }) {
                 );
               case "final":
                 return (
-                  <Node key={i} tone="leaf" label={detail.session.finalAnswers.length > 1 ? "Respuestas finales" : "Respuesta final"} at={s.at}>
-                    {detail.session.finalAnswers.length > 1 ? (
-                      <ol className="space-y-3">
-                        {detail.session.finalAnswers.map((a, j) => (
-                          <li key={j}>
-                            <p className="text-sm font-semibold text-text">
-                              Consigna {j + 1}
-                              {detail.activity.consignas[j] ? (
-                                <span className="ml-1.5 font-normal text-text-3">· {detail.activity.consignas[j]!.slice(0, 90)}{detail.activity.consignas[j]!.length > 90 ? "…" : ""}</span>
-                              ) : null}
-                            </p>
-                            <p className="mt-0.5 text-[15px] leading-7 whitespace-pre-wrap text-text">{a}</p>
-                          </li>
-                        ))}
-                      </ol>
-                    ) : s.text ? (
+                  // The final answer keeps every consigna's answer under its number and title, and the final production.
+                  <Node key={i} tone="leaf" label={detail.session.finalAnswers.filter(Boolean).length > 1 ? "Respuestas" : "Respuesta final"} at={s.at}>
+                    {s.text ? (
                       <p className="text-[15px] leading-7 whitespace-pre-wrap text-text">{s.text}</p>
                     ) : (
                       <Muted>{detail.session.endedByTeacher ? "No la escribió: terminaste su trabajo antes." : "Todavía no la escribió."}</Muted>

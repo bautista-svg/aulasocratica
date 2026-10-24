@@ -10,6 +10,7 @@ import type { FileKind } from "../domain/files";
 import { DELIVERABLE_URL_MAX, type DeliverableKind, type DeliverableMode } from "../domain/deliverables";
 import { MAX_CONSIGNAS } from "../domain/consignas";
 import type { ActivityLanguage } from "../domain/language";
+import type { SectionKey, SectionText } from "../domain/structure";
 import { AWAY_MIN_MS, PASTE_MIN_CHARS } from "../domain/alerts";
 import { MAX_ANSWER_CHARS, MAX_CHAT_CHARS, MAX_REFLECTION_ANSWER_CHARS, MIN_ANSWER_CHARS } from "./student-limits";
 
@@ -49,6 +50,8 @@ export const chatBody = z
     inputMode: z.enum(["text", "voice"]).default("text"),
     /** Ask the tutor again for the last student message (after a failed reply). */
     retry: z.boolean().default(false),
+    /** The consigna the student is on (index), so the tutor accompanies that one. */
+    consigna: z.number().int().min(0).max(MAX_CONSIGNAS - 1).optional(),
   })
   .refine((b) => b.retry || b.text.length > 0, { message: "Escribí un mensaje.", path: ["text"] });
 export type ChatInput = z.input<typeof chatBody>;
@@ -56,9 +59,18 @@ export type ChatInput = z.input<typeof chatBody>;
 const answerText = z.string().trim().max(MAX_ANSWER_CHARS, `Tu respuesta puede tener hasta ${MAX_ANSWER_CHARS} caracteres.`);
 
 /** One final answer, or one per consigna when the activity has several (checked against them on the server). */
+/** One consigna's written answer, saved while the student types. */
+export const consignaAnswerBody = z.object({
+  consignaId: z.string().regex(/^[a-z0-9_-]{1,40}$/i),
+  text: z.string().max(MAX_ANSWER_CHARS, `Tu respuesta puede tener hasta ${MAX_ANSWER_CHARS} caracteres.`),
+});
+
 export const finishBody = z.object({
   finalAnswer: answerText.default(""),
+  /** Sent by older screens (one answer per consigna at the end). */
   finalAnswers: z.array(answerText).max(MAX_CONSIGNAS).optional(),
+  /** The latest answers of the consignas (they are also saved while typing). */
+  consignaAnswers: z.record(z.string().max(40), answerText).optional(),
   reflection: z
     .array(
       z.object({
@@ -153,6 +165,14 @@ export interface StudentDeliverable {
 
 export type StudentStage = "initial" | "tutor" | "completed" | "ended";
 
+export interface StudentConsigna {
+  id: string;
+  title: string;
+  text: string;
+  /** The student writes an answer in this consigna. */
+  answer: boolean;
+}
+
 export interface StudentWorkspace {
   studentName: string;
   /** Code to continue on another device (also visible to the teacher). */
@@ -165,6 +185,8 @@ export interface StudentWorkspace {
     finalAnswer: string | null;
     /** With several consignas: one answer per consigna. */
     finalAnswers: string[];
+    /** The answer written in each consigna while working (by consigna id). */
+    consignaAnswers: Record<string, string>;
     reflection: ReflectionAnswer[];
     hintCount: number;
     startedAt: string;
@@ -175,9 +197,14 @@ export interface StudentWorkspace {
     subject: string;
     objectives: string;
     instructions: string;
-    /** Every consigna in order (the first is `instructions`). */
-    consignas: string[];
+    /** Every consigna in order, shown one at a time (title already defaulted). */
+    consignas: StudentConsigna[];
+    /** Shown before starting, with «Comenzar actividad» (null: no presentation). */
+    presentation: string | null;
+    /** Whether the closing asks for a final production. */
     askFinalAnswer: boolean;
+    /** Titles and subtitles of the sections (the teacher's, else the defaults of the language). */
+    sections: Record<SectionKey, SectionText>;
     /** The closing question, already defaulted (in the activity's language). */
     finalQuestion: string;
     /** Language of the student's screens and the tutor. */

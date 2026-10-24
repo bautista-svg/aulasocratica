@@ -2,7 +2,7 @@
 // integrity signals reported by the browser. Every write is atomic on the session row
 // (no read-then-update races) and is followed by publish() for the teacher's live view.
 // last_activity_at only moves with real work, never with signals or page loads.
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { db, schema } from "../../db/client";
 import { HttpError, badRequest } from "../../lib/errors";
 import { MIN_ANSWER_CHARS } from "@shared/contracts/student-limits";
@@ -13,6 +13,7 @@ import type { ReflectionAnswer } from "@shared/domain/activity-design";
 import type { SignalInput } from "@shared/contracts/student";
 import {
   isReadOnly,
+  readConsignaAnswers,
   readOnlyError,
   recordEvent,
   reflectionQuestionsOf,
@@ -21,7 +22,8 @@ import {
 } from "./session";
 import { detectAlerts, recordObservedSignal } from "./alerts";
 import { runInBackground } from "./background";
-import { consignasOf, joinFinalAnswers } from "@shared/domain/consignas";
+import { asksFinalProduction, structuredConsignas } from "@shared/domain/structure";
+import { languageOf } from "@shared/domain/language";
 
 export const SIGNAL_LIMIT = { perSession: 40, windowMs: 10 * 60_000 };
 
@@ -76,9 +78,24 @@ export async function startClosing(ctx: StudentCtx): Promise<void> {
   publish(ctx.activity.id, "session", ctx.session.id);
 }
 
+/** One consigna's answer, saved as the student types (editable until the work is sent). */
+export async function saveConsignaAnswer(ctx: StudentCtx, consignaId: string, text: string): Promise<void> {
+  if (isReadOnly(ctx.session)) throw readOnlyError(ctx.session);
+  if (ctx.session.status === "completed") throw new HttpError(409, "Ya enviaste tu trabajo.", "completed");
+  if (!structuredConsignas(ctx.activity).some((c) => c.id === consignaId)) throw badRequest("Esa consigna ya no está en la actividad.");
+  const patch = JSON.stringify({ [consignaId]: text.replace(/\r\n/g, "\n") });
+  const [row] = await db
+    .update(schema.learningSessions)
+    .set({ consignaAnswers: sql`${schema.learningSessions.consignaAnswers} || ${patch}::jsonb`, lastActivityAt: new Date() })
+    .where(editable(ctx.session.id))
+    .returning({ id: schema.learningSessions.id });
+  if (!row) throw new HttpError(409, "Ya enviaste tu trabajo.", "completed");
+  publish(ctx.activity.id, "session", ctx.session.id);
+}
+
 export async function finishActivity(
   ctx: StudentCtx,
-  input: { finalAnswer: string; finalAnswers?: string[]; reflection: { key: string; answer: string }[] },
+  input: { finalAnswer: string; finalAnswers?: string[]; consignaAnswers?: Record<string, string>; reflection: { key: string; answer: string }[] },
 ): Promise<StudentCtx> {
   if (ctx.session.endedByTeacher) throw readOnlyError(ctx.session);
   if (ctx.session.status === "completed") return ctx; // idempotent (double tap)
@@ -93,24 +110,36 @@ export async function finishActivity(
       .limit(1);
     if (!file) throw new HttpError(409, "Subí tu archivo antes de enviar tu trabajo.", "deliverable_required");
   }
-  // Several consignas: one answer each; finalAnswer keeps them joined for everything that reads it.
-  const consignas = consignasOf(ctx.activity);
-  let finalAnswer: string | null = input.finalAnswer.trim();
-  let finalAnswers: string[] = [];
-  if (!ctx.activity.askFinalAnswer) {
-    finalAnswer = null;
-  } else if (consignas.length > 1) {
-    const given = input.finalAnswers ?? [];
-    const fields: Record<string, string> = {};
-    consignas.forEach((_, i) => {
-      if ((given[i] ?? "").trim().length < MIN_ANSWER_CHARS) fields[`finalAnswers.${i}`] = "Escribí tu respuesta a esta consigna.";
-    });
-    if (Object.keys(fields).length) throw badRequest("Respondé cada consigna antes de enviar tu trabajo.", fields);
-    finalAnswers = consignas.map((_, i) => given[i]!.trim());
-    finalAnswer = joinFinalAnswers(finalAnswers);
-  } else if (finalAnswer.length < MIN_ANSWER_CHARS) {
+  // The answers written in each consigna (saved while typing; the latest ones come with this
+  // request too) plus the final production. finalAnswer keeps everything joined, with the
+  // consigna it answers, for whatever reads the final answer (AI analyses, reports, live view).
+  const consignas = structuredConsignas(ctx.activity);
+  const lang = languageOf(ctx.activity.language);
+  const given: Record<string, string> = { ...readConsignaAnswers(ctx.session.consignaAnswers), ...(input.consignaAnswers ?? {}) };
+  // Older screens sent one answer per consigna at the end, by position.
+  (input.finalAnswers ?? []).forEach((a, i) => {
+    const c = consignas[i];
+    if (c && a.trim() && !(given[c.id] ?? "").trim()) given[c.id] = a;
+  });
+  const asked = consignas.filter((c) => c.answer);
+  const fields: Record<string, string> = {};
+  for (const c of asked) {
+    if ((given[c.id] ?? "").trim().length < MIN_ANSWER_CHARS) fields[`consigna.${c.id}`] = "Escribí tu respuesta a esta consigna.";
+  }
+  if (Object.keys(fields).length) throw badRequest("Respondé cada consigna antes de enviar tu trabajo.", fields);
+  const production = input.finalAnswer.trim();
+  const asksProduction = asksFinalProduction(ctx.activity);
+  if (asksProduction && production.length < MIN_ANSWER_CHARS) {
     throw badRequest("Escribí tu respuesta final.", { finalAnswer: "Escribí tu respuesta final." });
   }
+  const finalAnswers = consignas.map((c) => (c.answer ? (given[c.id] ?? "").trim() : ""));
+  const answersText =
+    asked.length === 1 && consignas.length === 1
+      ? finalAnswers[0]!
+      : asked.map((c) => `Consigna ${consignas.indexOf(c) + 1}${c.title.trim() ? ` (${c.title.trim()})` : ""}:\n${(given[c.id] ?? "").trim()}`).join("\n\n");
+  let finalAnswer: string | null = null;
+  if (asksProduction) finalAnswer = answersText ? `${answersText}\n\n${lang === "en" ? "Final work" : "Producción final"}:\n${production}` : production;
+  else if (answersText) finalAnswer = answersText;
   const questions = reflectionQuestionsOf(ctx.activity);
   const byKey = new Map(input.reflection.map((r) => [r.key, r.answer.trim()]));
   const reflection: ReflectionAnswer[] = questions.map((q) => ({ key: q.key, question: q.question, answer: byKey.get(q.key) ?? "" }));
@@ -119,7 +148,8 @@ export async function finishActivity(
     .update(schema.learningSessions)
     .set({
       finalAnswer,
-      finalAnswers,
+      finalAnswers: asked.length ? finalAnswers : [],
+      consignaAnswers: given,
       reflection,
       status: "completed",
       completedAt: now,
@@ -135,7 +165,7 @@ export async function finishActivity(
 
   const answered = reflection.filter((r) => r.answer).length;
   if (finalAnswer !== null) {
-    await recordEvent(ctx.session.id, "final_answer_saved", { length: finalAnswer.length, ...(finalAnswers.length ? { consignas: finalAnswers.length } : {}) });
+    await recordEvent(ctx.session.id, "final_answer_saved", { length: finalAnswer.length, ...(asked.length ? { consignas: asked.length } : {}) });
   }
   const initial = ctx.session.initialAnswer;
   if (initial && finalAnswer !== null && normalizeForMatch(initial) !== normalizeForMatch(finalAnswer)) {

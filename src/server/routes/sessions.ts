@@ -11,7 +11,7 @@ import { audit } from "../services/audit";
 import { hit } from "../lib/rate-limit";
 import { log } from "../lib/logger";
 import { confirmBody, rubricSaveBody, summaryBody, xrayItemPatch } from "@shared/contracts/sessions";
-import { skillLevelBody } from "@shared/contracts/skills";
+import { recommendationsBody, skillLevelBody } from "@shared/contracts/skills";
 import { splitObjectives } from "@shared/domain/session-summary";
 import { loadSessionDetail, summaryView } from "../services/sessions/detail";
 import { buildJourneyPdf, journeyDisposition } from "../services/sessions/journey-pdf";
@@ -20,7 +20,7 @@ import { deliverableKeys, deliverableOf, deleteStoredKeys, retryDeliverable, ser
 import { deliverableView } from "../services/sessions/detail";
 import { deleteSession, endSession, reopenSession } from "../services/sessions/actions";
 import { xrayList } from "../services/sessions/lists";
-import { analyzeSkills, setSkillLevel } from "../services/sessions/skills";
+import { analyzeSkills, setRecommendations, setSkillLevel } from "../services/sessions/skills";
 
 /** The group view analyzes many works in a row, so skills have their own, larger budget. */
 function aspectsLimit(c: Context<AppEnv>) {
@@ -136,6 +136,12 @@ export const sessionRoutes = new Hono<AppEnv>()
     const row = await ownedSession(t.id, c.req.param("id"));
     aspectsLimit(c);
     return c.json(await analyzeSkills(row, t.id));
+  })
+
+  .put("/:id/skills/recommendations", async (c) => {
+    const row = await ownedSession(teacherOf(c).id, c.req.param("id"));
+    const body = await readJson(c, recommendationsBody);
+    return c.json(await setRecommendations(row, body.recommendations));
   })
 
   .patch("/:id/skills/:skill", async (c) => {

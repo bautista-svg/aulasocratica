@@ -15,6 +15,7 @@ import { ReadOnlyThread } from "./thread";
 import { canSpeak, speechLang } from "./voice-support";
 import { DeliverableField, DeliverableFileLine } from "./deliverable";
 import { useT } from "./i18n";
+import { localAnswers } from "./consignas";
 
 function useHeadingFocus(focus: boolean | undefined) {
   const ref = useRef<HTMLHeadingElement | null>(null);
@@ -72,9 +73,9 @@ export function InitialAnswerStep({ token, workspace, focusHeading }: { token: s
     <section aria-labelledby="initial-title" className="rounded-xl border border-line bg-surface p-5 shadow-2 sm:p-7">
       <p className="text-sm font-semibold text-lilac-ink">{t.steps.beforeChat}</p>
       <h2 id="initial-title" ref={headingRef} tabIndex={-1} className="q-hang mt-2 text-[24px] leading-tight outline-none sm:text-[26px]">
-        {t.steps.whatDoYouThink}
+        {workspace.activity.sections.respuesta_inicial.title}
       </h2>
-      <p className="mt-3 text-[15px] leading-6 text-text-2">{t.steps.initialIntro}</p>
+      <p className="mt-3 text-[15px] leading-6 text-text-2">{workspace.activity.sections.respuesta_inicial.subtitle}</p>
       <form onSubmit={submit} className="mt-5 space-y-4">
         <Field
           label={t.steps.firstIdea}
@@ -109,39 +110,37 @@ export function ClosingStep({
   token,
   workspace,
   onBack,
+  onGoTo,
   focusHeading,
 }: {
   token: string;
   workspace: StudentWorkspace;
   onBack: () => void;
+  /** Go back to one consigna (to write a missing answer). */
+  onGoTo: (index: number) => void;
   focusHeading?: boolean;
 }) {
   const t = useT();
   const qc = useQueryClient();
   const onStale = useStaleHandler(token);
   const code = workspace.resumeCode;
+  const a = workspace.activity;
   const [finalAnswer, setFinal, clearFinal] = useDraft(draftKey(token, code, "final"));
-  // Several consignas: one answer each (kept on this device as a list until it is sent).
-  const consignas = workspace.activity.consignas;
-  const asks = workspace.activity.askFinalAnswer;
-  const multi = asks && consignas.length > 1;
-  const [finalsRaw, setFinalsRaw, clearFinals] = useDraft(draftKey(token, code, "finals"));
-  let finals: string[] = [];
-  try {
-    const parsed = finalsRaw ? (JSON.parse(finalsRaw) as unknown) : [];
-    finals = Array.isArray(parsed) ? parsed.map((a) => (typeof a === "string" ? a : "")) : [];
-  } catch {
-    finals = [];
-  }
-  const setFinalAt = (i: number, value: string) => setFinalsRaw(JSON.stringify(consignas.map((_, j) => (j === i ? value : (finals[j] ?? "")))));
+  // The answers written in each consigna: this device's latest text first, else the saved one.
+  const consignas = a.consignas;
+  const local = localAnswers(token, code, consignas.map((c) => c.id));
+  const answerOf = (id: string) => (local[id] ?? workspace.session.consignaAnswers[id] ?? "").trim();
+  const asked = consignas.map((c, i) => ({ c, i })).filter(({ c }) => c.answer);
+  const missing = asked.filter(({ c }) => answerOf(c.id).length < MIN_ANSWER_CHARS);
+  const asks = a.askFinalAnswer;
   const [reflectionRaw, setReflectionRaw, clearReflection] = useDraft(draftKey(token, code, "reflection"));
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const headingRef = useHeadingFocus(focusHeading);
-  const asksFile = workspace.activity.deliverableMode !== "off";
-  const missingFile = workspace.activity.deliverableMode === "required" && !workspace.deliverable;
+  const asksFile = a.deliverableMode !== "off";
+  const missingFile = a.deliverableMode === "required" && !workspace.deliverable;
 
   let reflection: Record<string, string> = {};
   try {
@@ -160,14 +159,7 @@ export function ClosingStep({
   }, [token, onStale]);
 
   const length = finalAnswer.trim().length;
-  const answered = !asks
-    ? true
-    : multi
-    ? consignas.every((_, i) => {
-        const n = (finals[i] ?? "").trim().length;
-        return n >= MIN_ANSWER_CHARS && n <= MAX_ANSWER_CHARS;
-      })
-    : length >= MIN_ANSWER_CHARS && length <= MAX_ANSWER_CHARS;
+  const answered = missing.length === 0 && (!asks || (length >= MIN_ANSWER_CHARS && length <= MAX_ANSWER_CHARS));
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (busy || !answered) return;
@@ -176,12 +168,11 @@ export function ClosingStep({
     setFieldErrors({});
     try {
       const r = await studentApi.finish(token, {
-        finalAnswer: multi || !asks ? "" : finalAnswer.trim(),
-        ...(multi ? { finalAnswers: consignas.map((_, i) => (finals[i] ?? "").trim()) } : {}),
-        reflection: workspace.activity.reflectionQuestions.map((q) => ({ key: q.key, answer: (reflection[q.key] ?? "").trim() })),
+        finalAnswer: asks ? finalAnswer.trim() : "",
+        consignaAnswers: Object.fromEntries(asked.map(({ c }) => [c.id, answerOf(c.id)])),
+        reflection: a.reflectionQuestions.map((q) => ({ key: q.key, answer: (reflection[q.key] ?? "").trim() })),
       });
       clearFinal();
-      clearFinals();
       clearReflection();
       setWorkspace(qc, token, r.workspace);
     } catch (err) {
@@ -203,11 +194,9 @@ export function ClosingStep({
       <div className="rounded-xl border border-line bg-surface p-5 shadow-2 sm:p-7">
         <p className="text-sm font-semibold text-lilac-ink">{t.steps.toFinish}</p>
         <h2 id="closing-title" ref={headingRef} tabIndex={-1} className={cn("mt-2 text-[24px] leading-tight outline-none sm:text-[26px]", asks ? "q-hang" : "font-display font-semibold text-ink")}>
-          {asks ? workspace.activity.finalQuestion : t.steps.beforeSend}
+          {asks ? a.finalQuestion : t.steps.beforeSend}
         </h2>
-        <p className="mt-3 text-[15px] leading-6 text-text-2">
-          {asks ? t.steps.closingIntroAsk : t.steps.closingIntro}
-        </p>
+        <p className="mt-3 text-[15px] leading-6 text-text-2">{asks ? a.sections.respuesta_final.subtitle : t.steps.closingIntro}</p>
 
         <form onSubmit={submit} className="mt-6 space-y-6">
           {workspace.session.initialAnswer ? (
@@ -217,41 +206,48 @@ export function ClosingStep({
             </div>
           ) : null}
 
-          {!asks ? null : multi ? (
-            <fieldset className="space-y-5">
-              <legend className="text-[15px] font-semibold text-text">{t.steps.answerEachTask}</legend>
-              <p className="-mt-3 text-[13px] text-text-3">{t.steps.savedHintPlural}</p>
-              {consignas.map((c, i) => {
-                const v = finals[i] ?? "";
-                return (
-                  <div key={i} className="rounded-lg border border-line bg-paper/60 p-3.5 sm:p-4">
-                    <Field
-                      label={t.steps.taskN(i + 1)}
-                      error={fieldErrors[`finalAnswers.${i}`]}
-                      counter={v.length > MAX_ANSWER_CHARS - 400 ? { value: v.length, max: MAX_ANSWER_CHARS } : undefined}
-                    >
-                      {({ id, describedBy, invalid }) => (
-                        <>
-                          <p className="-mt-0.5 line-clamp-3 text-sm leading-6 whitespace-pre-wrap text-text-2">{c}</p>
-                          <Textarea
-                            id={id}
-                            aria-describedby={describedBy}
-                            invalid={invalid}
-                            value={v}
-                            onChange={(e) => setFinalAt(i, e.target.value)}
-                            minRows={3}
-                            placeholder={t.steps.finalPlaceholder}
-                          />
-                        </>
+          {asked.length ? (
+            <div>
+              <h3 className="text-[15px] font-semibold text-text">{t.consigna.answersTitle}</h3>
+              <ul className="mt-2 space-y-2">
+                {asked.map(({ c, i }) => {
+                  const text = answerOf(c.id);
+                  const ok = text.length >= MIN_ANSWER_CHARS;
+                  const err = fieldErrors[`consigna.${c.id}`];
+                  return (
+                    <li key={c.id} className={cn("rounded-lg border px-4 py-3", ok ? "border-line bg-paper/60" : "border-amber/40 bg-amber-soft/50")}>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-text">
+                          {consignas.length > 1 ? `${i + 1}. ` : ""}
+                          {c.title}
+                        </p>
+                        {ok ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-leaf">
+                            <CheckCircle2 className="size-3.5" aria-hidden="true" /> {t.consigna.answered}
+                          </span>
+                        ) : (
+                          <Button size="sm" variant="secondary" onClick={() => onGoTo(i)}>
+                            {t.consigna.goTo}
+                          </Button>
+                        )}
+                      </div>
+                      {ok ? (
+                        <p className="mt-1 line-clamp-3 text-sm leading-6 whitespace-pre-wrap text-text-2">{text}</p>
+                      ) : (
+                        <p className="mt-1 text-sm text-amber" role={err ? "alert" : undefined}>
+                          {err || t.consigna.missing}
+                        </p>
                       )}
-                    </Field>
-                  </div>
-                );
-              })}
-            </fieldset>
-          ) : (
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
+
+          {asks ? (
             <Field
-              label={t.steps.finalAnswer}
+              label={a.sections.respuesta_final.title}
               hint={t.steps.savedHint}
               error={fieldErrors.finalAnswer}
               counter={length > MAX_ANSWER_CHARS - 400 ? { value: length, max: MAX_ANSWER_CHARS } : undefined}
@@ -268,15 +264,17 @@ export function ClosingStep({
                 />
               )}
             </Field>
-          )}
+          ) : null}
 
-          {workspace.activity.closingMessage ? <TeacherNote text={workspace.activity.closingMessage} label={t.steps.teacherNote} /> : null}
+          {a.closingMessage ? (
+            <TeacherNote text={a.closingMessage} label={a.sections.cierre.title} subtitle={a.sections.cierre.subtitle} />
+          ) : null}
 
-          {workspace.activity.reflectionQuestions.length ? (
+          {a.reflectionQuestions.length ? (
             <fieldset className="space-y-4 border-t border-line pt-5">
-              <legend className="float-left w-full font-display text-lg font-semibold text-ink">{t.steps.reflection}</legend>
-              <p className="clear-left pt-1 text-sm text-text-2">{t.steps.reflectionIntro}</p>
-              {workspace.activity.reflectionQuestions.map((q, i) => {
+              <legend className="float-left w-full font-display text-lg font-semibold text-ink">{a.sections.reflexion.title}</legend>
+              <p className="clear-left pt-1 text-sm text-text-2">{a.sections.reflexion.subtitle}</p>
+              {a.reflectionQuestions.map((q, i) => {
                 const v = reflection[q.key] ?? "";
                 return (
                   <Field
@@ -356,6 +354,14 @@ export function DoneStep({
   const headingRef = useHeadingFocus(focusHeading);
   const listenLang = workspace.activity.voiceLanguage !== "off" && canSpeak() ? speechLang(workspace.activity.voiceLanguage) : null;
   const answered = s.reflection.filter((r) => r.answer);
+  const a = workspace.activity;
+  // Answers written in each consigna (with its title); the final production is what follows them.
+  const written = a.consignas.map((c, i) => ({ c, i, text: (s.consignaAnswers[c.id] ?? "").trim() })).filter((x) => x.c.answer && x.text);
+  const production = !a.askFinalAnswer
+    ? null
+    : written.length
+      ? (s.finalAnswer?.split(/\n\n(?:Producción final|Final work):\n/).at(-1) ?? null)
+      : s.finalAnswer;
 
   return (
     <section aria-labelledby="done-title" className="space-y-5">
@@ -380,19 +386,40 @@ export function DoneStep({
               <p className="mt-1 text-[15px] leading-6 whitespace-pre-wrap text-text">{s.initialAnswer}</p>
             </div>
           ) : null}
-          {s.finalAnswers.length > 1 ? (
+          {written.length ? (
             <div className="rounded-md bg-leaf-soft px-4 py-3.5 sm:col-span-2">
-              <p className="text-xs font-semibold text-leaf">{t.done.thinkNow}</p>
+              <p className="text-xs font-semibold text-leaf">{t.consigna.answersTitle}</p>
               <ol className="mt-2 space-y-2.5">
-                {s.finalAnswers.map((a, i) => (
-                  <li key={i}>
-                    <p className="text-xs font-semibold text-text-2">{t.done.taskN(i + 1)}</p>
-                    <p className="mt-0.5 text-[15px] leading-6 whitespace-pre-wrap text-text">{a}</p>
+                {written.map(({ c, i, text }) => (
+                  <li key={c.id}>
+                    <p className="text-xs font-semibold text-text-2">
+                      {a.consignas.length > 1 ? `${i + 1}. ` : ""}
+                      {c.title}
+                    </p>
+                    <p className="mt-0.5 text-[15px] leading-6 whitespace-pre-wrap text-text">{text}</p>
                   </li>
                 ))}
               </ol>
             </div>
-          ) : s.finalAnswer ? (
+          ) : s.finalAnswers.filter(Boolean).length > 1 ? (
+            <div className="rounded-md bg-leaf-soft px-4 py-3.5 sm:col-span-2">
+              <p className="text-xs font-semibold text-leaf">{t.done.thinkNow}</p>
+              <ol className="mt-2 space-y-2.5">
+                {s.finalAnswers.map((ans, i) => (
+                  <li key={i}>
+                    <p className="text-xs font-semibold text-text-2">{t.done.taskN(i + 1)}</p>
+                    <p className="mt-0.5 text-[15px] leading-6 whitespace-pre-wrap text-text">{ans}</p>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ) : null}
+          {written.length && production ? (
+            <div className="rounded-md bg-leaf-soft px-4 py-3.5 sm:col-span-2">
+              <p className="text-xs font-semibold text-leaf">{a.sections.respuesta_final.title}</p>
+              <p className="mt-1 text-[15px] leading-6 whitespace-pre-wrap text-text">{production}</p>
+            </div>
+          ) : !written.length && s.finalAnswers.filter(Boolean).length <= 1 && s.finalAnswer ? (
             <div className={s.initialAnswer ? "rounded-md bg-leaf-soft px-4 py-3.5" : "rounded-md bg-leaf-soft px-4 py-3.5 sm:col-span-2"}>
               <p className="text-xs font-semibold text-leaf">{t.done.thinkNow}</p>
               <p className="mt-1 text-[15px] leading-6 whitespace-pre-wrap text-text">{s.finalAnswer}</p>
@@ -402,7 +429,7 @@ export function DoneStep({
 
         {workspace.activity.closingMessage ? (
           <div className="mt-6">
-            <TeacherNote text={workspace.activity.closingMessage} label={t.steps.teacherNote} />
+            <TeacherNote text={workspace.activity.closingMessage} label={a.sections.cierre.title} subtitle={a.sections.cierre.subtitle} />
           </div>
         ) : null}
 
@@ -452,7 +479,7 @@ export function DoneStep({
 }
 
 /** The teacher's message for the end: something to read, nothing to answer. */
-function TeacherNote({ text, label }: { text: string; label: string }) {
+function TeacherNote({ text, label, subtitle }: { text: string; label: string; subtitle?: string }) {
   return (
     <aside aria-label={label} className="flex gap-3 rounded-[14px] border border-lilac/40 bg-lilac-soft/60 px-4 py-3.5">
       <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-surface text-lilac-ink shadow-1" aria-hidden="true">
@@ -460,6 +487,7 @@ function TeacherNote({ text, label }: { text: string; label: string }) {
       </span>
       <div className="min-w-0">
         <p className="text-xs font-semibold tracking-wide text-lilac-ink uppercase">{label}</p>
+        {subtitle ? <p className="mt-0.5 text-[13px] text-text-2">{subtitle}</p> : null}
         <p className="mt-1 text-[15px] leading-6 whitespace-pre-wrap text-text">{text}</p>
       </div>
     </aside>

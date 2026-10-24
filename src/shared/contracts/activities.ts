@@ -1,3 +1,13 @@
+import {
+  CONSIGNA_TITLE_MAX,
+  PRESENTATION_MAX,
+  SECTION_KEYS,
+  SECTION_SUBTITLE_MAX,
+  SECTION_TITLE_MAX,
+  sanitizeSectionTitles,
+  type Consigna,
+  type SectionTitles,
+} from "../domain/structure";
 import { z } from "zod";
 import {
   MAX_CRITERIA,
@@ -78,6 +88,15 @@ export interface ActivityDetail {
   instructions: string;
   /** Consignas after the first one. */
   moreInstructions: string[];
+  /** The consignas with their title and written answer (the source the editor edits). */
+  consignas: Consigna[];
+  /** Shown before the activity starts (when on). */
+  presentation: string;
+  presentationOn: boolean;
+  /** The objectives are shown to the students. */
+  objectivesVisible: boolean;
+  /** The teacher's titles and subtitles of the sections the students see. */
+  sectionTitles: SectionTitles;
   material: string;
   tutorType: string;
   /** Other types combined with the main one (up to two). */
@@ -204,6 +223,22 @@ export const activityPatch = z
     objectives: text(ACTIVITY_LIMITS.objectives),
     instructions: text(ACTIVITY_LIMITS.instructions),
     moreInstructions: z.array(text(ACTIVITY_LIMITS.instructions)).max(MAX_CONSIGNAS - 1, `Podés poner hasta ${MAX_CONSIGNAS} consignas.`),
+    consignas: z
+      .array(
+        z.object({
+          id: z.string().regex(/^[a-z0-9_-]{1,40}$/i, "Consigna inválida."),
+          title: text(CONSIGNA_TITLE_MAX),
+          text: text(ACTIVITY_LIMITS.instructions),
+          answer: z.boolean(),
+        }),
+      )
+      .max(MAX_CONSIGNAS, `Podés poner hasta ${MAX_CONSIGNAS} consignas.`),
+    presentation: text(PRESENTATION_MAX),
+    presentationOn: z.boolean(),
+    objectivesVisible: z.boolean(),
+    sectionTitles: z
+      .partialRecord(z.enum(SECTION_KEYS), z.object({ title: text(SECTION_TITLE_MAX), subtitle: text(SECTION_SUBTITLE_MAX) }))
+      .transform((v) => sanitizeSectionTitles(v)),
     material: text(ACTIVITY_LIMITS.material),
     tutorType: tutorTypeSchema,
     extraTutorTypes: z.array(tutorTypeSchema).max(MAX_TUTOR_TYPES - 1, `Podés combinar hasta ${MAX_TUTOR_TYPES} tipos de tutor.`),

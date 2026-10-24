@@ -160,6 +160,15 @@ export const activities = pgTable(
     instructions: text("instructions").notNull().default(""),
     /** Consignas after the first one (solved in order with the same tutor). See domain/consignas.ts. */
     moreInstructions: jsonb("more_instructions").notNull().default(sql`'[]'::jsonb`),
+    /** Consignas with their own title and written answer (shared/domain/structure.ts); null = from the old fields. */
+    consignas: jsonb("consignas"),
+    /** Shown before the activity starts, with a «Comenzar actividad» button. */
+    presentation: text("presentation").notNull().default(""),
+    presentationOn: boolean("presentation_on").notNull().default(false),
+    /** Show the objectives to the students ("Lo que vas a aprender"). */
+    objectivesVisible: boolean("objectives_visible").notNull().default(true),
+    /** The teacher's titles and subtitles for the sections the students see. */
+    sectionTitles: jsonb("section_titles").notNull().default(sql`'{}'::jsonb`),
     material: text("material").notNull().default(""),
     tutorType: text("tutor_type").notNull().default("pensamiento_critico"),
     /** Other tutor types combined with the main one (the student talks to one tutor that mixes them). */
@@ -286,6 +295,8 @@ export const learningSessions = pgTable(
     finalAnswer: text("final_answer"),
     /** With several consignas: one final answer per consigna (final_answer keeps them joined). */
     finalAnswers: jsonb("final_answers").notNull().default(sql`'[]'::jsonb`),
+    /** The answer written in each consigna while working ({ consignaId: text }), saved as it is typed. */
+    consignaAnswers: jsonb("consigna_answers").notNull().default(sql`'{}'::jsonb`),
     reflection: jsonb("reflection"),
     hintCount: integer("hint_count").notNull().default(0),
     /** Short code the student uses to continue on another device. */

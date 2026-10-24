@@ -4,6 +4,7 @@
 // partial `messages` row so the teacher's live view shows it word by word; it is finalized
 // at the end. If the student disconnects, generation continues and the reply is saved, so the
 // conversation stays consistent with what the model will see next turn.
+import { asksFinalProduction, consignaTitle, structuredConsignas } from "@shared/domain/structure";
 import type { Context } from "hono";
 import { streamSSE } from "hono/streaming";
 import type Anthropic from "@anthropic-ai/sdk";
@@ -23,7 +24,7 @@ import { buildHistory, buildTutorPrompt, conversationQuery, tutorRequest } from 
 import type { MaterialSource } from "@shared/domain/material-select";
 import type { chatBody } from "@shared/contracts/student";
 import type { z } from "zod";
-import { isReadOnly, readOnlyError, recordEvent, type StudentCtx } from "./session";
+import { isReadOnly, readConsignaAnswers, readOnlyError, recordEvent, type StudentCtx } from "./session";
 import { acquireStream, releaseStream } from "./streams";
 import { detectAlerts } from "./alerts";
 import { runInBackground } from "./background";
@@ -141,7 +142,11 @@ export async function tutorChat(c: Context, ctx: StudentCtx, body: ChatBody): Pr
         .limit(HISTORY_LIMIT),
       materialSources(activity.id),
       db
-        .select({ hintCount: schema.learningSessions.hintCount, initialAnswer: schema.learningSessions.initialAnswer })
+        .select({
+          hintCount: schema.learningSessions.hintCount,
+          initialAnswer: schema.learningSessions.initialAnswer,
+          consignaAnswers: schema.learningSessions.consignaAnswers,
+        })
         .from(schema.learningSessions)
         .where(eq(schema.learningSessions.id, session.id))
         .limit(1),
@@ -150,14 +155,23 @@ export async function tutorChat(c: Context, ctx: StudentCtx, body: ChatBody): Pr
     if (history.length === 0 || history[history.length - 1]!.role !== "user") {
       throw new HttpError(409, "No hay un mensaje tuyo esperando respuesta.", "nothing_to_retry");
     }
-    const state = fresh[0] ?? { hintCount: session.hintCount, initialAnswer: session.initialAnswer };
+    const state = fresh[0] ?? { hintCount: session.hintCount, initialAnswer: session.initialAnswer, consignaAnswers: session.consignaAnswers };
+    const lang = languageOf(activity.language);
+    const structured = structuredConsignas(activity);
+    const consignaItems = structured.map((c, i) => ({ title: consignaTitle(c, i, lang), text: c.text, answer: c.answer }));
     const prompt = buildTutorPrompt({
       title: activity.title,
       subject: activity.subject,
       objectives: activity.objectives,
       instructions: activity.instructions,
       moreInstructions: sanitizeMoreInstructions(activity.moreInstructions, ACTIVITY_LIMITS.instructions),
-      askFinalAnswer: activity.askFinalAnswer,
+      askFinalAnswer: asksFinalProduction(activity),
+      consignaItems: consignaItems,
+      presentation: activity.presentationOn ? activity.presentation : "",
+      current:
+        body.consigna !== undefined && consignaItems[body.consigna]
+          ? { index: body.consigna, answerSoFar: readConsignaAnswers(state.consignaAnswers)[structured[body.consigna]!.id] ?? "" }
+          : null,
       language: languageOf(activity.language),
       material: activity.material,
       files,

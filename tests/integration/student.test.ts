@@ -743,10 +743,12 @@ describe("closing and completion", () => {
 describe("several consignas", () => {
   it("the student answers each consigna; the teacher sees them apart and joined for the analyses", async () => {
     const s = await joined({ requireInitialAnswer: false, moreInstructions: ["Ahora probalo con 3/6.", "  "] });
+    // Saved before consignas had their own structure: one answer per consigna, now written in each one.
     expect(s.workspace.activity.consignas).toEqual([
-      "¿Es cierto que 2/4 y 1/2 representan la misma cantidad? Explicá por qué.",
-      "Ahora probalo con 3/6.",
+      { id: "c1", title: "Comenzamos la actividad", text: "¿Es cierto que 2/4 y 1/2 representan la misma cantidad? Explicá por qué.", answer: true },
+      { id: "c2", title: "Consigna 2", text: "Ahora probalo con 3/6.", answer: true },
     ]);
+    expect(s.workspace.activity.askFinalAnswer).toBe(false);
 
     // The tutor knows both, in order.
     aiMock.text("Vamos con la consigna 1: ¿qué parte del entero es 2/4?");
@@ -757,8 +759,8 @@ describe("several consignas", () => {
     // One answer per consigna is required.
     const missing = await call("POST", `/api/s/${s.token}/finish`, { cookie: s.cookie, body: { finalAnswers: ["Son iguales porque es la mitad.", ""] } });
     expect(missing.status).toBe(400);
-    expect(missing.body.error.fields["finalAnswers.1"]).toBeTruthy();
-    expect(missing.body.error.fields["finalAnswers.0"]).toBeUndefined();
+    expect(missing.body.error.fields["consigna.c2"]).toBeTruthy();
+    expect(missing.body.error.fields["consigna.c1"]).toBeUndefined();
 
     const done = await call("POST", `/api/s/${s.token}/finish`, {
       cookie: s.cookie,
@@ -1020,5 +1022,108 @@ describe("activity files", () => {
     await chat(s.token, s.cookie, { text: "Hola" });
     const req = recorded.find((x) => x.body.stream === true)!.body as any;
     expect(req.system[0].text).toContain("[Archivo PDF: Guía de fracciones.pdf]\nTexto extraído de la guía.");
+  });
+});
+
+describe("activity structure: presentation, consignas one at a time, answers per consigna, titles", () => {
+  const CONSIGNAS = [
+    { id: "elegir", title: "Comenzamos la actividad", text: "Elegí un planeta y justificá por qué conviene explorarlo.", answer: true },
+    { id: "investigar", title: "", text: "Investigá conversando con el tutor qué condiciones tiene.", answer: false },
+  ];
+
+  it("the teacher saves the structure; the old fields follow it and an old-style edit keeps titles", async () => {
+    const t = await newTeacher();
+    const classroomId = await newClassroom(t.cookie, "6.º A");
+    const id = (await call("POST", "/api/activities", { cookie: t.cookie, body: { classroomId, title: "Misión espacial" } })).body.activity.id;
+    const r = await call("PATCH", `/api/activities/${id}`, {
+      cookie: t.cookie,
+      body: {
+        consignas: [...CONSIGNAS, { id: "vacia", title: "x", text: "  ", answer: true }],
+        presentation: "¡La agencia espacial necesita tu ayuda!",
+        presentationOn: true,
+        objectivesVisible: false,
+        sectionTitles: { respuesta_inicial: { title: "Comenzamos", subtitle: "" }, reflexion: { title: "", subtitle: "" } },
+      },
+    });
+    expect(r.status).toBe(200);
+    const a = r.body.activity;
+    expect(a.consignas).toEqual(CONSIGNAS);
+    expect(a).toMatchObject({
+      instructions: CONSIGNAS[0]!.text,
+      moreInstructions: [CONSIGNAS[1]!.text],
+      presentation: "¡La agencia espacial necesita tu ayuda!",
+      presentationOn: true,
+      objectivesVisible: false,
+      sectionTitles: { respuesta_inicial: { title: "Comenzamos", subtitle: "" } },
+    });
+    // Written through the old field: titles and answers stay by position.
+    const old = await call("PATCH", `/api/activities/${id}`, { cookie: t.cookie, body: { instructions: "Elegí un planeta." } });
+    expect(old.body.activity.consignas[0]).toMatchObject({ id: "elegir", title: "Comenzamos la actividad", text: "Elegí un planeta.", answer: true });
+    expect(old.body.activity.consignas).toHaveLength(2);
+    // A copy keeps the structure.
+    const dup = await call("POST", `/api/activities/${id}/duplicate`, { cookie: t.cookie, body: {} });
+    expect(dup.body.activity).toMatchObject({ presentationOn: true, objectivesVisible: false, sectionTitles: { respuesta_inicial: { title: "Comenzamos" } } });
+    expect(dup.body.activity.consignas.map((c: { id: string }) => c.id)).toEqual(["elegir", "investigar"]);
+  });
+
+  it("the student sees the presentation, one consigna at a time, writes each answer and the tutor knows where they are", async () => {
+    const s = await joined({
+      requireInitialAnswer: false,
+      consignas: CONSIGNAS,
+      instructions: CONSIGNAS[0]!.text,
+      moreInstructions: [CONSIGNAS[1]!.text],
+      presentation: "¡La agencia espacial necesita tu ayuda!",
+      presentationOn: true,
+      objectivesVisible: false,
+      objectives: "Investigar planetas",
+      askFinalAnswer: true,
+      sectionTitles: { respuesta_final: { title: "Tu ficha de misión", subtitle: "" } },
+    });
+    const a = s.workspace.activity;
+    expect(a.presentation).toBe("¡La agencia espacial necesita tu ayuda!");
+    expect(a.objectives).toBe("");
+    expect(a.consignas.map((c: { title: string }) => c.title)).toEqual(["Comenzamos la actividad", "Consigna 2"]);
+    expect(a.sections.respuesta_final.title).toBe("Tu ficha de misión");
+    expect(a.sections.reflexion.title).toBe("Tu reflexión");
+    expect(s.workspace.session.consignaAnswers).toEqual({});
+
+    // The answer of a consigna is saved as it is typed.
+    expect((await call("POST", `/api/s/${s.token}/answer`, { cookie: s.cookie, body: { consignaId: "elegir", text: "Marte, porque tiene agua congelada." } })).status).toBe(200);
+    expect((await call("POST", `/api/s/${s.token}/answer`, { cookie: s.cookie, body: { consignaId: "otra", text: "x" } })).status).toBe(400);
+    const again = await call("GET", `/api/s/${s.token}`, { cookie: s.cookie });
+    expect(again.body.workspace.session.consignaAnswers).toEqual({ elegir: "Marte, porque tiene agua congelada." });
+
+    // The tutor is told the consigna the student is on and what they wrote there.
+    aiMock.text("¿Qué sabés del agua en Marte?");
+    await chat(s.token, s.cookie, { text: "Ya elegí", consigna: 0 });
+    const req = recorded.filter((x) => x.body.stream === true).at(-1)!.body as any;
+    expect(req.system[0].text).toContain("Consigna 1: Comenzamos la actividad (con respuesta escrita)");
+    expect(req.system[0].text).toContain("¡La agencia espacial necesita tu ayuda!");
+    const turn = JSON.stringify(req.messages.at(-1));
+    expect(turn).toContain("consigna 1 de 2");
+    expect(turn).toContain("Marte, porque tiene agua congelada.");
+
+    // Finishing needs the answers of the consignas that ask for one, and the final production.
+    const noProduction = await call("POST", `/api/s/${s.token}/finish`, { cookie: s.cookie, body: { finalAnswer: "" } });
+    expect(noProduction.body.error.fields.finalAnswer).toBeTruthy();
+    const done = await call("POST", `/api/s/${s.token}/finish`, {
+      cookie: s.cookie,
+      body: { finalAnswer: "Mi ficha: misión a Marte con un rover.", consignaAnswers: { elegir: "Marte, porque tiene agua congelada y está cerca." } },
+    });
+    expect(done.status).toBe(200);
+    expect(done.body.workspace.session.finalAnswer).toBe(
+      "Consigna 1 (Comenzamos la actividad):\nMarte, porque tiene agua congelada y está cerca.\n\nProducción final:\nMi ficha: misión a Marte con un rover.",
+    );
+    expect(done.body.workspace.session.consignaAnswers.elegir).toBe("Marte, porque tiene agua congelada y está cerca.");
+    // Sent: answers can no longer change.
+    expect((await call("POST", `/api/s/${s.token}/answer`, { cookie: s.cookie, body: { consignaId: "elegir", text: "otra cosa" } })).status).toBe(409);
+  });
+
+  it("a consigna that asks for an answer must be answered before sending", async () => {
+    const s = await joined({ requireInitialAnswer: false, consignas: CONSIGNAS, askFinalAnswer: false });
+    const r = await call("POST", `/api/s/${s.token}/finish`, { cookie: s.cookie, body: {} });
+    expect(r.status).toBe(400);
+    expect(r.body.error.fields["consigna.elegir"]).toBeTruthy();
+    expect(r.body.error.fields["consigna.investigar"]).toBeUndefined();
   });
 });

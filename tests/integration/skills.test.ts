@@ -259,3 +259,18 @@ describe("re-evaluating the skills of an activity", () => {
     expect((await call("GET", `/api/sessions/${ana.id}`, { cookie: t.cookie })).body.skills.skills).toEqual(before);
   });
 });
+
+describe("the teacher's recommendations", () => {
+  it("can be rewritten by the teacher", async () => {
+    const { t, activity, student } = await setup();
+    const session = await insertFullWork(activity.id, student.id);
+    aiMock.json(AI);
+    await call("POST", `/api/sessions/${session.id}/skills/analyze`, { cookie: t.cookie });
+    const r = await call("PUT", `/api/sessions/${session.id}/skills/recommendations`, { cookie: t.cookie, body: { recommendations: [" Trabajar con mapas. ", "", "Pedirle un ejemplo propio."] } });
+    expect(r.status).toBe(200);
+    expect(r.body.recommendations).toEqual(["Trabajar con mapas.", "Pedirle un ejemplo propio."]);
+    expect((await call("GET", `/api/sessions/${session.id}`, { cookie: t.cookie })).body.skills.recommendations).toEqual(["Trabajar con mapas.", "Pedirle un ejemplo propio."]);
+    const other = await newTeacher();
+    expect((await call("PUT", `/api/sessions/${session.id}/skills/recommendations`, { cookie: other.cookie, body: { recommendations: [] } })).status).toBe(404);
+  });
+});

@@ -1,4 +1,5 @@
 // Reading activities and their files in the shape the editor uses.
+import { asksFinalProduction, sanitizeConsignas, sanitizeSectionTitles, structuredConsignas } from "@shared/domain/structure";
 import { sanitizeExtraTutorTypes } from "@shared/domain/pedagogy";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { db, schema } from "../../db/client";
@@ -9,7 +10,7 @@ import { isVoiceLanguage } from "@shared/domain/voice";
 import { isDeliverableMode } from "@shared/domain/deliverables";
 import { ACTIVITY_LIMITS, type ActivityEditorData, type ActivityFile, type ActivityStatus, type HelpLevel } from "@shared/contracts/activities";
 import type { FileKind, ProcessingStatus } from "@shared/domain/files";
-import { sanitizeMoreInstructions } from "@shared/domain/consignas";
+import { MAX_CONSIGNAS, sanitizeMoreInstructions } from "@shared/domain/consignas";
 import { languageOf } from "@shared/domain/language";
 
 type ActivityRow = typeof schema.activities.$inferSelect;
@@ -21,6 +22,11 @@ export function configOf(a: ActivityRow) {
     objectives: a.objectives,
     instructions: a.instructions,
     moreInstructions: sanitizeMoreInstructions(a.moreInstructions, ACTIVITY_LIMITS.instructions),
+    consignas: Array.isArray(a.consignas) ? sanitizeConsignas(a.consignas, ACTIVITY_LIMITS.instructions, MAX_CONSIGNAS) : null,
+    presentation: a.presentation,
+    presentationOn: a.presentationOn,
+    objectivesVisible: a.objectivesVisible,
+    sectionTitles: sanitizeSectionTitles(a.sectionTitles),
     material: a.material,
     tutorType: a.tutorType,
     extraTutorTypes: sanitizeExtraTutorTypes(a.extraTutorTypes, a.tutorType),
@@ -79,7 +85,12 @@ export async function loadActivity(teacherId: string, activityId: string): Promi
     tutorId: a.tutorId,
     tutorName: row.tutorName ?? null,
     requireInitialAnswer: a.requireInitialAnswer,
-    askFinalAnswer: a.askFinalAnswer,
+    askFinalAnswer: asksFinalProduction(a),
+    consignas: structuredConsignas(a, ACTIVITY_LIMITS.instructions, MAX_CONSIGNAS),
+    presentation: a.presentation,
+    presentationOn: a.presentationOn,
+    objectivesVisible: a.objectivesVisible,
+    sectionTitles: sanitizeSectionTitles(a.sectionTitles),
     finalQuestion: a.finalQuestion,
     language: languageOf(a.language),
     askReflection: a.askReflection,

@@ -19,6 +19,7 @@ import { DEFAULT_FINAL_QUESTION_BY_LANGUAGE } from "@shared/domain/language";
 import { LanguageSwitch } from "./language-switch";
 import { useSaveActivity } from "./api";
 import { EditorSection, RadioCards } from "./parts";
+import { AddSectionMenu, ConsignasEditor, ModeSelector, PresentationEditor, PreviewButton, StudentTitleFields } from "./structure-editor";
 import { MaterialFiles } from "./material-files";
 import { TutorSection } from "./tutor-section";
 import { RubricEditor } from "./rubric-editor";
@@ -28,8 +29,9 @@ import { useKeepFieldVisible, useKeyboardOpen } from "./keep-field-visible";
 
 export const SECTIONS: { id: string; title: string; keys: DraftKey[] }[] = [
   { id: "idioma", title: "Idioma", keys: ["language"] },
-  { id: "consigna", title: "Consigna", keys: ["instructions", "moreInstructions"] },
-  { id: "objetivos", title: "Objetivos", keys: ["objectives", "subject"] },
+  { id: "presentacion", title: "Presentación", keys: ["presentationOn", "presentation"] },
+  { id: "objetivos", title: "Objetivos", keys: ["objectives", "subject", "objectivesVisible"] },
+  { id: "consigna", title: "Consignas", keys: ["consignas"] },
   { id: "material", title: "Material", keys: ["material"] },
   { id: "tutor", title: "Tutor", keys: ["tutorType", "extraTutorTypes", "helpLevel", "tutorRules"] },
   { id: "respuesta-inicial", title: "Respuesta inicial", keys: ["requireInitialAnswer"] },
@@ -99,10 +101,10 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
     title: activity.title,
     subject: draft.subject,
     objectives: draft.objectives,
-    instructions: draft.instructions,
+    instructions: draft.consignas[0]?.text ?? "",
     material: draft.material.slice(0, ACTIVITY_LIMITS.material),
   };
-  const dirtyTitles = SECTIONS.filter((s) => sectionDirty(s.keys)).map((s) => s.title);
+  const dirtyTitles = [...SECTIONS.filter((s) => sectionDirty(s.keys)).map((s) => s.title), ...(dirtyKeys.includes("sectionTitles") ? ["Títulos"] : [])];
   const rootRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const keyboardOpen = useKeyboardOpen();
@@ -119,6 +121,11 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
             evaluaciones se conservan. Si querés probar cambios grandes sin afectarlos, duplicala.
           </Notice>
         ) : null}
+        {/* See it as the students do, or turn on a section that is off. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <PreviewButton activity={activity} form={form} />
+          <AddSectionMenu form={form} onGo={(id) => requestAnimationFrame(() => scrollToSection(id))} />
+        </div>
         <EditorSection
           id="idioma"
           title="Idioma"
@@ -142,29 +149,12 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
         </EditorSection>
 
         <EditorSection
-          id="consigna"
-          title="Consigna"
-          description="Lo primero que leen tus alumnos al entrar. Escribila como una pregunta o un desafío. Con «Agregar consigna» resuelven varias, en orden, con el mismo tutor."
-          {...meta("consigna")}
+          id="presentacion"
+          title="Presentación"
+          description="Una explicación general del desafío que los alumnos leen antes de empezar. Así queda claro dónde termina la presentación y empieza la actividad."
+          {...meta("presentacion")}
         >
-          <Field
-            label={draft.moreInstructions.length ? "Consigna 1" : "Consigna"}
-            error={errors.instructions}
-            counter={{ value: draft.instructions.length, max: ACTIVITY_LIMITS.instructions }}
-          >
-            {(p) => (
-              <Textarea
-                id={p.id}
-                aria-describedby={p.describedBy}
-                invalid={p.invalid}
-                value={draft.instructions}
-                onChange={(e) => set("instructions", e.target.value)}
-                minRows={4}
-                placeholder="Ej.: ¿Cómo podrías saber si 123 es divisible por 3 sin hacer la división?"
-              />
-            )}
-          </Field>
-          <MoreConsignas form={form} />
+          <PresentationEditor form={form} />
         </EditorSection>
 
         <EditorSection id="objetivos" title="Objetivos" description="Qué querés que aprendan. El tutor los usa para orientar la conversación." {...meta("objetivos")}>
@@ -195,6 +185,25 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
                 />
               )}
             </Field>
+            <Switch
+              checked={draft.objectivesVisible}
+              onCheckedChange={(v) => set("objectivesVisible", v)}
+              label="Mostrar los objetivos a los alumnos"
+              description={draft.objectivesVisible ? "Los leen junto a la actividad." : "Solo los usa el tutor: los alumnos no los ven."}
+            />
+          </div>
+          {draft.objectivesVisible ? <StudentTitleFields form={form} section="objetivos" /> : null}
+        </EditorSection>
+
+        <EditorSection
+          id="consigna"
+          title="Consignas"
+          description="Los alumnos ven una por vez, con «Anterior» y «Siguiente», y el tutor sabe en cuál están. Cada una puede pedir una respuesta escrita."
+          {...meta("consigna")}
+        >
+          <div className="grid gap-5">
+            <ModeSelector form={form} />
+            <ConsignasEditor form={form} participants={activity.participants} />
           </div>
         </EditorSection>
 
@@ -250,6 +259,7 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
           <p className="mt-3 text-[13px] leading-5 text-text-3">
             Desactivala cuando no corresponda para esta actividad, por ejemplo en un repaso o en una charla con un personaje.
           </p>
+          {draft.requireInitialAnswer ? <StudentTitleFields form={form} section="respuesta_inicial" /> : null}
         </EditorSection>
 
         <EditorSection id="respuesta-final" title="Respuesta final" {...meta("respuesta-final")}>
@@ -259,7 +269,7 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
             label="Pedir una respuesta final al terminar"
             description={
               draft.askFinalAnswer
-                ? "Al terminar, cada alumno responde la pregunta de cierre con sus palabras (con varias consignas, una respuesta por consigna)."
+                ? "Al terminar, cada alumno escribe su producción final respondiendo la pregunta de cierre."
                 : "Al terminar, los alumnos pasan directo a la reflexión y la entrega, sin escribir una respuesta final."
             }
           />
@@ -285,6 +295,7 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
               )}
             </Field>
           ) : null}
+          {draft.askFinalAnswer ? <StudentTitleFields form={form} section="respuesta_final" /> : null}
         </EditorSection>
 
         <EditorSection
@@ -341,6 +352,7 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
               <ReflectionEditor activityId={activity.id} form={form} context={aiContext} />
             </div>
           ) : null}
+          {draft.askReflection ? <StudentTitleFields form={form} section="reflexion" /> : null}
         </EditorSection>
 
         <EditorSection
@@ -376,6 +388,7 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
               )}
             </Field>
           ) : null}
+          {draft.closingMessageOn ? <StudentTitleFields form={form} section="cierre" /> : null}
         </EditorSection>
 
         <EditorSection
@@ -502,65 +515,3 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
   );
 }
 
-/** Consignas 2, 3… after the first one: added with «+», removed one by one, solved in order. */
-function MoreConsignas({ form }: { form: ActivityForm }) {
-  const { draft, set, errors } = form;
-  const more = draft.moreInstructions;
-  const lastRef = useRef<HTMLTextAreaElement>(null);
-  const [focusNew, setFocusNew] = useState(false);
-  useEffect(() => {
-    if (!focusNew) return;
-    lastRef.current?.focus();
-    setFocusNew(false);
-  }, [focusNew]);
-  const setAt = (i: number, v: string) => set("moreInstructions", more.map((c, j) => (j === i ? v : c)));
-  return (
-    <div className="mt-4 grid gap-4">
-      {more.map((c, i) => (
-        <div key={i} className="relative">
-          <Field label={`Consigna ${i + 2}`} error={errors[`moreInstructions.${i}`]} counter={{ value: c.length, max: ACTIVITY_LIMITS.instructions }}>
-            {(p) => (
-              <Textarea
-                ref={i === more.length - 1 ? lastRef : undefined}
-                id={p.id}
-                aria-describedby={p.describedBy}
-                invalid={p.invalid}
-                value={c}
-                onChange={(e) => setAt(i, e.target.value)}
-                minRows={3}
-                placeholder="Ej.: Ahora explicá por qué la regla funciona con cualquier número."
-              />
-            )}
-          </Field>
-          <button
-            type="button"
-            onClick={() => set("moreInstructions", more.filter((_, j) => j !== i))}
-            aria-label={`Quitar la consigna ${i + 2}`}
-            className="absolute -top-1.5 right-14 inline-flex min-h-9 items-center gap-1 rounded-md px-2 text-[13px] font-semibold text-text-3 hover:bg-sunken hover:text-rose max-sm:min-h-11"
-          >
-            <Trash2 className="size-3.5" aria-hidden="true" />
-            Quitar
-          </button>
-        </div>
-      ))}
-      {errors.moreInstructions ? <p className="text-[13px] font-medium text-rose">{errors.moreInstructions}</p> : null}
-      {more.length < MAX_CONSIGNAS - 1 ? (
-        <button
-          type="button"
-          onClick={() => {
-            set("moreInstructions", [...more, ""]);
-            setFocusNew(true);
-          }}
-          className="group flex min-h-12 items-center justify-center gap-2 rounded-md border border-dashed border-line-strong text-[15px] font-semibold text-lilac-ink transition-colors hover:border-lilac hover:bg-lilac-soft/50"
-        >
-          <span className="inline-flex size-6 items-center justify-center rounded-full bg-lilac-soft text-lilac-ink transition-colors group-hover:bg-surface" aria-hidden="true">
-            <Plus className="size-4" />
-          </span>
-          Agregar consigna
-        </button>
-      ) : (
-        <p className="text-[13px] text-text-3">Llegaste al máximo de {MAX_CONSIGNAS} consignas.</p>
-      )}
-    </div>
-  );
-}

@@ -11,6 +11,7 @@ import {
   Bell,
   Bot,
   FileUp,
+  Copy,
   KeyRound,
   Languages,
   Link2,
@@ -49,6 +50,8 @@ const ICONS: Record<NewsKey, { icon: LucideIcon; tile: string }> = {
   signin: { icon: LogIn, tile: "bg-leaf-soft text-leaf" },
   google: { icon: KeyRound, tile: "bg-leaf-soft text-leaf" },
   skills: { icon: Sprout, tile: "bg-lilac-soft text-lilac-ink" },
+  structure: { icon: ListOrdered, tile: "bg-ink-soft text-ink" },
+  trash: { icon: Copy, tile: "bg-amber-soft text-amber" },
 };
 
 export function WhatsNew({ me }: { me: Me }) {

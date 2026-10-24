@@ -9,12 +9,17 @@ import type { VoiceLanguage } from "@shared/domain/voice";
 import type { DeliverableMode } from "@shared/domain/deliverables";
 import type { HelpLevel } from "@shared/contracts/activities";
 import type { ActivityLanguage } from "@shared/domain/language";
+import type { Consigna, SectionTitles } from "@shared/domain/structure";
 
 export interface ActivityDraft {
   subject: string;
   objectives: string;
-  instructions: string;
-  moreInstructions: string[];
+  /** The consignas (the old instructions/moreInstructions follow them on the server). */
+  consignas: Consigna[];
+  presentation: string;
+  presentationOn: boolean;
+  objectivesVisible: boolean;
+  sectionTitles: SectionTitles;
   material: string;
   tutorType: string;
   extraTutorTypes: string[];
@@ -37,8 +42,11 @@ export interface ActivityDraft {
 export const DRAFT_KEYS = [
   "subject",
   "objectives",
-  "instructions",
-  "moreInstructions",
+  "consignas",
+  "presentation",
+  "presentationOn",
+  "objectivesVisible",
+  "sectionTitles",
   "material",
   "tutorType",
   "extraTutorTypes",
@@ -65,8 +73,13 @@ export function draftFrom(a: ActivityEditorData): ActivityDraft {
   return {
     subject: a.subject,
     objectives: a.objectives,
-    instructions: a.instructions,
-    moreInstructions: a.moreInstructions,
+    // A new activity starts with one empty card (as the single «Consigna» field used to); an empty
+    // card is not saved. The fixed id keeps the draft equal to the saved activity until it is edited.
+    consignas: a.consignas.length ? a.consignas : [{ id: "c1", title: "", text: "", answer: false }],
+    presentation: a.presentation,
+    presentationOn: a.presentationOn,
+    objectivesVisible: a.objectivesVisible,
+    sectionTitles: a.sectionTitles,
     material: a.material,
     tutorType: a.tutorType,
     extraTutorTypes: a.extraTutorTypes,

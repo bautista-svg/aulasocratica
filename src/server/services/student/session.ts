@@ -6,6 +6,16 @@
 // checked on EVERY request through loadStudentContext / ensureAvailable. The one exception is
 // reading: a device whose work is already finished keeps seeing it (read-only) after the
 // teacher closes the link.
+import {
+  SECTION_KEYS,
+  asksFinalProduction,
+  consignaTitle,
+  sanitizeSectionTitles,
+  sectionText,
+  structuredConsignas,
+  type SectionKey,
+  type SectionText,
+} from "@shared/domain/structure";
 import type { Context } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { and, asc, eq, gt, isNull, sql } from "drizzle-orm";
@@ -538,6 +548,7 @@ export async function buildWorkspace(ctx: StudentCtx, opts: { files?: boolean } 
       initialAnswer: session.initialAnswer,
       finalAnswer: session.finalAnswer,
       finalAnswers: readFinalAnswers(session.finalAnswers),
+      consignaAnswers: readConsignaAnswers(session.consignaAnswers),
       reflection: readReflection(session.reflection, questions),
       hintCount: session.hintCount,
       startedAt: session.startedAt.toISOString(),
@@ -546,12 +557,16 @@ export async function buildWorkspace(ctx: StudentCtx, opts: { files?: boolean } 
     activity: {
       title: activity.title,
       subject: activity.subject,
-      objectives: activity.objectives,
+      objectives: activity.objectivesVisible ? activity.objectives : "",
       instructions: activity.instructions,
-      consignas: consignasOf(activity),
+      consignas: structuredConsignas(activity).map((c, i) => ({ ...c, title: consignaTitle(c, i, languageOf(activity.language)) })),
+      presentation: activity.presentationOn && activity.presentation.trim() ? activity.presentation.trim() : null,
+      sections: Object.fromEntries(
+        SECTION_KEYS.map((k) => [k, sectionText(sanitizeSectionTitles(activity.sectionTitles), k, languageOf(activity.language))]),
+      ) as Record<SectionKey, SectionText>,
       material: activity.material,
       requireInitialAnswer: activity.requireInitialAnswer,
-      askFinalAnswer: activity.askFinalAnswer,
+      askFinalAnswer: asksFinalProduction(activity),
       finalQuestion: activity.finalQuestion.trim() || DEFAULT_FINAL_QUESTION_BY_LANGUAGE[languageOf(activity.language)],
       language: languageOf(activity.language),
       closingMessage: activity.closingMessageOn && activity.closingMessage.trim() ? activity.closingMessage.trim() : null,
@@ -594,4 +609,10 @@ export async function buildWorkspace(ctx: StudentCtx, opts: { files?: boolean } 
     ),
     replyPending: isStreaming(session.id),
   };
+}
+
+/** The answers written in the consignas ({ consignaId: text }). */
+export function readConsignaAnswers(raw: unknown): Record<string, string> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  return Object.fromEntries(Object.entries(raw as Record<string, unknown>).filter((e): e is [string, string] => typeof e[1] === "string"));
 }

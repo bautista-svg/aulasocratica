@@ -13,10 +13,11 @@ import { clearDrafts, readFlag, unsentDrafts, useKeyboardInset, writeFlag } from
 import { useIntegritySignals } from "./integrity";
 import { ChatStep } from "./chat";
 import { ClosingStep, DoneStep, InitialAnswerStep } from "./steps";
+import { ConsignaPanel, IntroStep, introKey, useConsignaIndex } from "./consignas";
 import { canDictate, stopSpeaking } from "./voice-support";
 import { useT } from "./i18n";
 
-type View = "initial" | "tutor" | "closing" | "done";
+type View = "intro" | "initial" | "tutor" | "closing" | "done";
 
 const firstName = (name: string) => name.split(" ")[0] ?? name;
 
@@ -32,8 +33,26 @@ export function Workspace({ token, info }: { token: string; info: StudentLinkInf
     writeFlag(closingKey, on);
     setClosingState(on);
   };
+  // The presentation comes first (once: «Comenzar actividad»); it can be read again any time.
+  const [started, setStartedState] = useState(() => readFlag(introKey(token, w.resumeCode)));
+  const [rereading, setRereading] = useState(false);
+  const start = () => {
+    writeFlag(introKey(token, w.resumeCode), true);
+    setStartedState(true);
+    setRereading(false);
+  };
+  const [consigna, setConsigna] = useConsignaIndex(token, w.resumeCode, Math.max(1, w.activity.consignas.length));
+  const working0 = w.stage === "initial" || w.stage === "tutor";
   const view: View =
-    w.stage === "initial" ? "initial" : w.stage === "tutor" ? (closing ? "closing" : "tutor") : "done";
+    working0 && w.activity.presentation && (!started || rereading)
+      ? "intro"
+      : w.stage === "initial"
+        ? "initial"
+        : w.stage === "tutor"
+          ? closing
+            ? "closing"
+            : "tutor"
+          : "done";
   /** The link is closed but this finished work stays readable on this device. */
   const closedMessage = info.availability !== "available" ? t.availability(info.availability, info.message) : null;
 
@@ -48,7 +67,7 @@ export function Workspace({ token, info }: { token: string; info: StudentLinkInf
   // at the current step, not at the top of the page; the page itself does not scroll.
   useEffect(() => {
     if (document.activeElement && document.activeElement !== document.body) return;
-    const id = { initial: "initial-title", tutor: "chat-title", closing: "closing-title", done: "done-title" }[view];
+    const id = { intro: "intro-title", initial: "initial-title", tutor: "consigna-now", closing: "closing-title", done: "done-title" }[view];
     document.getElementById(id)?.focus({ preventScroll: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -84,12 +103,14 @@ export function Workspace({ token, info }: { token: string; info: StudentLinkInf
     <div className="flex min-h-dvh flex-col bg-paper">
       <Header token={token} workspace={w} onLeft={() => qc.setQueryData(studentKey(token), { ...info, workspace: null })} />
       <div className="mx-auto w-full max-w-6xl flex-1 px-4 pt-4 pb-2 lg:grid lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:gap-10 lg:pt-8">
-        <aside className="space-y-4 lg:sticky lg:top-22 lg:max-h-[calc(100dvh-7rem)] lg:self-start lg:overflow-y-auto lg:pb-4">
+        {/* On a phone the presentation comes first: the side card waits until the activity starts. */}
+        <aside className={cn("space-y-4 lg:sticky lg:top-22 lg:max-h-[calc(100dvh-7rem)] lg:self-start lg:overflow-y-auto lg:pb-4", view === "intro" && "max-lg:hidden")}>
           <Progress workspace={w} view={view} />
           <InstructionsCard
             key={view === "initial" ? "initial" : "rest"}
             workspace={w}
             defaultOpen={view === "initial"}
+            onShowIntro={working && w.activity.presentation && view !== "intro" ? () => setRereading(true) : undefined}
             footer={
               working ? (
                 <>
@@ -116,10 +137,32 @@ export function Workspace({ token, info }: { token: string; info: StudentLinkInf
           ) : null}
           {/* Answer first: on the first step the code notice goes below the form (phones). */}
           {showNewCode && view !== "initial" ? <NewCodeNotice code={w.resumeCode} onDismiss={dismissNew} /> : null}
+          {view === "intro" ? <IntroStep workspace={w} started={started} onStart={start} /> : null}
+          {view === "initial" && w.activity.consignas[0] ? <ConsignaGlance workspace={w} /> : null}
           {view === "initial" ? <InitialAnswerStep token={token} workspace={w} focusHeading={transitioned} /> : null}
           {showNewCode && view === "initial" ? <NewCodeNotice code={w.resumeCode} onDismiss={dismissNew} className="mt-5 mb-0" /> : null}
-          {view === "tutor" ? <ChatStep token={token} workspace={w} onFinish={() => setClosing(true)} focusHeading={transitioned} /> : null}
-          {view === "closing" ? <ClosingStep token={token} workspace={w} onBack={() => setClosing(false)} focusHeading /> : null}
+          {view === "tutor" ? (
+            <ConsignaPanel
+              token={token}
+              workspace={w}
+              index={consigna}
+              onIndex={setConsigna}
+              onShowIntro={w.activity.presentation ? () => setRereading(true) : undefined}
+            />
+          ) : null}
+          {view === "tutor" ? <ChatStep token={token} workspace={w} consigna={consigna} onFinish={() => setClosing(true)} focusHeading={transitioned} /> : null}
+          {view === "closing" ? (
+            <ClosingStep
+              token={token}
+              workspace={w}
+              onBack={() => setClosing(false)}
+              onGoTo={(i) => {
+                setConsigna(i);
+                setClosing(false);
+              }}
+              focusHeading
+            />
+          ) : null}
           {view === "done" ? <DoneStep workspace={w} focusHeading={transitioned} linkOpen={!closedMessage} unsent={unsent} /> : null}
         </main>
       </div>
@@ -266,15 +309,25 @@ function Progress({ workspace, view }: { workspace: StudentWorkspace; view: View
   );
 }
 
-function InstructionsCard({ workspace, defaultOpen, footer }: { workspace: StudentWorkspace; defaultOpen: boolean; footer?: ReactNode }) {
+function InstructionsCard({
+  workspace,
+  defaultOpen,
+  footer,
+  onShowIntro,
+}: {
+  workspace: StudentWorkspace;
+  defaultOpen: boolean;
+  footer?: ReactNode;
+  onShowIntro?: () => void;
+}) {
   const t = useT();
   const a = workspace.activity;
   const [desktop] = useState(() => typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches);
   const [open, setOpen] = useState(defaultOpen || desktop);
   const [materialOpen, setMaterialOpen] = useState(false);
+  const hasMore = Boolean(a.objectives || a.material || footer);
+  // The consigna itself is in the main column, one at a time; this card keeps the rest at hand.
   const multi = a.consignas.length > 1;
-  const hasMore = Boolean(a.objectives || a.material || footer || multi || a.instructions.length > 180);
-  const instructions = a.instructions.trim() || t.ws.noInstructions;
 
   return (
     <section aria-labelledby="consigna-title" className="rounded-lg border border-line bg-surface shadow-1">
@@ -282,26 +335,27 @@ function InstructionsCard({ workspace, defaultOpen, footer }: { workspace: Stude
         <h2 id="consigna-title" className="text-xs font-bold tracking-wide text-lilac-ink uppercase">
           {multi ? t.ws.tasksTitle(a.consignas.length) : t.ws.taskTitle}
         </h2>
-        {multi ? (
-          <ol className={cn("mt-2 space-y-3", !open && "max-h-24 overflow-hidden")}>
-            {a.consignas.map((c, i) => (
-              <li key={i} className="flex gap-3">
-                <span className="mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-lilac-soft text-xs font-bold text-lilac-ink tabular" aria-hidden="true">
+        <ol className={cn("mt-2 space-y-1.5", !open && "max-h-16 overflow-hidden")}>
+          {a.consignas.map((c, i) => (
+            <li key={c.id} className="flex gap-2.5 text-sm leading-6 text-text">
+              {multi ? (
+                <span className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-lilac-soft text-[11px] font-bold text-lilac-ink tabular" aria-hidden="true">
                   {i + 1}
                 </span>
-                <p className="min-w-0 text-[15px] leading-6 whitespace-pre-wrap text-text">
-                  <span className="sr-only">{`${t.ws.taskN(i + 1)}: `}</span>
-                  {c}
-                </p>
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <p className={cn("mt-1.5 text-[15px] leading-6 whitespace-pre-wrap text-text", !open && "line-clamp-3")}>{instructions}</p>
-        )}
+              ) : null}
+              <span className="min-w-0 font-semibold">{c.title}</span>
+            </li>
+          ))}
+        </ol>
+        {onShowIntro ? (
+          <button type="button" onClick={onShowIntro} className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-ink underline decoration-lilac underline-offset-4">
+            {t.consigna.viewIntro}
+          </button>
+        ) : null}
         {open && a.objectives ? (
           <div className="mt-3">
-            <h3 className="text-xs font-bold tracking-wide text-text-3 uppercase">{t.ws.objectives}</h3>
+            <h3 className="text-xs font-bold tracking-wide text-text-3 uppercase">{a.sections.objetivos.title}</h3>
+            {a.sections.objetivos.subtitle ? <p className="mt-0.5 text-[13px] text-text-3">{a.sections.objetivos.subtitle}</p> : null}
             <p className="mt-1 text-sm leading-6 whitespace-pre-wrap text-text-2">{a.objectives}</p>
           </div>
         ) : null}
@@ -330,7 +384,7 @@ function InstructionsCard({ workspace, defaultOpen, footer }: { workspace: Stude
           aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
         >
-          {open ? t.ws.showLess : multi ? t.ws.showAllTasks : t.ws.showFullTask}
+          {open ? t.ws.showLess : t.ws.showAllTasks}
           <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} aria-hidden="true" />
         </button>
       ) : null}
@@ -451,5 +505,19 @@ function IntegrityNote({ voice }: { voice: boolean }) {
       <p>{t.ws.integrity}</p>
       {voice ? <p>{t.ws.voicePrivacy}</p> : null}
     </div>
+  );
+}
+
+/** Before the first answer: the first consigna, so the student knows what it is about. */
+function ConsignaGlance({ workspace }: { workspace: StudentWorkspace }) {
+  const t = useT();
+  const c = workspace.activity.consignas[0]!;
+  const n = workspace.activity.consignas.length;
+  return (
+    <section aria-label={c.title} className="mb-5 rounded-xl border border-line bg-surface px-5 py-4 shadow-1">
+      <p className="text-sm font-semibold text-lilac-ink">{n > 1 ? t.consigna.progress(1, n) : t.ws.taskTitle}</p>
+      <p className="mt-1 font-display text-lg font-semibold text-ink">{c.title}</p>
+      <p className="mt-1.5 text-[15px] leading-6 whitespace-pre-wrap text-text">{c.text}</p>
+    </section>
   );
 }

@@ -153,8 +153,8 @@ function safeJson(v: string): Record<string, unknown> {
 /** Forgets everything this device kept for the link (drafts, step, notices) — "No soy <nombre>". */
 export function clearDrafts(token: string, code?: string) {
   const prefixes = code
-    ? [`${draftPrefix(token)}${code}:`, `as-closing:${token}:${code}`, `as-new:${token}:${code}`]
-    : [draftPrefix(token), `as-closing:${token}:`, `as-new:${token}:`];
+    ? [`${draftPrefix(token)}${code}:`, `as-closing:${token}:${code}`, `as-new:${token}:${code}`, `as-answer:${token}:${code}:`, `as-consigna:${token}:${code}`, `as-intro:${token}:${code}`]
+    : [draftPrefix(token), `as-closing:${token}:`, `as-new:${token}:`, `as-answer:${token}:`, `as-consigna:${token}:`, `as-intro:${token}:`];
   for (const store of [local(), session()]) {
     try {
       for (let i = (store?.length ?? 0) - 1; store && i >= 0; i--) {

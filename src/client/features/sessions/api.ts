@@ -111,6 +111,10 @@ export function useSessionMutations(id: string) {
       mutationFn: () => api.post<SkillsAnalyzeResult>(`/api/sessions/${id}/skills/analyze`),
       onSuccess: (r) => setSkills(r),
     }),
+    setRecommendations: useMutation({
+      mutationFn: (recommendations: string[]) => api.put<SkillsView>(`/api/sessions/${id}/skills/recommendations`, { recommendations }),
+      onSuccess: (r) => setSkills(r),
+    }),
     setSkillLevel: useMutation({
       mutationFn: ({ skill, status }: { skill: string; status: SkillStatus }) => api.patch<SkillsView>(`/api/sessions/${id}/skills/${skill}`, { status }),
       onSuccess: (r) => setSkills(r),

@@ -3,11 +3,11 @@
 // group view and the student's page count these.
 import { useState } from "react";
 import { toast } from "sonner";
-import { ChevronDown, Lightbulb, RefreshCw, SlidersHorizontal, Sparkles } from "lucide-react";
+import { ChevronDown, Lightbulb, Pencil, RefreshCw, SlidersHorizontal, Sparkles } from "lucide-react";
 import { cn } from "@client/lib/cn";
 import { Badge } from "@client/components/ui/misc";
 import { Button } from "@client/components/ui/button";
-import { FormError, Select } from "@client/components/ui/field";
+import { FormError, Select, Textarea } from "@client/components/ui/field";
 import { errorMessage } from "@client/lib/api";
 import { fmtDateTime, plural } from "@client/lib/format";
 import { DIMENSIONS, DIMENSION_KEYS, SKILL_STATUSES, STATUS_LABELS, toneOf, type SkillAssessment, type SkillDef, type SkillStatus } from "@shared/domain/skills";
@@ -100,21 +100,7 @@ export function SkillsCard({ detail }: { detail: SessionDetail }) {
               </div>
             );
           })}
-          {recommendations.length ? (
-            <div className="rounded-[14px] bg-ink-soft/60 p-4">
-              <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
-                <Lightbulb className="size-4" aria-hidden="true" /> Recomendaciones para vos
-              </h3>
-              <ul className="mt-2 space-y-1.5">
-                {recommendations.map((r) => (
-                  <li key={r} className="flex gap-2 text-[15px] leading-6 text-text">
-                    <span className="mt-2.5 size-1.5 shrink-0 rounded-full bg-ink" aria-hidden="true" />
-                    {r}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
+          <Recommendations sessionId={detail.session.id} list={recommendations} onError={setError} />
         </div>
       ) : !m.analyzeSkills.isPending ? (
         <p className="mt-4 rounded-md border border-dashed border-line-strong px-4 py-3 text-sm text-text-2">
@@ -197,5 +183,71 @@ function SkillRow({ def, a, sessionId, onError }: { def: SkillDef; a: SkillAsses
         </div>
       ) : null}
     </li>
+  );
+}
+
+/** The AI's recommendations for the teacher, which she can rewrite (one per line). */
+function Recommendations({ sessionId, list, onError }: { sessionId: string; list: string[]; onError: (m: string) => void }) {
+  const m = useSessionMutations(sessionId);
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState("");
+  if (!list.length && !editing) {
+    return (
+      <button type="button" onClick={() => (setText(""), setEditing(true))} className="justify-self-start text-sm font-semibold text-ink underline decoration-lilac underline-offset-4">
+        Escribir recomendaciones
+      </button>
+    );
+  }
+  return (
+    <div className="rounded-[14px] bg-ink-soft/60 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
+          <Lightbulb className="size-4" aria-hidden="true" /> Recomendaciones para vos
+        </h3>
+        {!editing ? (
+          <Button size="sm" variant="ghost" icon={<Pencil className="size-4" />} onClick={() => (setText(list.join("\n")), setEditing(true))}>
+            Editar
+          </Button>
+        ) : null}
+      </div>
+      {editing ? (
+        <form
+          className="mt-2 grid gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            m.setRecommendations.mutate(text.split("\n").map((l) => l.replace(/^[-•·*]\s*/, "").trim()).filter(Boolean), {
+              onSuccess: () => {
+                setEditing(false);
+                toast.success("Recomendaciones guardadas");
+              },
+              onError: (err) => onError(errorMessage(err)),
+            });
+          }}
+        >
+          <label htmlFor={`recs-${sessionId}`} className="sr-only">
+            Recomendaciones, una por línea
+          </label>
+          <Textarea id={`recs-${sessionId}`} value={text} minRows={3} onChange={(e) => setText(e.target.value)} placeholder="Una recomendación por línea" />
+          <p className="text-[13px] text-text-3">Una por línea, hasta 6.</p>
+          <div className="flex gap-2">
+            <Button type="submit" size="sm" loading={m.setRecommendations.isPending}>
+              Guardar
+            </Button>
+            <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(false)}>
+              Cancelar
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <ul className="mt-2 space-y-1.5">
+          {list.map((r) => (
+            <li key={r} className="flex gap-2 text-[15px] leading-6 text-text">
+              <span className="mt-2.5 size-1.5 shrink-0 rounded-full bg-ink" aria-hidden="true" />
+              {r}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

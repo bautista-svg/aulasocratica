@@ -17,10 +17,12 @@ export type NewsKey =
   | "tutorRules"
   | "signin"
   | "google"
-  | "skills";
+  | "skills"
+  | "structure"
+  | "trash";
 
 /** Releases in order; adding one shows its items to everyone who has not seen them. */
-export const NEWS_RELEASES = ["2026-10-22", "2026-10-22b", "2026-10-22c", "2026-10-23", "2026-10-23b", "2026-10-23c"] as const;
+export const NEWS_RELEASES = ["2026-10-22", "2026-10-22b", "2026-10-22c", "2026-10-23", "2026-10-23b", "2026-10-23c", "2026-10-23d"] as const;
 export type NewsRelease = (typeof NEWS_RELEASES)[number];
 
 export interface NewsItem {
@@ -121,6 +123,18 @@ export const NEWS_ITEMS: NewsItem[] = [
     release: "2026-10-23c",
     title: "Habilidades con niveles y evidencias",
     text: "Fortalezas ahora evalúa cada habilidad en cuatro niveles, con sus indicadores y una cita real de cada alumno, y la página de cada alumno muestra cómo evoluciona. Con «Elegir habilidades» decidís cuáles se evalúan y sumás las tuyas.",
+  },
+  {
+    key: "structure",
+    release: "2026-10-23d",
+    title: "Actividades por secciones",
+    text: "Sumá una presentación, armá cada consigna con su título y, si querés, una respuesta escrita, y elegí la modalidad. Tus alumnos ven una consigna por vez y el tutor sabe en cuál están. También podés cambiar los títulos que leen.",
+  },
+  {
+    key: "trash",
+    release: "2026-10-23d",
+    title: "Editar, duplicar y eliminar desde el aula",
+    text: "Cada actividad del aula tiene «···». Eliminar la manda a la papelera del aula: la podés restaurar durante 30 días.",
   },
   {
     key: "google",
