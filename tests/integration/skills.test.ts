@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "@server/db/client";
 import { call, newClassroom, newTeacher } from "./helpers";
 import { aiMock } from "./ai-mock";
+import { courseLabel, schoolStage } from "@server/services/sessions/ai";
 import { insertActivity, insertFullWork, insertSession, insertStudent } from "./live-fixtures";
 
 async function setup(over: Parameters<typeof insertActivity>[2] = {}) {
@@ -13,8 +14,10 @@ async function setup(over: Parameters<typeof insertActivity>[2] = {}) {
   return { t, classroomId, activity, student };
 }
 
-const entry = (skill: string, status: string, evidence = "", extra: Record<string, string> = {}) => ({
+const entry = (skill: string, status: string, evidence = "", extra: Record<string, string | boolean> = {}) => ({
   skill,
+  analysis: "Muestra el indicador central.",
+  repeatsTutor: false,
   status,
   criterion: status === "sin_evidencia" ? "" : "Justifica sus respuestas.",
   evidence,
@@ -110,6 +113,63 @@ describe("skills of one work", () => {
     const other = await newTeacher();
     expect((await call("POST", `${url}/analyze`, { cookie: other.cookie })).status).toBe(404);
     expect((await call("PATCH", `${url}/comprension`, { cookie: other.cookie, body: { status: "logrado" } })).status).toBe(404);
+  });
+});
+
+describe("formative evaluation (Vanina Gerstner, 24-10)", () => {
+  it("tells the AI the age of the course and the formative criteria; an idea the student only repeated from the tutor is «inicial» at most", async () => {
+    const { t, classroomId, activity, student } = await setup();
+    await db.update(schema.classrooms).set({ grade: "4.º grado" }).where(eq(schema.classrooms.id, classroomId));
+    const session = await insertFullWork(activity.id, student.id);
+    aiMock.json({
+      ...AI,
+      skills: [
+        entry("argumentacion", "logrado", "Se pondría amarilla porque no puede hacer la fotosíntesis"),
+        entry("comprension", "logrado", "la clorofila atrapa la luz como un panel solar", { repeatsTutor: true }),
+        entry("creatividad", "inicial", "la clorofila atrapa la luz como un panel solar", { repeatsTutor: true }),
+      ],
+    });
+    const r = await call("POST", `/api/sessions/${session.id}/skills/analyze`, { cookie: t.cookie });
+    expect(r.status).toBe(200);
+    expect(statusOf(r.body.skills, "argumentacion")).toBe("logrado");
+    expect(statusOf(r.body.skills, "comprension")).toBe("inicial");
+    expect(statusOf(r.body.skills, "creatividad")).toBe("inicial");
+
+    const req = aiMock.lastRequest()!.body;
+    const prompt = JSON.stringify(req);
+    expect(prompt).toContain("4.º A · 4.º grado (nivel primario, alrededor de 9 a 10 años)");
+    expect(prompt).toContain("evaluación formativa");
+    expect(prompt).toContain("Presenta evidencias incipientes y necesita acompañamiento frecuente.");
+    expect(prompt).toContain("No hace falta que estén todos los indicadores");
+    expect(prompt).toContain("Puede seguir avanzando");
+    expect(req.max_tokens).toBe(20_000);
+  });
+
+  it("knows the age from the usual ways of naming a course, and says nothing when it is not clear", () => {
+    expect(schoolStage("6.º grado")).toBe("nivel primario, alrededor de 11 a 12 años");
+    expect(schoolStage("1er grado")).toBe("nivel primario, alrededor de 6 a 7 años");
+    expect(schoolStage("3.º año")).toBe("nivel secundario, alrededor de 14 a 15 años");
+    expect(schoolStage("Sala de 5")).toBe("nivel inicial, 5 años");
+    expect(schoolStage("Year 6")).toBe("nivel primario, alrededor de 10 a 11 años");
+    expect(schoolStage("6.º A")).toBeNull();
+    expect(schoolStage("")).toBeNull();
+    expect(courseLabel({ name: "6.º A", grade: "", division: "" })).toBe("6.º A");
+    expect(courseLabel({ name: "Ciencias", grade: "5.º grado", division: "B" })).toBe("Ciencias · 5.º grado B (nivel primario, alrededor de 10 a 11 años)");
+  });
+
+  it("counts the works evaluated with the former criteria until they are evaluated again", async () => {
+    const { t, activity, student } = await setup();
+    const session = await insertFullWork(activity.id, student.id);
+    aiMock.json(AI);
+    await call("POST", `/api/sessions/${session.id}/skills/analyze`, { cookie: t.cookie });
+    const url = `/api/activities/${activity.id}/skills`;
+    expect((await call("GET", url, { cookie: t.cookie })).body.outdatedWorks).toBe(0);
+    // Evaluated before the formative criteria.
+    await db.update(schema.aspectAnalyses).set({ skillsVersion: 1 }).where(eq(schema.aspectAnalyses.sessionId, session.id));
+    expect((await call("GET", url, { cookie: t.cookie })).body.outdatedWorks).toBe(1);
+    aiMock.json(AI);
+    await call("POST", `/api/sessions/${session.id}/skills/analyze`, { cookie: t.cookie });
+    expect((await call("GET", url, { cookie: t.cookie })).body.outdatedWorks).toBe(0);
   });
 });
 
@@ -232,7 +292,7 @@ describe("re-evaluating the skills of an activity", () => {
       expect(d.body.skills.recommendations).toEqual(["Nueva."]);
     }
     const g = await call("GET", `/api/activities/${activity.id}/skills`, { cookie: t.cookie });
-    expect(g.body).toMatchObject({ assessedWorks: 2, pending: [] });
+    expect(g.body).toMatchObject({ assessedWorks: 2, pending: [], outdatedWorks: 0 });
     expect(g.body.skills[0].counts).toMatchObject({ en_desarrollo: 2 });
 
     const other = await newTeacher();

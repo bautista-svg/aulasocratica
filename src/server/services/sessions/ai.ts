@@ -18,7 +18,7 @@ import { buildTranscript, fence, quoteInTexts, studentTexts } from "./corpus";
 import { deliverableView, loadMessages, readLevels, reflectionOf, rubricView, xrayView, type OwnedSessionRow } from "./detail";
 import { deliverableOf } from "../deliverables";
 import { mergeXray, readXrayItems } from "./xray-store";
-import { consignasOf } from "@shared/domain/consignas";
+import { structuredConsignas } from "@shared/domain/structure";
 
 const STYLE = `Escribís en español rioplatense, claro y prudente ("parece", "muestra", "todavía no aparece").
 Solo describís lo que se observa en lo que el alumno escribió. No hacés diagnósticos ni hablás de inteligencia, emociones, motivación o capacidad.
@@ -79,30 +79,54 @@ export const CALIBRATION = `CÓMO CALIBRAR EL NIVEL (importante):
 - No bajes el nivel porque la respuesta sea breve, informal o tenga errores de ortografía o redacción, salvo que el criterio evalúe justamente eso.
 - Contá todo lo que el alumno logró en el trabajo, también lo que alcanzó durante la conversación con ayuda de las preguntas del tutor.`;
 
-/** "5.º B · 5.º grado": the course, so the AI knows what to expect from the student. */
+/**
+ * "6.º grado" → "nivel primario, alrededor de 11 a 12 años": the age to evaluate the student
+ * for. Null when the course does not say it clearly (the AI infers it from the activity).
+ */
+export function schoolStage(text: string): string | null {
+  const t = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const n = Number(/(\d{1,2})/.exec(t)?.[1]);
+  if (!Number.isInteger(n) || n < 1) return null;
+  const ages = (from: number) => `alrededor de ${from} a ${from + 1} años`;
+  if (/\bsala\b/.test(t) && n >= 2 && n <= 5) return `nivel inicial, ${n} años`;
+  if (/grado|grade|primari|primary/.test(t) && n <= 7) return `nivel primario, ${ages(n + 5)}`;
+  if (/\byear\b/.test(t) && n <= 13) return `${n <= 6 ? "nivel primario" : "nivel secundario"}, ${ages(n + 4)}`;
+  if (/\bano\b|secundari|secondary|\bsec\b/.test(t) && n <= 6) return `nivel secundario, ${ages(n + 11)}`;
+  return null;
+}
+
+/** "5.º B · 5.º grado (nivel primario, alrededor de 10 a 11 años)": the course, so the AI knows what to expect. */
+export function courseLabel(room: { name: string; grade: string; division: string }): string {
+  const label = fence([room.name, [room.grade, room.division].filter(Boolean).join(" ")].filter(Boolean).join(" · "), 200);
+  if (!label) return "(no indicado)";
+  const stage = schoolStage(room.grade) ?? schoolStage(room.name);
+  return stage ? `${label} (${stage})` : label;
+}
+
 export async function courseOf(a: OwnedSessionRow["activity"]): Promise<string> {
   const [room] = await db
     .select({ name: schema.classrooms.name, grade: schema.classrooms.grade, division: schema.classrooms.division })
     .from(schema.classrooms)
     .where(eq(schema.classrooms.id, a.classroomId))
     .limit(1);
-  if (!room) return "(no indicado)";
-  return fence([room.name, [room.grade, room.division].filter(Boolean).join(" ")].filter(Boolean).join(" · "), 200) || "(no indicado)";
+  return room ? courseLabel(room) : "(no indicado)";
 }
 
 export function activityHeader(a: OwnedSessionRow["activity"]) {
-  const consignas = consignasOf(a);
+  // With their titles ("Desafíos y soluciones"): they say what each consigna asks.
+  const consignas = structuredConsignas(a).filter((c) => c.text.trim());
+  const titled = (title: string) => (title.trim() ? ` (${fence(title, 120)})` : "");
   if (consignas.length > 1) {
     return `Actividad: ${fence(a.title, 200)}
 Consignas (el alumno las resolvió en orden; su respuesta final tiene una parte por consigna):
 <<<
-${consignas.map((c, i) => `Consigna ${i + 1}: ${fence(c, 6000)}`).join("\n")}
+${consignas.map((c, i) => `Consigna ${i + 1}${titled(c.title)}: ${fence(c.text, 6000)}`).join("\n")}
 >>>`;
   }
   return `Actividad: ${fence(a.title, 200)}
-Consigna:
+Consigna${titled(consignas[0]?.title ?? "")}:
 <<<
-${fence(a.instructions || "(sin consigna)", 6000)}
+${fence(consignas[0]?.text || "(sin consigna)", 6000)}
 >>>`;
 }
 

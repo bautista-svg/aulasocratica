@@ -4,7 +4,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { ChevronDown, RefreshCw, SlidersHorizontal, Sparkles, Sprout, Target } from "lucide-react";
+import { ChevronDown, RefreshCw, SlidersHorizontal, Sparkles, Sprout, Target, TrendingUp } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ConfirmDialog } from "@client/components/ui/dialog";
 import { Notice } from "@client/components/ui/misc";
@@ -71,8 +71,8 @@ export function SkillsPanel({ activityId }: { activityId: string }) {
         <div className="min-w-0">
           <h2 className="font-display text-xl font-semibold text-ink">Habilidades del grupo</h2>
           <p className="mt-1 max-w-2xl text-[15px] leading-6 text-text-2">
-            Cada habilidad se evalúa en cuatro niveles con sus indicadores y una cita real de lo que escribió el alumno. Si la conversación no alcanza para
-            evaluarla, queda «sin evidencia», que no es un desempeño bajo.
+            Cada habilidad se evalúa de forma formativa, según la edad de tus alumnos y lo que pide la actividad: cuatro niveles con sus indicadores y una cita
+            real de lo que escribió el alumno. Si la conversación no alcanza para evaluarla, queda «sin evidencia», que no es un desempeño bajo.
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
@@ -137,6 +137,24 @@ export function SkillsPanel({ activityId }: { activityId: string }) {
         >
           {d.run.error || "Se mantienen los resultados anteriores."}
         </Notice>
+      ) : d.outdatedWorks > 0 && !group.run.running ? (
+        <div className="flex flex-col gap-4 rounded-[18px] bg-leaf-soft/70 p-4 sm:flex-row sm:items-center sm:p-5">
+          <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-[12px] bg-surface text-leaf shadow-1" aria-hidden="true">
+            <TrendingUp className="size-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-text">Hay criterios nuevos de evaluación formativa</p>
+            <p className="mt-0.5 text-sm leading-6 text-text-2">
+              {d.outdatedWorks === d.assessedWorks
+                ? "Estos trabajos se evaluaron con los criterios anteriores, más exigentes."
+                : `${plural(d.outdatedWorks, "trabajo se evaluó", "trabajos se evaluaron")} con los criterios anteriores, más exigentes.`}{" "}
+              Reevaluá para que se reconozcan los avances parciales según la edad de tus alumnos.
+            </p>
+          </div>
+          <Button variant="primary" icon={<RefreshCw className="size-4" />} className="shrink-0" onClick={() => setConfirming(true)}>
+            Reevaluar habilidades
+          </Button>
+        </div>
       ) : null}
 
       {!running && (d.pending.length || group.run.running) ? (
@@ -230,8 +248,8 @@ export function SkillsPanel({ activityId }: { activityId: string }) {
         description={
           <>
             <p>
-              Se vuelven a analizar las conversaciones originales de los alumnos con las habilidades, indicadores y niveles que elegiste ahora. Los
-              resultados anteriores se reemplazan por completo, también los niveles que corregiste a mano.
+              Se vuelven a analizar las conversaciones originales de los alumnos con los criterios de evaluación actuales y las habilidades e indicadores
+              que elegiste ahora. Los resultados anteriores se reemplazan por completo, también los niveles que corregiste a mano.
             </p>
             <p className="mt-2">No se tocan las conversaciones, las respuestas ni los datos de los alumnos. Si algo falla, se mantienen los resultados anteriores.</p>
           </>

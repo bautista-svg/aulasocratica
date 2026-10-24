@@ -23,6 +23,7 @@ import {
   ScanText,
   Scale,
   Sprout,
+  TrendingUp,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -52,6 +53,7 @@ const ICONS: Record<NewsKey, { icon: LucideIcon; tile: string }> = {
   skills: { icon: Sprout, tile: "bg-lilac-soft text-lilac-ink" },
   structure: { icon: ListOrdered, tile: "bg-ink-soft text-ink" },
   trash: { icon: Copy, tile: "bg-amber-soft text-amber" },
+  formative: { icon: TrendingUp, tile: "bg-leaf-soft text-leaf" },
 };
 
 export function WhatsNew({ me }: { me: Me }) {

@@ -27,14 +27,24 @@ export const STATUS_LABELS: Record<SkillStatus, string> = {
   sin_evidencia: "Sin evidencia suficiente",
 };
 
-/** The explicit rubric every skill is leveled with (its indicators say what to look for). */
+/**
+ * The explicit rubric every skill is leveled with (its indicators say what to look for). Formative
+ * and for the student's age: partial progress counts, "logrado" needs no exhaustive answer.
+ * Wording of Vanina Gerstner (24-10).
+ */
 export const LEVEL_RUBRIC: Record<SkillStatus, string> = {
-  inicial: "Evidencia limitada o necesita acompañamiento para desarrollar la habilidad.",
-  en_desarrollo: "Comienza a demostrar la habilidad, aunque de manera irregular o con apoyo.",
-  logrado: "Demuestra la habilidad de manera clara y consistente.",
-  avanzado: "Aplica la habilidad con profundidad, autonomía y flexibilidad.",
-  sin_evidencia: "La conversación no permite una evaluación válida. No es un desempeño bajo.",
+  inicial: "Presenta evidencias incipientes y necesita acompañamiento frecuente.",
+  en_desarrollo: "Demuestra parcialmente la habilidad, presenta ideas pertinentes o logra avances con preguntas orientadoras.",
+  logrado: "Demuestra la habilidad de manera clara y suficiente para su edad y los objetivos de la actividad. No requiere respuestas exhaustivas.",
+  avanzado: "Profundiza, establece conexiones, justifica con mayor precisión o desarrolla alternativas de manera autónoma.",
+  sin_evidencia: "La conversación no permite evaluar la habilidad. No es un desempeño inicial.",
 };
+
+/**
+ * The criteria the AI evaluates with. Works evaluated with an older version can be evaluated
+ * again ("Reevaluar habilidades"). 1: first rubric; 2: formative, by age, partial progress (24-10).
+ */
+export const SKILL_CRITERIA_VERSION = 2;
 
 /** Colors mean one thing each: green achieved, orange on the way, grey not evaluable. */
 export type StatusTone = "good" | "grow" | "none";

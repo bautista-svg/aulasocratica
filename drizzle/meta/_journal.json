@@ -127,6 +127,13 @@
       "when": 1792801351113,
       "tag": "0017_activity_structure",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792822672066,
+      "tag": "0018_skills_criteria_version",
+      "breakpoints": true
     }
   ]
 }

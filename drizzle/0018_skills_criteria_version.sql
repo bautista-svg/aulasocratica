@@ -1,0 +1,1 @@
+ALTER TABLE "aspect_analyses" ADD COLUMN "skills_version" integer DEFAULT 1 NOT NULL;

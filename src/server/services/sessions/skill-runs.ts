@@ -3,6 +3,7 @@
 // new results are written all together only when every work succeeded, so the board never mixes
 // old and new evaluations, and a failure keeps the previous ones. One run per activity at a time.
 import { and, eq, inArray, lt, sql } from "drizzle-orm";
+import { SKILL_CRITERIA_VERSION } from "@shared/domain/skills";
 import { db, schema } from "../../db/client";
 import { HttpError, badRequest } from "../../lib/errors";
 import { log, errorFields } from "../../lib/logger";
@@ -131,7 +132,7 @@ async function process(run: Run, works: OwnedSessionRow[], teacherId: string) {
     const now = new Date();
     await db.transaction(async (tx) => {
       for (const [sessionId, ev] of results) {
-        const values = { skills: ev.skills, recommendations: ev.recommendations, interventions: ev.interventions, skillsAt: now, updatedAt: now };
+        const values = { skills: ev.skills, recommendations: ev.recommendations, interventions: ev.interventions, skillsAt: now, skillsVersion: SKILL_CRITERIA_VERSION, updatedAt: now };
         await tx
           .insert(schema.aspectAnalyses)
           .values({ sessionId, ...values })

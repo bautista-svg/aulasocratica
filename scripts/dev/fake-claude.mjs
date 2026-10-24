@@ -88,11 +88,13 @@ function skills(body) {
       const quote = status === "sin_evidencia" ? "" : said[i % said.length];
       return {
         skill,
+        analysis: "Muestra el indicador central con una idea propia.",
+        repeatsTutor: false,
         status,
         criterion: status === "sin_evidencia" ? "" : "Justifica sus respuestas.",
         evidence: quote,
         why: status === "sin_evidencia" ? "La conversación no mostró esta habilidad." : "En sus palabras da una razón concreta para lo que afirma, sin que el tutor se la diga.",
-        improve: status === "sin_evidencia" ? "" : "Podría apoyar la idea con un dato del material.",
+        improve: status === "sin_evidencia" ? "" : "Puede seguir avanzando si apoya la idea con un dato del material.",
         suggestion: "Pedile que compare su idea con la de un compañero.",
       };
     }),

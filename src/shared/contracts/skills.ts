@@ -72,6 +72,8 @@ export interface ActivitySkills {
   interventions: number;
   /** Finished works with something written that are not evaluated by skills yet. */
   pending: { sessionId: string; studentName: string }[];
+  /** Evaluated works whose evaluation used older criteria (can be evaluated again). */
+  outdatedWorks: number;
   skills: SkillGroupRow[];
   /** The latest re-evaluation of the whole activity, if any. */
   run: SkillRunView | null;

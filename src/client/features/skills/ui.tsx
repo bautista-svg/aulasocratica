@@ -115,8 +115,8 @@ export function EvidenceCard({ a, footer, className }: { a: Pick<SkillAssessment
           <blockquote className="text-[15px] leading-6 text-text italic">«{a.evidence}»</blockquote>
         </figure>
       ) : null}
-      {a.why ? <Part label={a.status === "sin_evidencia" ? "Por qué no se pudo evaluar" : "Por qué es evidencia"}>{a.why}</Part> : null}
-      {a.improve ? <Part label="Para mejorar">{a.improve}</Part> : null}
+      {a.why ? <Part label={a.status === "sin_evidencia" ? "Por qué no se pudo evaluar" : "Lo que muestra"}>{a.why}</Part> : null}
+      {a.improve ? <Part label="Para seguir avanzando">{a.improve}</Part> : null}
       {a.suggestion ? <Part label="Sugerencia">{a.suggestion}</Part> : null}
       {footer}
     </div>

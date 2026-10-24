@@ -455,6 +455,8 @@ export const aspectAnalyses = pgTable(
     /** The student's interventions the evaluation read (not a measure of quality). */
     interventions: integer("interventions").notNull().default(0),
     skillsAt: timestamp("skills_at", { withTimezone: true }),
+    /** The criteria version the skills were evaluated with (SKILL_CRITERIA_VERSION). */
+    skillsVersion: integer("skills_version").notNull().default(1),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

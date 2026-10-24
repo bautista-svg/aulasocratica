@@ -19,10 +19,11 @@ export type NewsKey =
   | "google"
   | "skills"
   | "structure"
-  | "trash";
+  | "trash"
+  | "formative";
 
 /** Releases in order; adding one shows its items to everyone who has not seen them. */
-export const NEWS_RELEASES = ["2026-10-22", "2026-10-22b", "2026-10-22c", "2026-10-23", "2026-10-23b", "2026-10-23c", "2026-10-23d"] as const;
+export const NEWS_RELEASES = ["2026-10-22", "2026-10-22b", "2026-10-22c", "2026-10-23", "2026-10-23b", "2026-10-23c", "2026-10-23d", "2026-10-24"] as const;
 export type NewsRelease = (typeof NEWS_RELEASES)[number];
 
 export interface NewsItem {
@@ -123,6 +124,12 @@ export const NEWS_ITEMS: NewsItem[] = [
     release: "2026-10-23c",
     title: "Habilidades con niveles y evidencias",
     text: "Fortalezas ahora evalúa cada habilidad en cuatro niveles, con sus indicadores y una cita real de cada alumno, y la página de cada alumno muestra cómo evoluciona. Con «Elegir habilidades» decidís cuáles se evalúan y sumás las tuyas.",
+  },
+  {
+    key: "formative",
+    release: "2026-10-24",
+    title: "Habilidades evaluadas de forma formativa",
+    text: "La IA ahora evalúa según la edad de tus alumnos y lo que pide la actividad: reconoce los avances parciales, no exige todos los indicadores para «Logrado» y cada devolución trae lo que el alumno muestra y un próximo paso. Con «Reevaluar habilidades» actualizás los trabajos que ya estaban evaluados.",
   },
   {
     key: "structure",
