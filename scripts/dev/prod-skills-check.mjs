@@ -1,7 +1,8 @@
 // Checks the formative skills evaluation against a deployed instance with the real model, in a
 // throwaway workspace deleted at the end: a 6th-grade work is evaluated (levels backed by the
-// student's quotes, constructive feedback with a next step), nothing is left with the former
-// criteria, and «Reevaluar habilidades» finishes.
+// student's quotes, constructive feedback with a next step), an indicator shown is at least
+// «Logrado» and an unticked one is not used, nothing is left with the former criteria, and
+// «Reevaluar habilidades» finishes.
 //   node scripts/dev/prod-skills-check.mjs [https://aulasocratica.becode.com.ar]
 const BASE = process.argv[2] ?? "https://aulasocratica.becode.com.ar";
 let failed = 0;
@@ -37,10 +38,14 @@ async function req(j, method, path, body) {
   }
 }
 
+const UNTICKED = "Utiliza evidencias para sostener sus ideas.";
 const teacher = jar();
 const student = jar();
 try {
   await req(teacher, "POST", "/api/auth/start", {});
+  const { settings } = (await req(teacher, "GET", "/api/skills")).data;
+  const put = await req(teacher, "PUT", "/api/skills", { ...settings, off: { argumentacion: [UNTICKED] } });
+  ok("indicador destildado guardado", put.status === 200 && put.data.settings.off.argumentacion?.[0] === UNTICKED);
   const { classroom } = (await req(teacher, "POST", "/api/classrooms", { name: "Prueba habilidades", teacherName: "Prueba", grade: "6.º grado" })).data;
   const { activity } = (await req(teacher, "POST", "/api/activities", { classroomId: classroom.id, title: "Misión espacial" })).data;
   await req(teacher, "PATCH", `/api/activities/${activity.id}`, {
@@ -77,9 +82,13 @@ try {
   const sample = leveled.find((s) => s.improve) ?? leveled[0];
   ok("devolución con lo que muestra y un próximo paso", Boolean(sample?.why && sample?.improve), sample ? `${sample.why} / ${sample.improve}` : "");
   ok("sin «no demuestra» en lo que muestra", !leveled.some((s) => /no demuestra|no logra/i.test(s.why)));
+  const shown = skills.filter((s) => s.criterion);
+  ok("indicador mostrado ⇒ Logrado o Avanzado", shown.length > 0 && shown.every((s) => s.status === "logrado" || s.status === "avanzado"), shown.map((s) => `${s.label}: ${s.criterion}`).join(" · "));
+  ok("no usa el indicador destildado", !skills.some((s) => s.criterion === UNTICKED));
 
   const g = await req(teacher, "GET", `/api/activities/${activity.id}/skills`);
   ok("ningún trabajo con los criterios anteriores", g.data.outdatedWorks === 0);
+  ok("Fortalezas muestra solo los tildados", !g.data.skills.find((s) => s.key === "argumentacion")?.criteria.includes(UNTICKED));
   const re = await req(teacher, "POST", `/api/activities/${activity.id}/skills/reevaluate`);
   ok("reevaluar empieza", re.status === 202);
   let run = re.data.run;
