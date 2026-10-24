@@ -23,7 +23,7 @@ type TutorRow = typeof schema.tutors.$inferSelect;
 
 /** Max activities per classroom (keeps lists and exports bounded). */
 export const MAX_ACTIVITIES_PER_CLASSROOM = 300;
-const COPY_SUFFIX = " (copia)";
+const COPY_SUFFIX = " (Copia)";
 
 /** A new link token (url-safe, 128 bits). */
 export const newLinkToken = () => randomToken(16);

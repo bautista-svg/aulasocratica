@@ -182,7 +182,7 @@ describe("activity files", () => {
     expect(r.body.skippedFiles).toBe(0);
     const copy = r.body.activity;
     expect(copy.id).not.toBe(id);
-    expect(copy.title).toBe("El ciclo del agua (copia)");
+    expect(copy.title).toBe("El ciclo del agua (Copia)");
     expect(copy.status).toBe("draft");
     expect(copy.classroomId).toBe(room);
     expect(copy.linkToken).not.toBe(token);
@@ -208,7 +208,7 @@ describe("activity files", () => {
     expect(r2.status).toBe(201);
     expect(r2.body.activity.classroomId).toBe(room2);
     expect(r2.body.activity.title.length).toBeLessThanOrEqual(160);
-    expect(r2.body.activity.title.endsWith(" (copia)")).toBe(true);
+    expect(r2.body.activity.title.endsWith(" (Copia)")).toBe(true);
   });
 
   it("deletes the activity and its files on disk, only with the typed confirmation", async () => {

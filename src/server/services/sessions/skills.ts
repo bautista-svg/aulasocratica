@@ -27,6 +27,7 @@ import { activityHeader, courseOf, workOf } from "./ai";
 import type { OwnedSessionRow } from "./detail";
 import { materialSources } from "../student/tutor";
 import { skillSettingsOf } from "../skill-settings";
+import { latestRun } from "./skill-runs";
 
 /** Material shown to the AI to judge "Uso de los materiales" (the tutor sees the whole of it). */
 const MATERIAL_CHARS = 12_000;
@@ -103,13 +104,24 @@ function notApplicable(skill: string, hasMaterial: boolean, hasReflection: boole
   return (skill === "materiales" && !hasMaterial) || (skill === "reflexion" && !hasReflection);
 }
 
-export async function analyzeSkills(row: OwnedSessionRow, teacherId: string): Promise<SkillsAnalyzeResult> {
+export interface WorkEvaluation {
+  skills: SkillAssessment[];
+  recommendations: string[];
+  interventions: number;
+  droppedQuotes: number;
+}
+
+/**
+ * Evaluates one work without saving. `fresh`: ignore the teacher's corrections (a full
+ * re-evaluation replaces everything).
+ */
+export async function evaluateWork(row: OwnedSessionRow, teacherId: string, opts: { fresh?: boolean } = {}): Promise<WorkEvaluation> {
   const [{ texts, work, reflection, messages }, course, files, settings, previous] = await Promise.all([
     workOf(row),
     courseOf(row.activity),
     materialSources(row.activity.id),
     skillSettingsOf(row.activity.teacherId),
-    stored(row.session.id),
+    opts.fresh ? Promise.resolve(undefined) : stored(row.session.id),
   ]);
   const catalog = enabledSkills(settings);
   if (catalog.length === 0) throw badRequest("No hay habilidades elegidas para evaluar. Elegí al menos una en «Elegir habilidades».");
@@ -184,13 +196,19 @@ ${list}`,
       source: "ai",
     };
   });
-  const saved = await save(row.session.id, {
+  return {
     skills: sanitizeAssessments(skills),
     recommendations: sanitizeRecommendations(out.recommendations),
     interventions: messages.filter((m) => m.role === "user" && !m.isPartial).length,
-    skillsAt: new Date(),
-  });
-  return { ...skillsView(saved, catalog), droppedQuotes };
+    droppedQuotes,
+  };
+}
+
+export async function analyzeSkills(row: OwnedSessionRow, teacherId: string): Promise<SkillsAnalyzeResult> {
+  const ev = await evaluateWork(row, teacherId);
+  const saved = await save(row.session.id, { skills: ev.skills, recommendations: ev.recommendations, interventions: ev.interventions, skillsAt: new Date() });
+  const catalog = enabledSkills(await skillSettingsOf(row.activity.teacherId));
+  return { ...skillsView(saved, catalog), droppedQuotes: ev.droppedQuotes };
 }
 
 /** The teacher sets the level of a skill (kept on a new analysis). */
@@ -212,7 +230,7 @@ export async function setSkillLevel(row: OwnedSessionRow, skill: string, status:
 
 /** The group view of an activity: counts per skill and level, and the evidence of each student. */
 export async function activitySkills(activityId: string, teacherId: string): Promise<ActivitySkills> {
-  const [rows, settings] = await Promise.all([
+  const [rows, settings, run] = await Promise.all([
     db
       .select({
         sessionId: schema.learningSessions.id,
@@ -231,6 +249,7 @@ export async function activitySkills(activityId: string, teacherId: string): Pro
       .where(eq(schema.learningSessions.activityId, activityId))
       .orderBy(asc(schema.students.fullName)),
     skillSettingsOf(teacherId),
+    latestRun(activityId),
   ]);
   const assessed = rows.filter((r) => r.skillsAt);
   const skills = enabledSkills(settings).map((def) => {
@@ -255,6 +274,7 @@ export async function activitySkills(activityId: string, teacherId: string): Pro
     interventions: assessed.reduce((n, r) => n + (r.interventions ?? 0), 0),
     pending: rows.filter((r) => r.status === "completed" && r.hasText && !r.skillsAt).map((r) => ({ sessionId: r.sessionId, studentName: r.who })),
     skills,
+    run,
   };
 }
 

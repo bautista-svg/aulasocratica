@@ -68,7 +68,7 @@ export function useSaveActivity(id: string) {
   });
 }
 
-export type LifecycleAction = "publish" | "unpublish" | "archive" | "restore" | "link/regenerate";
+export type LifecycleAction = "publish" | "unpublish" | "archive" | "restore" | "untrash" | "link/regenerate";
 
 export function useActivityAction(id: string) {
   const qc = useQueryClient();

@@ -8,6 +8,8 @@ import { Switch } from "@client/components/ui/controls";
 import { ConfirmDialog } from "@client/components/ui/dialog";
 import { Field, Input, Textarea } from "@client/components/ui/field";
 import { cn } from "@client/lib/cn";
+import { Notice } from "@client/components/ui/misc";
+import { plural } from "@client/lib/format";
 import { ApiError, errorMessage } from "@client/lib/api";
 import { VOICE_LANGUAGE_LABELS, type VoiceLanguage } from "@shared/domain/voice";
 import { DELIVERABLE_MODES, DELIVERABLE_PROMPT_MAX, MAX_DELIVERABLE_LABEL, type DeliverableMode } from "@shared/domain/deliverables";
@@ -111,6 +113,12 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
     // scroll-mb: fields brought into view (focus, scrollIntoView) stop above the save bar and the phone tab bar.
     <div ref={rootRef} className="lg:grid lg:grid-cols-[minmax(0,1fr)_190px] lg:gap-8 [&_input]:scroll-mb-44 [&_textarea]:scroll-mb-44 lg:[&_input]:scroll-mb-24 lg:[&_textarea]:scroll-mb-24">
       <div className="grid min-w-0 gap-4">
+        {activity.status === "published" && activity.participants > 0 ? (
+          <Notice tone="lilac" title="Esta actividad está en curso">
+            Ya participaron {plural(activity.participants, "alumno", "alumnos")}. Lo que cambies se aplica desde que guardes; sus conversaciones, respuestas y
+            evaluaciones se conservan. Si querés probar cambios grandes sin afectarlos, duplicala.
+          </Notice>
+        ) : null}
         <EditorSection
           id="idioma"
           title="Idioma"

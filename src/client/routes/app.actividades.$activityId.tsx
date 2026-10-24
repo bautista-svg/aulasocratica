@@ -7,7 +7,7 @@ import { Badge, ErrorState, Notice, Skeleton } from "@client/components/ui/misc"
 import { Button, buttonClass } from "@client/components/ui/button";
 import { Menu, Tabs } from "@client/components/ui/controls";
 import { ApiError, errorMessage } from "@client/lib/api";
-import { plural } from "@client/lib/format";
+import { fmtDate, plural } from "@client/lib/format";
 import { usePageTitle } from "@client/lib/page-title";
 import { LivePanel } from "@client/features/live/live-panel";
 import { SkillsPanel } from "@client/features/skills/group-panel";
@@ -17,9 +17,10 @@ import { ConfigPanel, scrollToSection, useSaveDraft } from "@client/features/act
 import { SharePanel } from "@client/features/activities/share-panel";
 import { InlineTitle } from "@client/features/activities/parts";
 import { LifecycleDialogs, type LifecycleDialog } from "@client/features/activities/lifecycle-dialogs";
+import { TrashActivityDialog } from "@client/features/activities/row-actions";
 import { UnsavedGuard } from "@client/features/activities/unsaved-guard";
 import { activityState } from "@shared/domain/activity-state";
-import type { ActivityEditorData } from "@shared/contracts/activities";
+import { TRASH_DAYS, type ActivityEditorData } from "@shared/contracts/activities";
 
 const TABS = ["configuracion", "compartir", "en-vivo", "fortalezas"] as const;
 type Tab = (typeof TABS)[number];
@@ -65,6 +66,7 @@ function ActivityEditor({ activity }: { activity: ActivityEditorData }) {
   const action = useActivityAction(activity.id);
   const rename = useSaveActivity(activity.id);
   const [dialog, setDialog] = useState<LifecycleDialog>(null);
+  const [trashing, setTrashing] = useState(false);
   const bypass = useRef(false);
   const state = activityState(activity);
   const [publishing, setPublishing] = useState(false);
@@ -94,14 +96,18 @@ function ActivityEditor({ activity }: { activity: ActivityEditorData }) {
   }
 
   const restore = () =>
-    action.mutate("restore", {
+    action.mutate(activity.deletedAt ? "untrash" : "restore", {
       onSuccess: () => toast.success("Actividad restaurada como borrador"),
       onError: (e) => toast.error(errorMessage(e)),
     });
 
   const primary =
     activity.status === "archived" ? (
-      <Button icon={<ArchiveRestore className="size-4" />} loading={action.isPending && action.variables === "restore"} onClick={restore}>
+      <Button
+        icon={<ArchiveRestore className="size-4" />}
+        loading={action.isPending && (action.variables === "restore" || action.variables === "untrash")}
+        onClick={restore}
+      >
         Restaurar
       </Button>
     ) : activity.classroomArchived ? (
@@ -165,23 +171,36 @@ function ActivityEditor({ activity }: { activity: ActivityEditorData }) {
                 <MoreHorizontal className="size-5" />
               </Button>
             }
-            items={[
-              ...(activity.status === "published"
-                ? [{ label: "Volver a borrador", icon: <Undo2 className="size-4" />, onSelect: () => setDialog("unpublish") }]
-                : []),
-              { label: "Duplicar", icon: <Copy className="size-4" />, onSelect: () => setDialog("duplicate") },
-              { label: "Reiniciar actividad", icon: <RotateCcw className="size-4" />, onSelect: () => setDialog("reset") },
-              activity.status === "archived"
-                ? { label: "Restaurar", icon: <ArchiveRestore className="size-4" />, onSelect: restore }
-                : { label: "Archivar", icon: <Archive className="size-4" />, onSelect: () => setDialog("archive") },
-              "separator" as const,
-              { label: "Eliminar", icon: <Trash2 className="size-4" />, danger: true, onSelect: () => setDialog("delete") },
-            ]}
+            items={
+              activity.deletedAt
+                ? [
+                    { label: "Duplicar", icon: <Copy className="size-4" />, onSelect: () => setDialog("duplicate") },
+                    "separator" as const,
+                    { label: "Eliminar para siempre", icon: <Trash2 className="size-4" />, danger: true, onSelect: () => setDialog("delete") },
+                  ]
+                : [
+                    ...(activity.status === "published"
+                      ? [{ label: "Volver a borrador", icon: <Undo2 className="size-4" />, onSelect: () => setDialog("unpublish") }]
+                      : []),
+                    { label: "Duplicar", icon: <Copy className="size-4" />, onSelect: () => setDialog("duplicate") },
+                    { label: "Reiniciar actividad", icon: <RotateCcw className="size-4" />, onSelect: () => setDialog("reset") },
+                    activity.status === "archived"
+                      ? { label: "Restaurar", icon: <ArchiveRestore className="size-4" />, onSelect: restore }
+                      : { label: "Archivar", icon: <Archive className="size-4" />, onSelect: () => setDialog("archive") },
+                    "separator" as const,
+                    { label: "Eliminar", icon: <Trash2 className="size-4" />, danger: true, onSelect: () => setTrashing(true) },
+                  ]
+            }
           />
         </div>
       </header>
 
-      {activity.classroomArchived ? (
+      {activity.deletedAt ? (
+        <Notice tone="amber" className="mb-5" title="Actividad en la papelera">
+          No recibe alumnos y se borra para siempre el {fmtDate(new Date(new Date(activity.deletedAt).getTime() + TRASH_DAYS * 86_400_000).toISOString())}.
+          Restaurala para seguir usándola.
+        </Notice>
+      ) : activity.classroomArchived ? (
         <Notice tone="amber" className="mb-5" title="El aula está archivada">
           Sus actividades no reciben alumnos. Restaurá el aula para volver a abrirla.
         </Notice>
@@ -200,6 +219,15 @@ function ActivityEditor({ activity }: { activity: ActivityEditorData }) {
       />
 
       <LifecycleDialogs activity={activity} open={dialog} onClose={() => setDialog(null)} onLeave={() => (bypass.current = true)} />
+      <TrashActivityDialog
+        activity={activity}
+        open={trashing}
+        onClose={() => setTrashing(false)}
+        onTrashed={() => {
+          bypass.current = true;
+          void navigate({ to: "/app/aulas/$classroomId", params: { classroomId: activity.classroomId } });
+        }}
+      />
       <UnsavedGuard dirty={form.dirty} onSave={() => draftSave.run()} bypass={bypass} />
     </>
   );

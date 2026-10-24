@@ -1,7 +1,7 @@
 // The alerts panel: every alert of the teacher's students, across classrooms and activities.
 // Open alerts needing immediate attention come first, then the rest of the open ones, then the
 // reviewed or dismissed ones; newest first inside each group (keyset pagination).
-import { and, desc, asc, eq, inArray, notInArray, sql, type SQL } from "drizzle-orm";
+import { and, desc, asc, eq, inArray, isNull, notInArray, sql, type SQL } from "drizzle-orm";
 import { db, schema } from "../db/client";
 import { badRequest, notFound } from "../lib/errors";
 import { publish } from "../lib/events";
@@ -43,6 +43,8 @@ const RANK = sql<number>`(case when "student_alerts"."status" = 'open' and "stud
 function scope(teacherId: string, q: Omit<AlertInboxQuery, "status" | "cursor">): SQL | undefined {
   return and(
     eq(schema.activities.teacherId, teacherId),
+    // Activities in the "Papelera" do not show their alerts.
+    isNull(schema.activities.deletedAt),
     q.classroomId ? eq(schema.activities.classroomId, q.classroomId) : undefined,
     q.activityId ? eq(sa.activityId, q.activityId) : undefined,
     q.severity ? eq(sa.severity, q.severity) : undefined,
@@ -129,7 +131,7 @@ export async function alertCount(teacherId: string): Promise<AlertCountResponse>
     })
     .from(sa)
     .innerJoin(schema.activities, eq(schema.activities.id, sa.activityId))
-    .where(and(eq(schema.activities.teacherId, teacherId), eq(sa.status, "open")));
+    .where(and(eq(schema.activities.teacherId, teacherId), isNull(schema.activities.deletedAt), eq(sa.status, "open")));
   return row ?? { open: 0, immediate: 0 };
 }
 

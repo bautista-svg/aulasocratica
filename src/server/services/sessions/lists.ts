@@ -1,6 +1,6 @@
 // Lists of students' works: the Radiografía page (paginated, completed first) and the
 // page of one student (their works across the activities of their classroom).
-import { and, asc, desc, eq, ilike, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNull, sql } from "drizzle-orm";
 import { db, schema } from "../../db/client";
 import { badRequest } from "../../lib/errors";
 import { isUuid } from "../access";
@@ -45,6 +45,7 @@ export async function xrayList(
   const ts = sql`coalesce("learning_sessions"."completed_at", "learning_sessions"."last_activity_at")`;
   const where = and(
     eq(schema.activities.teacherId, teacherId),
+    isNull(schema.activities.deletedAt),
     q.classroomId ? eq(schema.activities.classroomId, q.classroomId) : undefined,
     q.activityId ? eq(schema.activities.id, q.activityId) : undefined,
     q.search?.trim() ? ilike(schema.students.fullName, `%${escapeLike(q.search.trim().slice(0, 80))}%`) : undefined,
@@ -130,7 +131,7 @@ export async function studentDetail(row: {
     .select({ s: schema.learningSessions, a: schema.activities })
     .from(schema.learningSessions)
     .innerJoin(schema.activities, eq(schema.activities.id, schema.learningSessions.activityId))
-    .where(and(eq(schema.learningSessions.studentId, student.id), eq(schema.activities.classroomId, classroom.id)))
+    .where(and(eq(schema.learningSessions.studentId, student.id), eq(schema.activities.classroomId, classroom.id), isNull(schema.activities.deletedAt)))
     .orderBy(desc(schema.learningSessions.lastActivityAt));
   const ids = sessions.map((r) => r.s.id);
   const [alertCounts, activities] = await Promise.all([

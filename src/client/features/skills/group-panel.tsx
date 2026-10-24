@@ -1,10 +1,14 @@
 // Activity tab "Fortalezas": the group's skills by dimension — how many students reached each
 // level, the indicators, and each student's evidence one click away. Colors mean one thing each:
 // green logrado/avanzado, orange inicial/en desarrollo, grey sin evidencia or not evaluated.
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { ChevronDown, SlidersHorizontal, Sparkles, Sprout, Target } from "lucide-react";
+import { ChevronDown, RefreshCw, SlidersHorizontal, Sparkles, Sprout, Target } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ConfirmDialog } from "@client/components/ui/dialog";
+import { Notice } from "@client/components/ui/misc";
+import { errorMessage } from "@client/lib/api";
 import { cn } from "@client/lib/cn";
 import { Button } from "@client/components/ui/button";
 import { EmptyState, ErrorState, SkeletonList } from "@client/components/ui/misc";
@@ -21,17 +25,33 @@ import {
   type SkillStatus,
 } from "@shared/domain/skills";
 import type { SkillGroupRow, SkillStudentEntry } from "@shared/contracts/skills";
-import { useActivitySkills, useGroupAnalysis } from "./api";
+import { useActivitySkills, useGroupAnalysis, useReevaluate } from "./api";
 import { EvidenceCard, LevelPill, SkillGlyph, TONE_STYLE, ToneLegend } from "./ui";
 import { SkillSettingsDialog } from "./settings-dialog";
 
 export function SkillsPanel({ activityId }: { activityId: string }) {
   const q = useActivitySkills(activityId);
   const group = useGroupAnalysis(activityId);
+  const reevaluate = useReevaluate(activityId);
+  const qc = useQueryClient();
   const [choosing, setChoosing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const runStatus = q.data?.run?.status;
+  const wasRunning = useRef(false);
+  // When a run this page was watching finishes, say how it went and refresh every view.
+  useEffect(() => {
+    if (runStatus === "running") wasRunning.current = true;
+    else if (wasRunning.current && runStatus) {
+      wasRunning.current = false;
+      if (runStatus === "done") toast.success("Listo: las habilidades se evaluaron de nuevo con lo que elegiste ahora.");
+      void qc.invalidateQueries({ queryKey: ["sessions"] });
+      void qc.invalidateQueries({ queryKey: ["students"] });
+    }
+  }, [runStatus, qc]);
   if (q.isPending) return <SkeletonList rows={3} />;
   if (q.isError) return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
   const d = q.data;
+  const running = d.run?.status === "running";
   const top = (by: (r: SkillGroupRow) => number) =>
     d.skills
       .filter((s) => by(s) > 0)
@@ -55,9 +75,22 @@ export function SkillsPanel({ activityId }: { activityId: string }) {
             evaluarla, queda «sin evidencia», que no es un desempeño bajo.
           </p>
         </div>
-        <Button variant="secondary" size="sm" icon={<SlidersHorizontal className="size-4" />} className="shrink-0" onClick={() => setChoosing(true)}>
-          Elegir habilidades
-        </Button>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Button variant="secondary" size="sm" icon={<SlidersHorizontal className="size-4" />} onClick={() => setChoosing(true)}>
+            Elegir habilidades
+          </Button>
+          {d.assessedWorks > 0 ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<RefreshCw className="size-4" />}
+              disabled={running || group.run.running}
+              onClick={() => setConfirming(true)}
+            >
+              Reevaluar habilidades
+            </Button>
+          ) : null}
+        </div>
       </header>
 
       {d.totalWorks ? (
@@ -68,7 +101,45 @@ export function SkillsPanel({ activityId }: { activityId: string }) {
         </dl>
       ) : null}
 
-      {d.pending.length || group.run.running ? (
+      {running && d.run ? (
+        <div className="flex flex-col gap-4 rounded-[18px] bg-lilac-soft/70 p-4 sm:flex-row sm:items-center sm:p-5" role="status">
+          <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-[12px] bg-surface text-lilac-ink shadow-1" aria-hidden="true">
+            <RefreshCw className="size-5 animate-spin [animation-duration:2.5s]" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-text">
+              Reevaluando las habilidades: {d.run.done} de {d.run.total} trabajos
+            </p>
+            <div
+              className="mt-2 h-2 overflow-hidden rounded-full bg-surface"
+              role="progressbar"
+              aria-label="Trabajos reevaluados"
+              aria-valuemin={0}
+              aria-valuemax={d.run.total}
+              aria-valuenow={d.run.done}
+            >
+              <div className="h-full rounded-full bg-lilac-ink transition-[width] duration-500" style={{ width: `${(d.run.done / Math.max(d.run.total, 1)) * 100}%` }} />
+            </div>
+            <p className="mt-1.5 text-sm text-text-2">
+              Mientras tanto ves los resultados anteriores: se reemplazan todos juntos cuando termina. Podés cerrar esta página, sigue en el servidor.
+            </p>
+          </div>
+        </div>
+      ) : d.run?.status === "failed" ? (
+        <Notice
+          tone="amber"
+          title="La reevaluación no se completó"
+          action={
+            <Button size="sm" variant="secondary" icon={<RefreshCw className="size-4" />} loading={reevaluate.isPending} onClick={() => setConfirming(true)}>
+              Intentar de nuevo
+            </Button>
+          }
+        >
+          {d.run.error || "Se mantienen los resultados anteriores."}
+        </Notice>
+      ) : null}
+
+      {!running && (d.pending.length || group.run.running) ? (
         <div className="flex flex-col gap-4 rounded-[18px] bg-lilac-soft/70 p-4 sm:flex-row sm:items-center sm:p-5">
           <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-[12px] bg-surface text-lilac-ink shadow-1" aria-hidden="true">
             <Sparkles className="size-5" />
@@ -151,6 +222,32 @@ export function SkillsPanel({ activityId }: { activityId: string }) {
         </>
       )}
       <SkillSettingsDialog open={choosing} onOpenChange={setChoosing} />
+      <ConfirmDialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        variant="primary"
+        title="¿Reevaluar las habilidades de esta actividad?"
+        description={
+          <>
+            <p>
+              Se vuelven a analizar las conversaciones originales de los alumnos con las habilidades, indicadores y niveles que elegiste ahora. Los
+              resultados anteriores se reemplazan por completo, también los niveles que corregiste a mano.
+            </p>
+            <p className="mt-2">No se tocan las conversaciones, las respuestas ni los datos de los alumnos. Si algo falla, se mantienen los resultados anteriores.</p>
+          </>
+        }
+        confirmLabel="Confirmar reevaluación"
+        loading={reevaluate.isPending}
+        onConfirm={() =>
+          reevaluate.mutate(undefined, {
+            onSuccess: () => setConfirming(false),
+            onError: (e) => {
+              setConfirming(false);
+              toast.error(errorMessage(e));
+            },
+          })
+        }
+      />
     </div>
   );
 }

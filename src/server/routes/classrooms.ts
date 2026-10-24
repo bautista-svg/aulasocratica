@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { and, asc, desc, eq, sql, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, sql, inArray, isNotNull, isNull } from "drizzle-orm";
 import { z } from "zod";
 import type { AppEnv } from "../types";
 import { db, schema } from "../db/client";
@@ -19,7 +19,7 @@ import {
   type ClassroomSummary,
   type ClassroomStudent,
 } from "@shared/contracts/classrooms";
-import type { ActivitySummary } from "@shared/contracts/activities";
+import { TRASH_DAYS, type ActivitySummary, type TrashedActivity } from "@shared/contracts/activities";
 import { nameKey, tidyName } from "@shared/domain/names";
 import { BUILTIN_ALERTS, LOCKED_ALERT_KEYS, builtinEnabled } from "@shared/domain/alerts";
 
@@ -82,7 +82,13 @@ export async function activitySummaries(teacherId: string, classroomId: string |
       openAlerts: sql<number>`(select count(*)::int from student_alerts sa where sa.activity_id = activities.id and sa.status = 'open')`,
     })
     .from(schema.activities)
-    .where(and(eq(schema.activities.teacherId, teacherId), classroomId ? eq(schema.activities.classroomId, classroomId) : undefined))
+    .where(
+      and(
+        eq(schema.activities.teacherId, teacherId),
+        classroomId ? eq(schema.activities.classroomId, classroomId) : undefined,
+        isNull(schema.activities.deletedAt),
+      ),
+    )
     .orderBy(desc(schema.activities.updatedAt));
   return rows.map(({ a, ...counts }) => ({
     id: a.id,
@@ -168,6 +174,30 @@ export const classroomRoutes = new Hono<AppEnv>()
     const t = teacherOf(c);
     const room = await ownedClassroom(t.id, c.req.param("id"));
     return c.json({ activities: await activitySummaries(t.id, room.id) });
+  })
+
+  // The classroom's "Papelera": deleted activities that can still be restored.
+  .get("/:id/trash", async (c) => {
+    const t = teacherOf(c);
+    const room = await ownedClassroom(t.id, c.req.param("id"));
+    const rows = await db
+      .select({
+        id: schema.activities.id,
+        title: schema.activities.title,
+        deletedAt: schema.activities.deletedAt,
+        participants: sql<number>`(select count(*)::int from learning_sessions ls where ls.activity_id = activities.id)`,
+      })
+      .from(schema.activities)
+      .where(and(eq(schema.activities.classroomId, room.id), eq(schema.activities.teacherId, t.id), isNotNull(schema.activities.deletedAt)))
+      .orderBy(desc(schema.activities.deletedAt));
+    const trash: TrashedActivity[] = rows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      deletedAt: r.deletedAt!.toISOString(),
+      purgeAt: new Date(r.deletedAt!.getTime() + TRASH_DAYS * 86_400_000).toISOString(),
+      participants: r.participants,
+    }));
+    return c.json({ activities: trash });
   })
 
   // ── Students (roster) ──

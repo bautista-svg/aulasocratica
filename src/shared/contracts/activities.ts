@@ -39,6 +39,19 @@ export interface ActivitySummary {
   classroomArchived: boolean;
 }
 
+/** An activity in the classroom's "Papelera". */
+export interface TrashedActivity {
+  id: string;
+  title: string;
+  deletedAt: string;
+  /** When it is removed for good. */
+  purgeAt: string;
+  participants: number;
+}
+
+/** Days a deleted activity stays in the "Papelera" before it is removed for good. */
+export const TRASH_DAYS = 30;
+
 /**
  * Client-generated id of one create request. Sending the same id again (a double click, a retry
  * after a lost response) returns the record created the first time instead of a duplicate.
@@ -105,6 +118,8 @@ export interface ActivityDetail {
 /** What the activity editor receives: the detail plus a few facts the screen needs. */
 export interface ActivityEditorData extends ActivityDetail {
   classroomArchived: boolean;
+  /** In the classroom's "Papelera" since then (it can be restored until it is removed). */
+  deletedAt: string | null;
   /** Students who joined this activity (its learning sessions). */
   participants: number;
   completed: number;

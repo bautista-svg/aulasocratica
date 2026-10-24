@@ -37,6 +37,7 @@ import {
 } from "../services/activities/files";
 import { importRubric, proposeReflection, proposeRubric } from "../services/activities/ai";
 import { activitySkills } from "../services/sessions/skills";
+import { startReevaluation } from "../services/sessions/skill-runs";
 import {
   ACTIVITY_LIMITS,
   activityPatch,
@@ -107,6 +108,14 @@ export const activityRoutes = new Hono<AppEnv>()
   .get("/:id/skills", async (c) => {
     const { t, activity } = await owned(c);
     return c.json(await activitySkills(activity.id, t.id));
+  })
+
+  // "Reevaluar habilidades": every work again, from scratch, replacing the previous results.
+  .post("/:id/skills/reevaluate", async (c) => {
+    const { t, activity } = await owned(c);
+    const run = await startReevaluation(activity.id, t.id);
+    await audit(c, t.id, "skills_reevaluation_started", "activity", activity.id, { works: run.total });
+    return c.json({ run }, 202);
   })
 
   // ── Edit ──
@@ -181,8 +190,31 @@ export const activityRoutes = new Hono<AppEnv>()
     return respond(c, t.id, activity.id);
   })
 
+  // "Eliminar": to the classroom's "Papelera" (archived, so the link stops; recoverable for 30 days).
+  .post("/:id/trash", async (c) => {
+    const { t, activity } = await owned(c);
+    if (!activity.deletedAt) {
+      await setStatus(activity.id, { status: "archived", deletedAt: new Date() });
+      await audit(c, t.id, "activity_trashed", "activity", activity.id, { status: activity.status });
+      publish(activity.id, "activity");
+    }
+    return c.json({ ok: true, classroomId: activity.classroomId });
+  })
+
+  .post("/:id/untrash", async (c) => {
+    const { t, activity } = await owned(c);
+    if (activity.deletedAt) {
+      // Back as a draft: reopening the link to students is an explicit "Publicar".
+      await setStatus(activity.id, { status: "draft", deletedAt: null });
+      await audit(c, t.id, "activity_untrashed", "activity", activity.id);
+      publish(activity.id, "activity");
+    }
+    return respond(c, t.id, activity.id);
+  })
+
   .post("/:id/restore", async (c) => {
     const { t, activity } = await owned(c);
+    if (activity.deletedAt) throw badRequest("Esta actividad está en la papelera: restaurala desde ahí.");
     if (activity.status === "archived") {
       // Back as a draft: reopening the link to students is an explicit "Publicar".
       await setStatus(activity.id, { status: "draft" });

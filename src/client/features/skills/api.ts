@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError } from "@client/lib/api";
-import type { ActivitySkills, SkillSettingsInput, SkillSettingsResponse } from "@shared/contracts/skills";
+import type { ActivitySkills, SkillRunView, SkillSettingsInput, SkillSettingsResponse } from "@shared/contracts/skills";
 
 export const skillKeys = {
   activity: (id: string) => ["activity-skills", id] as const,
@@ -13,6 +13,20 @@ export function useActivitySkills(activityId: string) {
     queryKey: skillKeys.activity(activityId),
     queryFn: ({ signal }) => api.get<ActivitySkills>(`/api/activities/${activityId}/skills`, signal),
     staleTime: 10_000,
+    // While a re-evaluation runs on the server, its progress shows here.
+    refetchInterval: (q) => (q.state.data?.run?.status === "running" ? 3000 : false),
+  });
+}
+
+/** "Reevaluar habilidades": starts the run on the server (it continues if the page is closed). */
+export function useReevaluate(activityId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<{ run: SkillRunView }>(`/api/activities/${activityId}/skills/reevaluate`),
+    onSuccess: (r) => {
+      qc.setQueryData<ActivitySkills>(skillKeys.activity(activityId), (d) => (d ? { ...d, run: r.run } : d));
+      void qc.invalidateQueries({ queryKey: skillKeys.activity(activityId) });
+    },
   });
 }
 

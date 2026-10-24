@@ -46,6 +46,17 @@ export interface SkillGroupRow extends SkillDef {
   students: SkillStudentEntry[];
 }
 
+/** "Reevaluar habilidades" of an activity (the latest run). */
+export interface SkillRunView {
+  status: "running" | "done" | "failed";
+  total: number;
+  done: number;
+  failed: number;
+  error: string;
+  startedAt: string;
+  finishedAt: string | null;
+}
+
 /** The group view of an activity. */
 export interface ActivitySkills {
   totalWorks: number;
@@ -57,6 +68,8 @@ export interface ActivitySkills {
   /** Finished works with something written that are not evaluated by skills yet. */
   pending: { sessionId: string; studentName: string }[];
   skills: SkillGroupRow[];
+  /** The latest re-evaluation of the whole activity, if any. */
+  run: SkillRunView | null;
 }
 
 /** One skill of one student across activities, oldest first. */

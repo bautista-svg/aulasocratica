@@ -3,11 +3,14 @@
 // - Anonymous workspaces with content are removed after 12 months without use.
 //   Workspaces with an account are kept until the teacher deletes them.
 // - Expired sessions/tokens, interrupted partial tutor replies and old operational logs are purged.
+// - Activities in a classroom's "Papelera" are removed for good after 30 days.
 import { and, isNull, lt, sql, eq } from "drizzle-orm";
 import { db, schema } from "../db/client";
 import { registerJob } from "../jobs";
-import { log } from "../lib/logger";
+import { errorFields, log } from "../lib/logger";
 import { deleteWorkspace, workspaceHasContent } from "./workspace";
+import { deleteActivity } from "./activities/lifecycle";
+import { TRASH_DAYS } from "@shared/contracts/activities";
 
 const DAY = 86_400_000;
 
@@ -20,6 +23,13 @@ export async function runRetention(now = Date.now()) {
     .returning({ id: schema.messages.id });
   await db.delete(schema.auditLogs).where(lt(schema.auditLogs.createdAt, new Date(now - 180 * DAY)));
   await db.delete(schema.aiUsage).where(lt(schema.aiUsage.createdAt, new Date(now - 400 * DAY)));
+
+  const expired = await db
+    .select()
+    .from(schema.activities)
+    .where(lt(schema.activities.deletedAt, new Date(now - TRASH_DAYS * DAY)))
+    .limit(200);
+  for (const a of expired) await deleteActivity(a).catch((err) => log.warn("trash_purge_failed", { activityId: a.id, ...errorFields(err) }));
 
   const candidates = await db
     .select({ id: schema.teachers.id, lastSeenAt: schema.teachers.lastSeenAt })
@@ -41,6 +51,7 @@ export async function runRetention(now = Date.now()) {
     expiredStudentTokens: tokens.length,
     partialMessages: partials.length,
     workspacesRemoved: removed,
+    trashedActivitiesRemoved: expired.length,
   });
 }
 

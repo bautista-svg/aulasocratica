@@ -100,6 +100,7 @@ export async function loadActivity(teacherId: string, activityId: string): Promi
     updatedAt: a.updatedAt.toISOString(),
     participants: row.participants,
     completed: row.completed,
+    deletedAt: a.deletedAt?.toISOString() ?? null,
   };
 }
 

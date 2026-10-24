@@ -176,7 +176,10 @@ export function LifecycleDialogs({
   );
 }
 
-function DuplicateDialog({ activity, open, onClose }: { activity: ActivityEditorData; open: boolean; onClose: () => void }) {
+/** What duplicating needs to know about the activity (the editor or a row of the classroom list). */
+export type DuplicateSource = Pick<ActivityEditorData, "id" | "classroomId" | "classroomName" | "classroomArchived">;
+
+export function DuplicateDialog({ activity, open, onClose }: { activity: DuplicateSource; open: boolean; onClose: () => void }) {
   const navigate = useNavigate();
   const rooms = useClassrooms(false);
   const dup = useDuplicateActivity(activity.id);

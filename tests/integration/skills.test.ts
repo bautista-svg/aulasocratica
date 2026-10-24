@@ -198,3 +198,64 @@ describe("skills of a group and of a student", () => {
     expect(row!.skillsAt).toBeTruthy();
   });
 });
+
+describe("re-evaluating the skills of an activity", () => {
+  const until = async (fn: () => Promise<boolean>) => {
+    for (let i = 0; i < 100; i++) {
+      if (await fn()) return;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    throw new Error("timeout");
+  };
+  const runOf = async (cookie: string, activityId: string) => (await call("GET", `/api/activities/${activityId}/skills`, { cookie })).body.run;
+
+  it("evaluates every work again from scratch and replaces all previous results, teacher corrections included", async () => {
+    const { t, classroomId, activity, student } = await setup();
+    const ana = await insertFullWork(activity.id, student.id);
+    const beto = await insertFullWork(activity.id, (await insertStudent(classroomId, "Beto Ruiz")).id);
+    aiMock.json(AI);
+    await call("POST", `/api/sessions/${ana.id}/skills/analyze`, { cookie: t.cookie });
+    await call("PATCH", `/api/sessions/${ana.id}/skills/comprension`, { cookie: t.cookie, body: { status: "avanzado" } });
+
+    // New criteria: only argumentación, everyone "en desarrollo".
+    await call("PUT", "/api/skills", { cookie: t.cookie, body: { enabled: ["argumentacion"], custom: [] } });
+    aiMock.setFallback(() => ({ kind: "json", value: { skills: [entry("argumentacion", "en_desarrollo", "Se pondría amarilla porque no puede hacer la fotosíntesis")], recommendations: ["Nueva."] } }));
+    const started = await call("POST", `/api/activities/${activity.id}/skills/reevaluate`, { cookie: t.cookie });
+    expect(started.status).toBe(202);
+    expect(started.body.run).toMatchObject({ status: "running", total: 2 });
+    await until(async () => (await runOf(t.cookie, activity.id))?.status !== "running");
+    expect(await runOf(t.cookie, activity.id)).toMatchObject({ status: "done", done: 2, failed: 0 });
+
+    for (const id of [ana.id, beto.id]) {
+      const d = await call("GET", `/api/sessions/${id}`, { cookie: t.cookie });
+      expect(d.body.skills.skills.map((s: { skill: string; status: string; source: string }) => `${s.skill}:${s.status}:${s.source}`)).toEqual(["argumentacion:en_desarrollo:ai"]);
+      expect(d.body.skills.recommendations).toEqual(["Nueva."]);
+    }
+    const g = await call("GET", `/api/activities/${activity.id}/skills`, { cookie: t.cookie });
+    expect(g.body).toMatchObject({ assessedWorks: 2, pending: [] });
+    expect(g.body.skills[0].counts).toMatchObject({ en_desarrollo: 2 });
+
+    const other = await newTeacher();
+    expect((await call("POST", `/api/activities/${activity.id}/skills/reevaluate`, { cookie: other.cookie })).status).toBe(404);
+  });
+
+  it("keeps the previous results when a work cannot be evaluated, and allows one run at a time", async () => {
+    const { t, activity, student } = await setup();
+    const ana = await insertFullWork(activity.id, student.id);
+    aiMock.json(AI);
+    await call("POST", `/api/sessions/${ana.id}/skills/analyze`, { cookie: t.cookie });
+    const before = (await call("GET", `/api/sessions/${ana.id}`, { cookie: t.cookie })).body.skills.skills;
+
+    aiMock.setFallback(() => ({ kind: "error", status: 400, type: "invalid_request_error", message: "mock" }));
+    const first = await call("POST", `/api/activities/${activity.id}/skills/reevaluate`, { cookie: t.cookie });
+    expect(first.status).toBe(202);
+    const second = await call("POST", `/api/activities/${activity.id}/skills/reevaluate`, { cookie: t.cookie });
+    // Either still running (409) or already finished: never two at once.
+    expect([202, 409]).toContain(second.status);
+    await until(async () => (await runOf(t.cookie, activity.id))?.status !== "running");
+    const run = await runOf(t.cookie, activity.id);
+    expect(run.status).toBe("failed");
+    expect(run.error).toContain("Se mantienen los resultados anteriores");
+    expect((await call("GET", `/api/sessions/${ana.id}`, { cookie: t.cookie })).body.skills.skills).toEqual(before);
+  });
+});

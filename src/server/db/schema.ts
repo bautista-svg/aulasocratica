@@ -188,6 +188,8 @@ export const activities = pgTable(
     deliverablePrompt: text("deliverable_prompt").notNull().default(""),
     rubric: jsonb("rubric").notNull().default(sql`'[]'::jsonb`),
     reflectionQuestions: jsonb("reflection_questions").notNull().default(sql`'[]'::jsonb`),
+    /** In the classroom's "Papelera" since then (archived; removed for good after 30 days). */
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
     status: text("status").notNull().default("draft"),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     linkToken: text("link_token").notNull(),
@@ -599,5 +601,31 @@ export const changeRequests = pgTable(
     index("change_requests_teacher_idx").on(t.teacherId, t.createdAt),
     index("change_requests_status_idx").on(t.status, t.submittedAt),
     check("change_requests_status", sql`${t.status} in ('draft','pending','in_progress','done','discarded')`),
+  ],
+);
+
+/**
+ * "Reevaluar habilidades": one run per activity re-evaluates every work from scratch. New results
+ * are only written when all works succeed (otherwise the previous ones stay); at most one run per
+ * activity is "running" at a time.
+ */
+export const skillRuns = pgTable(
+  "skill_runs",
+  {
+    id: id(),
+    activityId: uuid("activity_id").notNull().references(() => activities.id, { onDelete: "cascade" }),
+    teacherId: uuid("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("running"),
+    total: integer("total").notNull().default(0),
+    done: integer("done").notNull().default(0),
+    failed: integer("failed").notNull().default(0),
+    error: text("error").notNull().default(""),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("skill_runs_activity_idx").on(t.activityId, t.startedAt),
+    uniqueIndex("skill_runs_one_running").on(t.activityId).where(sql`${t.status} = 'running'`),
+    check("skill_runs_status", sql`${t.status} in ('running','done','failed')`),
   ],
 );

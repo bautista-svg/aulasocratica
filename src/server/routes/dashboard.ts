@@ -1,7 +1,7 @@
 // Inicio: what is happening now in the teacher's classrooms, what needs review and what to
 // do next. Four queries in parallel; the onboarding checklist comes from real data.
 import { Hono } from "hono";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import type { AppEnv } from "../types";
 import { db, schema } from "../db/client";
 import { requireTeacher, teacherOf } from "../auth/teacher";
@@ -47,7 +47,7 @@ async function latestOpenAlerts(teacherId: string) {
     })
     .from(sa)
     .innerJoin(schema.activities, eq(schema.activities.id, sa.activityId))
-    .where(and(eq(schema.activities.teacherId, teacherId), eq(sa.status, "open")))
+    .where(and(eq(schema.activities.teacherId, teacherId), isNull(schema.activities.deletedAt), eq(sa.status, "open")))
     // Immediate-attention alerts first, then the most recent.
     .orderBy(sql`case when ${sa.severity} = 'immediate' then 0 else 1 end`, desc(sa.createdAt))
     .limit(ALERTS)
