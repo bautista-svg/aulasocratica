@@ -1,11 +1,12 @@
-// "Elegir habilidades": which skills the AI evaluates in this workspace, and the teacher's own
+// "Elegir habilidades": which skills the AI evaluates in this workspace, which of their
+// indicators count (one shown with the student's own words is "logrado"), and the teacher's own
 // skills with the observable indicators the AI must look for.
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { ChevronDown, Pencil, Plus, Trash2 } from "lucide-react";
 import { Dialog } from "@client/components/ui/dialog";
 import { Button } from "@client/components/ui/button";
-import { Switch } from "@client/components/ui/controls";
+import { Checkbox, Switch } from "@client/components/ui/controls";
 import { Field, FormError, Input, Select, Textarea } from "@client/components/ui/field";
 import { ErrorState, SkeletonList } from "@client/components/ui/misc";
 import { errorMessage } from "@client/lib/api";
@@ -48,6 +49,12 @@ export function SkillSettingsDialog({ open, onOpenChange }: { open: boolean; onO
   const catalog = draft ? skillCatalog(draft) : [];
   const toggle = (key: string, on: boolean) =>
     setDraft((d) => (d ? { ...d, enabled: on ? [...d.enabled, key] : d.enabled.filter((k) => k !== key) } : d));
+  const tick = (key: string, criterion: string, on: boolean) =>
+    setDraft((d) => {
+      if (!d) return d;
+      const off = (d.off[key] ?? []).filter((c) => c !== criterion);
+      return { ...d, off: { ...d.off, [key]: on ? off : [...off, criterion] } };
+    });
   const upsert = (skill: CustomSkill) =>
     setDraft((d) => {
       if (!d) return d;
@@ -55,9 +62,12 @@ export function SkillSettingsDialog({ open, onOpenChange }: { open: boolean; onO
       return {
         custom: exists ? d.custom.map((c) => (c.id === skill.id ? skill : c)) : [...d.custom, skill],
         enabled: exists || d.enabled.includes(skill.id) ? d.enabled : [...d.enabled, skill.id],
+        // Indicators rewritten in the form come back ticked.
+        off: { ...d.off, [skill.id]: (d.off[skill.id] ?? []).filter((c) => skill.criteria.includes(c)) },
       };
     });
-  const remove = (id: string) => setDraft((d) => (d ? { custom: d.custom.filter((c) => c.id !== id), enabled: d.enabled.filter((k) => k !== id) } : d));
+  const remove = (id: string) =>
+    setDraft((d) => (d ? { custom: d.custom.filter((c) => c.id !== id), enabled: d.enabled.filter((k) => k !== id), off: { ...d.off, [id]: [] } } : d));
 
   return (
     <Dialog
@@ -65,7 +75,7 @@ export function SkillSettingsDialog({ open, onOpenChange }: { open: boolean; onO
       onOpenChange={onOpenChange}
       wide
       title="Elegir habilidades"
-      description="Qué habilidades evalúa la IA en los trabajos de tus alumnos. Podés sumar las tuyas, con sus indicadores."
+      description="Qué habilidades evalúa la IA en los trabajos de tus alumnos y con qué indicadores. Si un alumno muestra uno de los indicadores tildados con sus propias palabras, la habilidad queda en Logrado."
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
@@ -109,7 +119,9 @@ export function SkillSettingsDialog({ open, onOpenChange }: { open: boolean; onO
                       key={s.key}
                       skill={s}
                       on={draft.enabled.includes(s.key)}
+                      off={draft.off[s.key] ?? []}
                       onToggle={(v) => toggle(s.key, v)}
+                      onTick={(c, v) => tick(s.key, c, v)}
                       onEdit={s.custom ? () => setEditing(draft.custom.find((c) => c.id === s.key) ?? null) : undefined}
                       onRemove={s.custom ? () => remove(s.key) : undefined}
                     />
@@ -152,8 +164,27 @@ export function SkillSettingsDialog({ open, onOpenChange }: { open: boolean; onO
   );
 }
 
-function SkillRow({ skill, on, onToggle, onEdit, onRemove }: { skill: SkillDef; on: boolean; onToggle: (v: boolean) => void; onEdit?: () => void; onRemove?: () => void }) {
+function SkillRow({
+  skill,
+  on,
+  off,
+  onToggle,
+  onTick,
+  onEdit,
+  onRemove,
+}: {
+  skill: SkillDef;
+  on: boolean;
+  /** Unticked indicators. */
+  off: string[];
+  onToggle: (v: boolean) => void;
+  onTick: (criterion: string, on: boolean) => void;
+  onEdit?: () => void;
+  onRemove?: () => void;
+}) {
   const [show, setShow] = useState(false);
+  const ticked = skill.criteria.filter((c) => !off.includes(c)).length;
+  const listId = useId();
   return (
     <li className="px-4 py-3">
       <div className="flex items-start gap-3">
@@ -173,10 +204,19 @@ function SkillRow({ skill, on, onToggle, onEdit, onRemove }: { skill: SkillDef; 
             <button
               type="button"
               aria-expanded={show}
+              aria-controls={listId}
               onClick={() => setShow((v) => !v)}
-              className="-ml-1 inline-flex min-h-9 items-center gap-1 rounded-md px-1 text-sm font-semibold text-text-2 hover:text-ink max-sm:min-h-11"
+              className="-ml-1 inline-flex min-h-9 items-center gap-1.5 rounded-md px-1 text-sm font-semibold text-text-2 hover:text-ink max-sm:min-h-11"
             >
-              {show ? "Ocultar indicadores" : `Ver ${skill.criteria.length} indicadores`}
+              {show ? "Ocultar indicadores" : "Elegir indicadores"}
+              <span
+                className={cn(
+                  "rounded-full px-1.5 py-px text-[11px] font-semibold tabular",
+                  ticked < skill.criteria.length ? "bg-lilac-soft text-lilac-ink" : "bg-sunken text-text-2",
+                )}
+              >
+                {ticked} de {skill.criteria.length}
+              </span>
               <ChevronDown className={cn("size-4 transition-transform", show && "rotate-180")} aria-hidden="true" />
             </button>
             {onEdit ? (
@@ -191,11 +231,26 @@ function SkillRow({ skill, on, onToggle, onEdit, onRemove }: { skill: SkillDef; 
             ) : null}
           </div>
           {show ? (
-            <ul className="mt-1.5 list-disc space-y-1 pl-5 text-sm leading-6 text-text-2">
-              {skill.criteria.map((c) => (
-                <li key={c}>{c}</li>
-              ))}
-            </ul>
+            <fieldset id={listId} className="mt-2 rounded-[12px] bg-paper px-3.5 py-3">
+              <legend className="sr-only">Indicadores de {skill.label}</legend>
+              <p className="mb-2.5 text-xs leading-5 text-text-2">La IA busca solo los tildados. Tiene que quedar al menos uno.</p>
+              <ul className="grid gap-2.5">
+                {skill.criteria.map((c) => {
+                  const checked = !off.includes(c);
+                  return (
+                    <li key={c}>
+                      <Checkbox
+                        checked={checked}
+                        // The last ticked one stays: a skill needs something to look for.
+                        disabled={checked && ticked === 1}
+                        onCheckedChange={(v) => onTick(c, v)}
+                        label={<span className={cn("text-sm leading-5", !checked && "text-text-2")}>{c}</span>}
+                      />
+                    </li>
+                  );
+                })}
+              </ul>
+            </fieldset>
           ) : null}
         </div>
       </div>

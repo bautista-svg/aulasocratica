@@ -106,6 +106,8 @@ const customSkillBody = z.object({
 export const skillSettingsBody = z.object({
   enabled: z.array(z.string().max(40)).max(40),
   custom: z.array(customSkillBody).max(MAX_CUSTOM_SKILLS, `Hasta ${MAX_CUSTOM_SKILLS} habilidades propias.`),
+  /** Unticked indicators by skill (unknown ones are dropped). */
+  off: z.record(z.string().max(40), z.array(z.string().max(CRITERION_MAX)).max(MAX_CRITERIA)).optional(),
 });
 export type SkillSettingsInput = z.input<typeof skillSettingsBody>;
 

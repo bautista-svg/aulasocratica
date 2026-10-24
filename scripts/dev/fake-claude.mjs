@@ -80,6 +80,9 @@ function interview(body) {
 function skills(body) {
   const text = JSON.stringify(body.messages ?? "");
   const keys = [...text.matchAll(/- skill: ([a-z_0-9]+)/g)].map((m) => m[1]);
+  // The first indicator listed for each skill (the ones the teacher left ticked).
+  // The prompt is JSON here, so its line breaks are the two characters "\n".
+  const firstIndicator = Object.fromEntries([...text.matchAll(/- skill: ([a-z_0-9]+)[^\\]*\\n[^\\]*\\n {4}· ([^\\"]+)/g)].map((m) => [m[1], m[2]]));
   const said = [...text.matchAll(/ALUMNO: ([^\\]{12,160})/g)].map((m) => m[1].split(/(?<=[.!?])\s/)[0].trim()).filter((q) => q.split(/\s+/).length >= 4);
   const levels = ["logrado", "en_desarrollo", "avanzado", "inicial", "logrado", "sin_evidencia"];
   return {
@@ -91,7 +94,7 @@ function skills(body) {
         analysis: "Muestra el indicador central con una idea propia.",
         repeatsTutor: false,
         status,
-        criterion: status === "sin_evidencia" ? "" : "Justifica sus respuestas.",
+        criterion: status === "sin_evidencia" || status === "en_desarrollo" || status === "inicial" ? "" : (firstIndicator[skill] ?? ""),
         evidence: quote,
         why: status === "sin_evidencia" ? "La conversación no mostró esta habilidad." : "En sus palabras da una razón concreta para lo que afirma, sin que el tutor se la diga.",
         improve: status === "sin_evidencia" ? "" : "Puede seguir avanzando si apoya la idea con un dato del material.",

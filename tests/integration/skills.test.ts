@@ -19,7 +19,8 @@ const entry = (skill: string, status: string, evidence = "", extra: Record<strin
   analysis: "Muestra el indicador central.",
   repeatsTutor: false,
   status,
-  criterion: status === "sin_evidencia" ? "" : "Justifica sus respuestas.",
+  // The AI names an indicator only when the evidence shows it (logrado or more).
+  criterion: /logrado|avanzado/i.test(status) ? "Justifica sus respuestas." : "",
   evidence,
   why: "Da una razón propia.",
   improve: "Sumar un dato del texto.",
@@ -140,7 +141,7 @@ describe("formative evaluation (Vanina Gerstner, 24-10)", () => {
     expect(prompt).toContain("4.º A · 4.º grado (nivel primario, alrededor de 9 a 10 años)");
     expect(prompt).toContain("evaluación formativa");
     expect(prompt).toContain("Presenta evidencias incipientes y necesita acompañamiento frecuente.");
-    expect(prompt).toContain("No hace falta que estén todos los indicadores");
+    expect(prompt).toContain("No hace falta que aparezcan todos los indicadores");
     expect(prompt).toContain("Puede seguir avanzando");
     expect(req.max_tokens).toBe(20_000);
   });
@@ -170,6 +171,68 @@ describe("formative evaluation (Vanina Gerstner, 24-10)", () => {
     aiMock.json(AI);
     await call("POST", `/api/sessions/${session.id}/skills/analyze`, { cookie: t.cookie });
     expect((await call("GET", url, { cookie: t.cookie })).body.outdatedWorks).toBe(0);
+  });
+});
+
+describe("indicators the teacher ticks (Vanina Gerstner, 24-10)", () => {
+  it("an indicator shown with the student's own words is «logrado»; one the tutor gave or one she unticked is not", async () => {
+    const { t, activity, student } = await setup();
+    await call("PUT", "/api/skills", {
+      cookie: t.cookie,
+      body: { enabled: ["argumentacion", "creatividad", "comprension", "pensamiento_critico"], custom: [], off: { comprension: ["Relaciona conceptos entre sí."] } },
+    });
+    const session = await insertFullWork(activity.id, student.id);
+    aiMock.json({
+      ...AI,
+      skills: [
+        // Named with small changes: still that indicator.
+        entry("argumentacion", "en_desarrollo", "Se pondría amarilla porque no puede hacer la fotosíntesis", { criterion: "justifica sus respuestas" }),
+        entry("creatividad", "inicial", "la clorofila atrapa la luz como un panel solar", { criterion: "Establece conexiones entre ideas diferentes.", repeatsTutor: true }),
+        // Close to an indicator without showing it.
+        entry("comprension", "en_desarrollo", "la clorofila atrapa la luz como un panel solar", { criterion: "" }),
+        // An unticked indicator does not count.
+        entry("pensamiento_critico", "en_desarrollo", "Se pondría amarilla porque no puede hacer la fotosíntesis", { criterion: "Relaciona conceptos entre sí." }),
+      ],
+    });
+    const r = await call("POST", `/api/sessions/${session.id}/skills/analyze`, { cookie: t.cookie });
+    expect(r.status).toBe(200);
+    const one = (k: string) => r.body.skills.find((s: { skill: string }) => s.skill === k);
+    expect(one("argumentacion")).toMatchObject({ status: "logrado", criterion: "Justifica sus respuestas." });
+    expect(one("creatividad")).toMatchObject({ status: "inicial", criterion: "" });
+    expect(one("comprension")).toMatchObject({ status: "en_desarrollo", criterion: "" });
+    expect(one("pensamiento_critico")).toMatchObject({ status: "en_desarrollo", criterion: "" });
+
+    const prompt = JSON.stringify(aiMock.lastRequest()!.body);
+    expect(prompt).toContain("Explica con sus palabras las ideas centrales del tema.");
+    expect(prompt).not.toContain("Relaciona conceptos entre sí.");
+    expect(prompt).toContain("UNO MOSTRADO ES");
+    const group = await call("GET", `/api/activities/${activity.id}/skills`, { cookie: t.cookie });
+    expect(group.body.skills.find((s: { key: string }) => s.key === "comprension").criteria).toEqual([
+      "Explica con sus palabras las ideas centrales del tema.",
+      "Aplica lo que entendió a un caso o ejemplo.",
+      "Corrige confusiones cuando se las señalan.",
+    ]);
+  });
+
+  it("saves the unticked indicators, and never all of a skill", async () => {
+    const t = await newTeacher();
+    const saved = await call("PUT", "/api/skills", {
+      cookie: t.cookie,
+      body: {
+        enabled: ["argumentacion", "comprension"],
+        custom: [],
+        off: {
+          argumentacion: ["Justifica sus respuestas.", "Inventado."],
+          comprension: ["Explica con sus palabras las ideas centrales del tema.", "Relaciona conceptos entre sí.", "Aplica lo que entendió a un caso o ejemplo.", "Corrige confusiones cuando se las señalan."],
+          magia: ["Algo."],
+        },
+      },
+    });
+    expect(saved.status).toBe(200);
+    expect(saved.body.settings.off).toEqual({ argumentacion: ["Justifica sus respuestas."] });
+    // The choice shows every indicator, ticked or not.
+    expect(saved.body.catalog.find((c: { key: string }) => c.key === "argumentacion").criteria).toHaveLength(3);
+    expect((await call("GET", "/api/skills", { cookie: t.cookie })).body.settings.off).toEqual({ argumentacion: ["Justifica sus respuestas."] });
   });
 });
 

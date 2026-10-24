@@ -148,7 +148,7 @@ export function SkillsPanel({ activityId }: { activityId: string }) {
               {d.outdatedWorks === d.assessedWorks
                 ? "Estos trabajos se evaluaron con los criterios anteriores, más exigentes."
                 : `${plural(d.outdatedWorks, "trabajo se evaluó", "trabajos se evaluaron")} con los criterios anteriores, más exigentes.`}{" "}
-              Reevaluá para que se reconozcan los avances parciales según la edad de tus alumnos.
+              Reevaluá para aplicar los actuales: un indicador que el alumno muestra con sus palabras ya es Logrado.
             </p>
           </div>
           <Button variant="primary" icon={<RefreshCw className="size-4" />} className="shrink-0" onClick={() => setConfirming(true)}>
@@ -229,7 +229,7 @@ export function SkillsPanel({ activityId }: { activityId: string }) {
                     <p className="mb-2 text-xs font-semibold tracking-wide text-lilac-ink uppercase">{DIMENSIONS[dim]}</p>
                     <ul className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface shadow-1">
                       {rows.map((r) => (
-                        <SkillBar key={r.key} row={r} base={d.assessedWorks} />
+                        <SkillBar key={r.key} row={r} base={d.assessedWorks} onChoose={() => setChoosing(true)} />
                       ))}
                     </ul>
                   </div>
@@ -335,7 +335,7 @@ const byGrow = (r: SkillGroupRow) => growCount(r.counts);
 
 const ORDER: SkillStatus[] = ["avanzado", "logrado", "en_desarrollo", "inicial", "sin_evidencia"];
 
-function SkillBar({ row, base }: { row: SkillGroupRow; base: number }) {
+function SkillBar({ row, base, onChoose }: { row: SkillGroupRow; base: number; onChoose: () => void }) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
   const good = goodCount(row.counts);
@@ -376,7 +376,16 @@ function SkillBar({ row, base }: { row: SkillGroupRow; base: number }) {
         <div id={panelId} className="grid gap-5 bg-paper/70 px-4 pt-2 pb-5 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
           <div className="grid content-start gap-4">
             <div>
-              <h4 className="text-xs font-semibold tracking-wide text-text-3 uppercase">Indicadores de avance</h4>
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="text-xs font-semibold tracking-wide text-text-3 uppercase">Indicadores de avance</h4>
+                <button
+                  type="button"
+                  onClick={onChoose}
+                  className="-mr-1 inline-flex min-h-8 items-center gap-1 rounded-md px-1 text-xs font-semibold text-ink hover:underline max-sm:min-h-11"
+                >
+                  <SlidersHorizontal className="size-3.5" aria-hidden="true" /> Elegir indicadores
+                </button>
+              </div>
               <ul className="mt-1.5 space-y-1.5">
                 {row.criteria.map((c) => (
                   <li key={c} className="flex gap-2 text-sm leading-6 text-text">
@@ -385,6 +394,10 @@ function SkillBar({ row, base }: { row: SkillGroupRow; base: number }) {
                   </li>
                 ))}
               </ul>
+              <p className="mt-2 flex gap-2 rounded-[10px] bg-leaf-soft/70 px-3 py-2 text-[13px] leading-5 text-text">
+                <Sprout className="mt-0.5 size-3.5 shrink-0 text-leaf" aria-hidden="true" />
+                Si el alumno muestra uno de estos indicadores con sus propias palabras, la habilidad queda en Logrado.
+              </p>
             </div>
             <div>
               <h4 className="text-xs font-semibold tracking-wide text-text-3 uppercase">Niveles</h4>

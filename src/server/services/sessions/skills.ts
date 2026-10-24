@@ -1,9 +1,10 @@
 // "Habilidades" of a work: the AI evaluates each skill the workspace chose at one of four levels,
 // against its observable indicators and with a real quote of the student; without a quote there
 // is no level ("sin evidencia suficiente"). The evaluation is formative (Vanina Gerstner, 24-10):
-// for the student's age and the activity, partial progress counts, not every indicator is needed
-// for "logrado", and the feedback says what the student shows and the next step. The teacher can
-// correct a level; corrections survive a new analysis. Counted per activity (group view) and per
+// for the student's age and the activity, partial progress counts, and the feedback says what the
+// student shows and the next step. The indicators are the ones the teacher ticked, and one of them
+// shown with the student's own words is at least "logrado" (her rule). The teacher can correct a
+// level; corrections survive a new analysis. Counted per activity (group view) and per
 // student (evolution).
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
@@ -17,6 +18,7 @@ import {
   STATUS_LABELS,
   emptyCounts,
   enabledSkills,
+  findIndicator,
   sanitizeAssessments,
   sanitizeRecommendations,
   toStatus,
@@ -96,29 +98,30 @@ const RULES = `PRINCIPIO: evaluás el nivel de desarrollo de cada habilidad, no 
 - Tené en cuenta la edad y el nivel educativo del alumno (ver «Curso»; si no está indicado, inferilo por la actividad), la complejidad de las consignas, los objetivos de la actividad y los conocimientos esperables para ese nivel.
 - Evaluá como lo haría la docente de ese curso. Nunca uses criterios de un adulto, de un universitario o de un especialista: una respuesta clara y pertinente para un alumno de primaria es un logro, aunque un adulto pudiera decirlo mejor.
 
-2. AVANCES PARCIALES
-- No hace falta una respuesta perfecta, completa ni con vocabulario técnico para reconocer una habilidad: una evidencia pertinente, aunque sea breve o parcial, ya la demuestra, y entonces el nivel es al menos "en_desarrollo". La profundidad define cuánto más. Por ejemplo:
-  · identifica un problema y propone una solución relacionada → muestra resolución de problemas;
-  · explica su elección con una razón válida → muestra argumentación;
-  · relaciona una característica de lo que estudia con una dificultad o una consecuencia → muestra pensamiento científico;
-  · organiza objetivos y recursos básicos → muestra planificación.
+2. INDICADORES: UNO MOSTRADO ES "logrado"
+- Los indicadores de cada habilidad son los que eligió la docente. Su regla: si el alumno muestra UNO de esos indicadores con una evidencia propia (lo dice o lo hace él, no repite lo que le dio el tutor), la habilidad está lograda y el nivel es al menos "logrado", aunque la evidencia sea breve, sencilla o con errores. No hace falta que aparezcan todos los indicadores ni una respuesta perfecta, completa o con vocabulario técnico. Por ejemplo:
+  · explica su elección con una razón válida → muestra «Justifica sus respuestas»: argumentación lograda;
+  · identifica un problema y propone una solución relacionada → muestra un indicador de resolución de problemas;
+  · relaciona una característica de lo que estudia con una dificultad o una consecuencia → muestra un indicador de pensamiento científico;
+  · organiza objetivos y recursos básicos → muestra un indicador de planificación.
+- "en_desarrollo" e "inicial" son para cuando el alumno se acerca a un indicador sin llegar a mostrarlo: aporta una idea pertinente que todavía no cumple ninguno ("en_desarrollo"), o apenas un indicio, o cada paso lo dio el tutor ("inicial").
+- La profundidad define si es "avanzado": además de mostrar un indicador, profundiza (muestra varios con precisión, conecta ideas, compara alternativas, anticipa riesgos, propone cómo comprobar) o va más allá de lo que pedía la consigna por su cuenta.
 
 3. NIVELES (con la clave exacta)
 ${SKILL_LEVELS.map((l) => `  · ${l} (${STATUS_LABELS[l]}): ${LEVEL_RUBRIC[l]}`).join("\n")}
   · sin_evidencia (${STATUS_LABELS.sin_evidencia}): ${LEVEL_RUBRIC.sin_evidencia}
 - Elegí el nivel cuya descripción el trabajo cumple en lo esencial, aunque todavía tenga aspectos por mejorar. Entre dos niveles contiguos, si la evidencia sostiene el más alto en lo esencial, elegí el más alto.
 - No asignes "logrado" ni "avanzado" sin una evidencia propia del alumno que lo muestre.
-- "avanzado" no es solo para respuestas excepcionales, y la edad también cuenta para él: es lo que hace un alumno de esa edad cuando va más allá de lo que pedía la consigna, no lo que haría un adulto. Si el alumno, por su cuenta, compara alternativas, justifica con precisión, anticipa riesgos, propone cómo comprobar sus ideas o muestra los indicadores de mayor profundidad, es "avanzado" en las habilidades donde lo hace.
+- "avanzado" no es solo para respuestas excepcionales, y la edad también cuenta para él: es lo que hace un alumno de esa edad cuando va más allá de lo que pedía la consigna, no lo que haría un adulto. Si el alumno, por su cuenta, compara alternativas, justifica con precisión, anticipa riesgos, propone cómo comprobar sus ideas o muestra con precisión varios indicadores, es "avanzado" en las habilidades donde lo hace.
 - La ausencia de evidencia NO es un desempeño bajo: si la conversación no permite evaluar una habilidad, es "sin_evidencia", nunca "inicial". Y al revés: si hay una evidencia pertinente del alumno, no es "sin_evidencia".
 
-4. INDICADORES
-- No hace falta que estén todos los indicadores para "logrado". Decidí cuáles son centrales para ESTA actividad y cuáles muestran mayor profundidad: los centrales son los que las consignas piden o hacen esperables; los que no pedían son de mayor profundidad (por ejemplo, si la consigna pide una solución para cada desafío, considerar alternativas es de mayor profundidad). "logrado" es demostrar suficientemente los centrales; "avanzado" es, además, mostrar los de mayor profundidad o ir más allá por su cuenta.
-- Lo que no aparece no resta: el nivel sale de lo que el alumno muestra y de su profundidad. Un indicador ausente solo puede impedir llegar a "avanzado"; un indicador que la actividad no pedía nunca baja el nivel.
-- No calcules el nivel por la cantidad de palabras, de mensajes, de intervenciones ni de indicadores cumplidos.
+4. LO QUE NO APARECE NO RESTA
+- El nivel sale de lo que el alumno muestra y de su profundidad. Un indicador ausente solo puede impedir llegar a "avanzado": con otro indicador mostrado, el nivel nunca baja de "logrado".
+- No calcules el nivel por la cantidad de palabras, de mensajes ni de intervenciones.
 
 5. EL PROCESO
 - Mirá cómo evoluciona el razonamiento a lo largo de la conversación. Si empezó con una respuesta sencilla y, con las preguntas del tutor, llegó a una explicación propia, reconocé ese progreso: lo que el alumno elabora después de una pregunta orientadora es suyo y cuenta.
-- Distinguí las ideas del alumno de las que dio el tutor. Antes de usar una cita, fijate si esa idea la planteó antes el tutor: si el alumno la acepta («sí», «eso»), la repite con otras palabras o la copia en su respuesta final, no es una idea propia y no alcanza para "en_desarrollo" ni más.
+- Distinguí las ideas del alumno de las que dio el tutor. Antes de usar una cita, fijate si esa idea la planteó antes el tutor: si el alumno la acepta («sí», «eso»), la repite con otras palabras o la copia en su respuesta final, no es una idea propia: no cuenta como un indicador mostrado y no alcanza para "en_desarrollo" ni más.
 - «Logra avances con preguntas orientadoras» ("en_desarrollo") quiere decir que, después de una pregunta, el alumno aporta algo que el tutor no le dio: una razón, un dato que buscó, una relación. Si cada paso lo dio el tutor y el alumno solo completa con una o dos palabras, es "inicial" (necesita acompañamiento frecuente).
 - No penalices respuestas breves, vocabulario sencillo, errores de ortografía ni dificultades de expresión, salvo en la habilidad que evalúa justamente la escritura o el vocabulario (y aun ahí, con lo esperable para su edad).
 
@@ -127,10 +130,10 @@ EVIDENCIA
 - Si no hay una cita que muestre la habilidad, el estado es "sin_evidencia" y "evidence" queda vacío.
 
 DEVOLUCIÓN, PARA CADA HABILIDAD de la lista (una entrada por habilidad, con la clave exacta en "skill"):
-- analysis (interno, la docente no lo ve), breve y en este orden: 1) los indicadores que el alumno muestra y con qué parte de lo que escribió; 2) cuáles de ellos son centrales para esta actividad; 3) el nivel, que sale solo de lo que muestra y de su profundidad, decidido en este orden: ¿va más allá de lo que pedía la consigna por su cuenta o muestra los indicadores de mayor profundidad (compara alternativas, justifica con precisión, anticipa riesgos, propone cómo comprobar, conecta ideas)? → avanzado. Si no, ¿muestra con claridad los indicadores centrales, para su edad? → logrado, aunque falten otros. Si no, ¿muestra la habilidad de forma parcial o simple? → en_desarrollo. Si apenas hay un indicio o lo guió el tutor paso a paso → inicial. Sé coherente con tu análisis: si dice que el alumno, por su cuenta, compara alternativas, anticipa riesgos, propone cómo comprobar o conecta ideas en esta habilidad, el nivel es "avanzado", no "logrado". No menciones lo que falta: eso va en "improve".
+- analysis (interno, la docente no lo ve), breve y en este orden: 1) qué indicadores de la lista muestra el alumno por su cuenta y con qué parte de lo que escribió; 2) el nivel, que sale solo de lo que muestra y de su profundidad, decidido en este orden: ¿muestra un indicador y además profundiza o va más allá de lo que pedía la consigna por su cuenta (compara alternativas, justifica con precisión, anticipa riesgos, propone cómo comprobar, conecta ideas)? → avanzado. Si no, ¿muestra al menos un indicador con una evidencia propia? → logrado, aunque falten otros. Si no, ¿se acerca a un indicador con una idea pertinente que todavía no lo cumple? → en_desarrollo. Si apenas hay un indicio o lo guió el tutor paso a paso → inicial. Sé coherente con tu análisis: si dice que el alumno muestra un indicador, el nivel es "logrado" o "avanzado"; si dice que, por su cuenta, compara alternativas, anticipa riesgos, propone cómo comprobar o conecta ideas en esta habilidad, es "avanzado". No menciones lo que falta: eso va en "improve".
 - repeatsTutor: true SOLO si lo que muestra la cita lo había planteado antes el TUTOR en la conversación y el alumno solo lo acepta, lo repite o lo copia. Usar por su cuenta un dato del material no es repetir al tutor, y la forma de escribir siempre es del alumno (false). Con true, el nivel es "inicial" como máximo.
 - status: inicial, en_desarrollo, logrado, avanzado o sin_evidencia.
-- criterion: el indicador de la lista que muestra la evidencia (copialo).
+- criterion: el indicador de la lista que muestra la evidencia, copiado tal cual. Vacío si la evidencia todavía no muestra ninguno ("en_desarrollo" o "inicial").
 - evidence: la cita.
 - why: una o dos oraciones sobre lo que el alumno SÍ muestra con esa evidencia y por qué corresponde a ese nivel, en lenguaje constructivo y orientado al progreso. Por ejemplo: «Identifica características del planeta y comienza a relacionarlas con los desafíos de la exploración.» Cuando hay evidencias parciales no escribas «no demuestra…» ni «no logra…», y no enumeres lo que falta: eso va en "improve". Con "sin_evidencia", explicá en tono neutro qué faltó en la conversación para poder evaluarla (por ejemplo, que la consigna no lo pedía), sin juzgar al alumno.
 - improve: el próximo paso concreto para seguir avanzando, a partir de lo que ya hace. Por ejemplo: «Puede seguir avanzando si explica mejor cómo funcionarían sus propuestas.» Uno solo, el más importante, no una lista de todo lo que falta. Vacío con "sin_evidencia".
@@ -152,7 +155,7 @@ export interface SkillsPromptInput {
 /** What the AI reads to evaluate one work (pure, so it can be tried on fixed conversations). */
 export function skillsPrompt(i: SkillsPromptInput): { system: string; content: string } {
   const list = i.skills
-    .map((s) => `- skill: ${s.key} · ${s.label}\n  Indicadores observables:\n${s.criteria.map((c) => `    · ${c}`).join("\n")}`)
+    .map((s) => `- skill: ${s.key} · ${s.label}\n  Indicadores observables (los que eligió la docente):\n${s.criteria.map((c) => `    · ${c}`).join("\n")}`)
     .join("\n");
   return {
     system: `Sos un asistente pedagógico. Evaluás de forma formativa las habilidades de un alumno a partir de su trabajo con un tutor socrático, con una rúbrica explícita y citas reales.
@@ -180,8 +183,9 @@ ${list}`,
 }
 
 /**
- * The AI's answer for one skill, made safe: a level needs a real quote of the student, and an
- * idea the tutor gave (the student only accepted or repeated it) is "inicial" at most.
+ * The AI's answer for one skill, made safe: a level needs a real quote of the student, an idea
+ * the tutor gave (the student only accepted or repeated it) is "inicial" at most and shows no
+ * indicator, and a ticked indicator shown with the student's own words is at least "logrado".
  */
 export function settleSkill(def: SkillDef, ai: AiSkill | undefined, texts: string[]): { assessment: SkillAssessment; dropped: boolean } {
   let status: SkillStatus = toStatus(ai?.status) ?? "sin_evidencia";
@@ -197,13 +201,16 @@ export function settleSkill(def: SkillDef, ai: AiSkill | undefined, texts: strin
   }
   if (status === "sin_evidencia") evidence = evidence && quoteInTexts(evidence, texts) ? evidence : "";
   if (ai?.repeatsTutor && (status === "en_desarrollo" || status === "logrado" || status === "avanzado")) status = "inicial";
+  const indicator = status === "sin_evidencia" || ai?.repeatsTutor ? null : findIndicator(ai?.criterion ?? "", def.criteria);
+  // Vanina Gerstner (24-10): an indicator with evidence is "logrado".
+  if (indicator && (status === "inicial" || status === "en_desarrollo")) status = "logrado";
   return {
     assessment: {
       skill: def.key,
       label: def.label,
       dimension: def.dimension,
       status,
-      criterion: status === "sin_evidencia" ? "" : (ai?.criterion.trim() ?? ""),
+      criterion: indicator ?? "",
       evidence,
       why,
       improve: status === "sin_evidencia" ? "" : (ai?.improve.trim() ?? ""),

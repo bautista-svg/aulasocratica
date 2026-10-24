@@ -20,10 +20,11 @@ export type NewsKey =
   | "skills"
   | "structure"
   | "trash"
-  | "formative";
+  | "formative"
+  | "indicators";
 
 /** Releases in order; adding one shows its items to everyone who has not seen them. */
-export const NEWS_RELEASES = ["2026-10-22", "2026-10-22b", "2026-10-22c", "2026-10-23", "2026-10-23b", "2026-10-23c", "2026-10-23d", "2026-10-24"] as const;
+export const NEWS_RELEASES = ["2026-10-22", "2026-10-22b", "2026-10-22c", "2026-10-23", "2026-10-23b", "2026-10-23c", "2026-10-23d", "2026-10-24", "2026-10-24b"] as const;
 export type NewsRelease = (typeof NEWS_RELEASES)[number];
 
 export interface NewsItem {
@@ -130,6 +131,12 @@ export const NEWS_ITEMS: NewsItem[] = [
     release: "2026-10-24",
     title: "Habilidades evaluadas de forma formativa",
     text: "La IA ahora evalúa según la edad de tus alumnos y lo que pide la actividad: reconoce los avances parciales, no exige todos los indicadores para «Logrado» y cada devolución trae lo que el alumno muestra y un próximo paso. Con «Reevaluar habilidades» actualizás los trabajos que ya estaban evaluados.",
+  },
+  {
+    key: "indicators",
+    release: "2026-10-24b",
+    title: "Elegí los indicadores de cada habilidad",
+    text: "En «Elegir habilidades» tildás los indicadores que la IA busca en cada habilidad. Si un alumno muestra uno de ellos con sus propias palabras, la habilidad queda en «Logrado». Reevaluá los trabajos que ya estaban evaluados para aplicarlo.",
   },
   {
     key: "structure",

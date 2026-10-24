@@ -1,7 +1,8 @@
 // "Habilidades": each work is evaluated skill by skill, at one of four levels with a real quote
 // of the student as evidence (or "sin evidencia suficiente", which is never a low level). Skills
 // come in dimensions; each workspace chooses which ones to evaluate and can add its own, with
-// the observable indicators the AI must look for. Asked for by Vanina Gerstner (23-10).
+// the observable indicators the AI must look for, and ticks which indicators count (one shown
+// with the student's own words is "logrado"). Asked for by Vanina Gerstner (23-10, 24-10).
 
 export const DIMENSIONS = {
   cognitiva: "Dimensión cognitiva",
@@ -42,9 +43,10 @@ export const LEVEL_RUBRIC: Record<SkillStatus, string> = {
 
 /**
  * The criteria the AI evaluates with. Works evaluated with an older version can be evaluated
- * again ("Reevaluar habilidades"). 1: first rubric; 2: formative, by age, partial progress (24-10).
+ * again ("Reevaluar habilidades"). 1: first rubric; 2: formative, by age, partial progress (24-10);
+ * 3: an indicator shown with the student's own words is at least "logrado" (24-10).
  */
-export const SKILL_CRITERIA_VERSION = 2;
+export const SKILL_CRITERIA_VERSION = 3;
 
 /** Colors mean one thing each: green achieved, orange on the way, grey not evaluable. */
 export type StatusTone = "good" | "grow" | "none";
@@ -56,7 +58,7 @@ export interface SkillDef {
   key: string;
   label: string;
   dimension: SkillDimension;
-  /** Observable indicators: what the AI looks for in the conversation. */
+  /** Observable indicators: what the AI looks for in the conversation (the ticked ones, once enabled). */
   criteria: string[];
   custom: boolean;
 }
@@ -191,18 +193,21 @@ export interface SkillSettings {
   /** Built-in keys and custom ids that are evaluated. */
   enabled: string[];
   custom: CustomSkill[];
+  /** Indicators the teacher unticked, by skill: they are not evaluated (never all of a skill). */
+  off: Record<string, string[]>;
 }
 
 export const DEFAULT_SKILL_SETTINGS: SkillSettings = {
   enabled: BUILTIN_KEYS.filter((k) => (BUILTIN_SKILLS[k] as BuiltIn).on),
   custom: [],
+  off: {},
 };
 
 const clean = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "");
 
 /** Stored or sent settings, made valid (unknown keys dropped, limits applied). Null → defaults. */
 export function sanitizeSkillSettings(raw: unknown): SkillSettings {
-  if (!raw || typeof raw !== "object") return { enabled: [...DEFAULT_SKILL_SETTINGS.enabled], custom: [] };
+  if (!raw || typeof raw !== "object") return { enabled: [...DEFAULT_SKILL_SETTINGS.enabled], custom: [], off: {} };
   const o = raw as Record<string, unknown>;
   const custom: CustomSkill[] = [];
   for (const c of Array.isArray(o.custom) ? o.custom : []) {
@@ -216,10 +221,20 @@ export function sanitizeSkillSettings(raw: unknown): SkillSettings {
   }
   const known = new Set<string>([...BUILTIN_KEYS, ...custom.map((c) => c.id)]);
   const enabled = [...new Set((Array.isArray(o.enabled) ? o.enabled : []).filter((k): k is string => typeof k === "string" && known.has(k)))];
-  return { enabled, custom };
+  // Only indicators the skill has; a skill with all of them unticked keeps them all.
+  const off: Record<string, string[]> = {};
+  const rawOff = o.off && typeof o.off === "object" && !Array.isArray(o.off) ? (o.off as Record<string, unknown>) : {};
+  for (const def of skillCatalog({ enabled, custom, off: {} })) {
+    const list = rawOff[def.key];
+    if (!Array.isArray(list)) continue;
+    const texts = new Set(list.map((x) => clean(x, CRITERION_MAX)));
+    const unticked = def.criteria.filter((c) => texts.has(c));
+    if (unticked.length && unticked.length < def.criteria.length) off[def.key] = unticked;
+  }
+  return { enabled, custom, off };
 }
 
-/** Every skill the workspace can evaluate, by dimension (built-in first, then its own). */
+/** Every skill the workspace can evaluate, with all its indicators, by dimension (built-in first, then its own). */
 export function skillCatalog(settings: SkillSettings): SkillDef[] {
   const all: SkillDef[] = [
     ...BUILTIN_KEYS.map((key) => ({ key, label: BUILTIN_SKILLS[key].label, dimension: BUILTIN_SKILLS[key].dimension as SkillDimension, criteria: [...BUILTIN_SKILLS[key].criteria], custom: false })),
@@ -228,10 +243,47 @@ export function skillCatalog(settings: SkillSettings): SkillDef[] {
   return DIMENSION_KEYS.flatMap((d) => all.filter((s) => s.dimension === d));
 }
 
-/** The skills this workspace evaluates, in catalog order. */
+/** The skills this workspace evaluates, in catalog order, with the indicators the teacher left ticked. */
 export function enabledSkills(settings: SkillSettings): SkillDef[] {
   const on = new Set(settings.enabled);
-  return skillCatalog(settings).filter((s) => on.has(s.key));
+  return skillCatalog(settings)
+    .filter((s) => on.has(s.key))
+    .map((s) => {
+      const off = settings.off[s.key];
+      return off?.length ? { ...s, criteria: s.criteria.filter((c) => !off.includes(c)) } : s;
+    });
+}
+
+const words = (v: string) =>
+  v
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    // Singular and plural are the same word ("respuesta", "respuestas").
+    .map((w) => (w.length > 4 ? w.replace(/(es|s)$/, "") : w));
+
+/**
+ * The indicator of the list the AI named (it may copy it with small changes), or null. Short
+ * words are left out of the comparison: most of them are articles and prepositions.
+ */
+export function findIndicator(named: string, criteria: string[]): string | null {
+  const said = words(named);
+  const text = said.join(" ");
+  if (!text) return null;
+  const has = new Set(said);
+  let best: { c: string; score: number } | null = null;
+  for (const c of criteria) {
+    const own = words(c);
+    const ownText = own.join(" ");
+    if (ownText === text || (text.length >= 12 && ownText.includes(text)) || (ownText.length >= 12 && text.includes(ownText))) return c;
+    const key = own.filter((w) => w.length >= 4);
+    const score = key.length ? key.filter((w) => has.has(w)).length / key.length : 0;
+    if (score >= 0.6 && (!best || score > best.score)) best = { c, score };
+  }
+  return best?.c ?? null;
 }
 
 // ── One work's evaluation ──
@@ -242,7 +294,7 @@ export interface SkillAssessment {
   label: string;
   dimension: SkillDimension;
   status: SkillStatus;
-  /** The indicator this evidence shows ("" when there is no evidence). */
+  /** The ticked indicator this evidence shows ("" when the evidence does not show one). */
   criterion: string;
   /** A literal quote of the student ("" when there is no evidence). */
   evidence: string;

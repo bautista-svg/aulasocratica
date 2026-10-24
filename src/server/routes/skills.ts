@@ -19,6 +19,6 @@ export const skillRoutes = new Hono<AppEnv>()
   .put("/", async (c) => {
     const t = teacherOf(c);
     const settings = await saveSkillSettings(t.id, await readJson(c, skillSettingsBody));
-    await audit(c, t.id, "skill_settings_saved", "teacher", t.id, { enabled: settings.enabled.length, custom: settings.custom.length });
+    await audit(c, t.id, "skill_settings_saved", "teacher", t.id, { enabled: settings.enabled.length, custom: settings.custom.length, unticked: Object.values(settings.off).flat().length });
     return c.json({ settings, catalog: skillCatalog(settings) });
   });
