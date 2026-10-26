@@ -1161,3 +1161,75 @@ describe("activity structure: presentation, consignas one at a time, answers per
     expect(r.body.error.fields["consigna.investigar"]).toBeUndefined();
   });
 });
+
+describe("AI summary shared with the student (Vanina Gerstner, 26-10)", () => {
+  const SUMMARY = {
+    overview: "Partió de comparar las fracciones y llegó a explicar por qué 2/4 es la mitad.",
+    criteria: [],
+    objectives: [
+      { title: "Comparar fracciones equivalentes", observation: "Lo explica con sus palabras.", evidence: ["2/4 es la mitad de la pizza", "una frase que nunca escribió"] },
+    ],
+    nextSteps: ["Pedirle un ejemplo con otra fracción."],
+  };
+  const isSummary = (body: unknown) => JSON.stringify(body).includes("resume para una docente");
+  // Alert detection runs in the background too: only the summary request gets the summary.
+  const replies = () => aiMock.setFallback((body) => ({ kind: "json", value: isSummary(body) ? SUMMARY : { detections: [] } }));
+  const finish = (s: { token: string; cookie: string }) =>
+    call("POST", `/api/s/${s.token}/finish`, { cookie: s.cookie, body: { finalAnswer: "Son iguales porque 2/4 es la mitad de la pizza." } });
+  const feedbackOf = async (s: { token: string; cookie: string }) => (await call("GET", `/api/s/${s.token}`, { cookie: s.cookie })).body.workspace.feedback;
+
+  it("when the activity shares it, the student sees it after sending the work, without the teacher's notes", async () => {
+    replies();
+    const s = await joined({ requireInitialAnswer: false, askReflection: false, objectives: "Comparar fracciones equivalentes", shareSummary: true });
+    expect(s.workspace.feedback).toBeNull();
+    const done = await finish(s);
+    expect(done.status).toBe(200);
+    expect(done.body.workspace.feedback).toEqual({ status: "pending" });
+    await settleStudentJobs();
+    expect(await feedbackOf(s)).toEqual({
+      status: "ready",
+      overview: SUMMARY.overview,
+      criteria: [],
+      objectives: [{ title: "Comparar fracciones equivalentes", observation: "Lo explica con sus palabras.", evidence: ["2/4 es la mitad de la pizza"] }],
+      nextSteps: ["Pedirle un ejemplo con otra fracción."],
+    });
+
+    // The teacher sees the same summary and that the student sees it; a new one replaces it for both.
+    const detail = await call("GET", `/api/sessions/${s.session.id}`, { cookie: s.teacher.cookie });
+    expect(detail.body.activity.shareSummary).toBe(true);
+    expect(detail.body.summary.basis).toEqual(["objectives"]);
+    aiMock.json({ ...SUMMARY, overview: "Una versión nueva del resumen." });
+    expect((await call("POST", `/api/sessions/${s.session.id}/summary`, { cookie: s.teacher.cookie, body: { basis: ["objectives"] } })).status).toBe(200);
+    expect((await feedbackOf(s)).overview).toBe("Una versión nueva del resumen.");
+  });
+
+  it("not shared: no summary is made when the work is sent, and the teacher's stays hers", async () => {
+    replies();
+    const s = await joined({ requireInitialAnswer: false, askReflection: false, objectives: "Comparar fracciones equivalentes" });
+    const done = await finish(s);
+    expect(done.body.workspace.feedback).toBeNull();
+    await settleStudentJobs();
+    expect(recorded.some((r) => isSummary(r.body))).toBe(false);
+    aiMock.json(SUMMARY);
+    expect((await call("POST", `/api/sessions/${s.session.id}/summary`, { cookie: s.teacher.cookie, body: { basis: ["objectives"] } })).status).toBe(200);
+    expect(await feedbackOf(s)).toBeNull();
+  });
+
+  it("without objectives nor rubric there is nothing to summarize", async () => {
+    replies();
+    const s = await joined({ requireInitialAnswer: false, askReflection: false, objectives: "", shareSummary: true });
+    const done = await finish(s);
+    expect(done.body.workspace.feedback).toBeNull();
+    await settleStudentJobs();
+    expect(recorded.some((r) => isSummary(r.body))).toBe(false);
+  });
+
+  it("the teacher turns it on in Configuración, and a copy of the activity keeps it", async () => {
+    const s = await setup({ objectives: "Comparar fracciones equivalentes" });
+    const on = await call("PATCH", `/api/activities/${s.activity.id}`, { cookie: s.teacher.cookie, body: { shareSummary: true } });
+    expect(on.status).toBe(200);
+    expect(on.body.activity.shareSummary).toBe(true);
+    const copy = await call("POST", `/api/activities/${s.activity.id}/duplicate`, { cookie: s.teacher.cookie, body: {} });
+    expect(copy.body.activity.shareSummary).toBe(true);
+  });
+});

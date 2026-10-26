@@ -34,6 +34,7 @@ import { isDeliverableMode, type DeliverableKind } from "@shared/domain/delivera
 import {
   normalizeResumeCode,
   studentMetaLine,
+  type StudentFeedback,
   type StudentFile,
   type StudentLinkInfo,
   type StudentMessage,
@@ -42,6 +43,7 @@ import {
 } from "@shared/contracts/student";
 import type { FileKind } from "@shared/domain/files";
 import { isStreaming } from "./streams";
+import { defaultBasis, sanitizeSummary, splitObjectives, withFullObjectives } from "@shared/domain/session-summary";
 import { consignasOf, readFinalAnswers } from "@shared/domain/consignas";
 import { DEFAULT_FINAL_QUESTION_BY_LANGUAGE, LINK_AVAILABILITY_MESSAGE_EN, languageOf, reflectionQuestionsIn } from "@shared/domain/language";
 
@@ -502,10 +504,32 @@ export async function linkWorkspace(c: Context, link: LinkCtx, availability: Lin
   return isReadOnly(ctx.session) ? buildWorkspace(ctx, { files: false }) : null;
 }
 
+/** How long after sending the work the shared summary shows as being written. */
+export const FEEDBACK_PENDING_MS = 3 * 60_000;
+
+/**
+ * The AI summary of the student's work when the activity shares it: once the work is sent (or
+ * the teacher ended the session), the same summary the teacher sees, without her notes on it.
+ */
+async function feedbackOf(activity: Activity, session: Session): Promise<StudentFeedback | null> {
+  if (!activity.shareSummary || (session.status !== "completed" && !session.endedByTeacher)) return null;
+  const [row] = await db
+    .select({ content: schema.sessionSummaries.content })
+    .from(schema.sessionSummaries)
+    .where(eq(schema.sessionSummaries.sessionId, session.id))
+    .limit(1);
+  if (row) {
+    const { overview, criteria, objectives, nextSteps } = sanitizeSummary(row.content);
+    return { status: "ready", overview, criteria, objectives: withFullObjectives(objectives, splitObjectives(activity.objectives)), nextSteps };
+  }
+  const justSent = session.status === "completed" && session.completedAt !== null && Date.now() - session.completedAt.getTime() < FEEDBACK_PENDING_MS;
+  return justSent && defaultBasis(activity).length ? { status: "pending" } : null;
+}
+
 export async function buildWorkspace(ctx: StudentCtx, opts: { files?: boolean } = {}): Promise<StudentWorkspace> {
   const { activity, session, student } = ctx;
   const withFiles = opts.files ?? true;
-  const [messages, files, deliverables] = await Promise.all([
+  const [messages, files, deliverables, feedback] = await Promise.all([
     db
       .select()
       .from(schema.messages)
@@ -535,6 +559,7 @@ export async function buildWorkspace(ctx: StudentCtx, opts: { files?: boolean } 
       .from(schema.sessionDeliverables)
       .where(eq(schema.sessionDeliverables.sessionId, session.id))
       .limit(1),
+    feedbackOf(activity, session),
   ]);
   const deliverable = deliverables[0];
   const questions = reflectionQuestionsOf(activity);
@@ -608,6 +633,7 @@ export async function buildWorkspace(ctx: StudentCtx, opts: { files?: boolean } 
       }),
     ),
     replyPending: isStreaming(session.id),
+    feedback,
   };
 }
 

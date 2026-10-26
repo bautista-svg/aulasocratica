@@ -105,12 +105,33 @@ function skills(body) {
   };
 }
 
+// "Resumen de la IA": one point per objective listed in the prompt, quoting what the student wrote.
+function summary(body) {
+  const text = JSON.stringify(body.messages ?? "");
+  const objectives = (/Objetivos:\\n((?:- [^\\]+\\n)+)/.exec(text)?.[1] ?? "")
+    .split("\\n")
+    .map((l) => l.replace(/^- /, "").trim())
+    .filter(Boolean);
+  const said = [...text.matchAll(/(?:ALUMNO|Respuesta final): ([^\\]{12,160})/g)].map((m) => m[1].split(/(?<=[.!?])\s/)[0].trim()).filter((q) => q.split(/\s+/).length >= 4);
+  return {
+    overview: "Partió de una idea general y, con las preguntas del tutor, la fue precisando hasta dar una razón concreta. Todavía puede apoyarla con más datos del material.",
+    criteria: [],
+    objectives: objectives.map((title, i) => ({
+      title,
+      observation: i % 2 ? "Aparece en parte: lo menciona, pero todavía no lo explica con sus palabras." : "Muestra avance: da una razón propia y la conecta con la consigna.",
+      evidence: said.length ? [said[i % said.length]] : [],
+    })),
+    nextSteps: ["Pedirle que compare su idea con un dato del material.", "Proponerle explicar su razonamiento con un ejemplo propio."],
+  };
+}
+
 function reply(body) {
   const format = body.output_config?.format;
   if (format?.schema) {
     const s = format.schema;
     const defs = s.$defs ?? s.definitions ?? {};
     if (s.properties?.skills && s.properties?.recommendations) return JSON.stringify(skills(body));
+    if (s.properties?.overview && s.properties?.nextSteps) return JSON.stringify(summary(body));
     if (s.properties?.reply && s.properties?.summary) return JSON.stringify(interview(body));
     // The aspects request: its keys are listed in the prompt, the schema only has strings.
     const keys = s.properties?.items?.items?.properties?.aspect ? Object.keys(ASPECT_TEXT) : null;

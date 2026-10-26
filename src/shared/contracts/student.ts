@@ -12,6 +12,7 @@ import { MAX_CONSIGNAS } from "../domain/consignas";
 import type { ActivityLanguage } from "../domain/language";
 import type { SectionKey, SectionText } from "../domain/structure";
 import { AWAY_MIN_MS, PASTE_MIN_CHARS } from "../domain/alerts";
+import type { SummaryPoint } from "../domain/session-summary";
 import { MAX_ANSWER_CHARS, MAX_CHAT_CHARS, MAX_REFLECTION_ANSWER_CHARS, MIN_ANSWER_CHARS } from "./student-limits";
 
 export { MAX_ANSWER_CHARS, MAX_CHAT_CHARS, MAX_REFLECTION_ANSWER_CHARS, MIN_ANSWER_CHARS, RESUME_CODE_LENGTH, RESUME_CODE_ALPHABET, normalizeResumeCode, resumeCodeProblem, studentMetaLine } from "./student-limits";
@@ -224,7 +225,17 @@ export interface StudentWorkspace {
   messages: StudentMessage[];
   /** The tutor is still writing a reply on the server (e.g. after a reload mid-reply). */
   replyPending: boolean;
+  /** The AI summary of their work, when the activity shares it (null: not shared, or none). */
+  feedback: StudentFeedback | null;
 }
+
+/**
+ * The AI summary of the student's own work, when the activity shares it (Configuración →
+ * Devolución de la IA): "pending" while the AI is still writing it right after sending.
+ */
+export type StudentFeedback =
+  | { status: "pending" }
+  | { status: "ready"; overview: string; criteria: SummaryPoint[]; objectives: SummaryPoint[]; nextSteps: string[] };
 
 export interface WorkspaceResponse {
   workspace: StudentWorkspace;

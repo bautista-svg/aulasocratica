@@ -16,6 +16,7 @@ import { DELIVERABLE_MODES, DELIVERABLE_PROMPT_MAX, MAX_DELIVERABLE_LABEL, type 
 import { ACTIVITY_LIMITS, type ActivityEditorData } from "@shared/contracts/activities";
 import { CLOSING_MESSAGE_MAX, DEFAULT_FINAL_QUESTION, FINAL_QUESTION_MAX, MAX_CONSIGNAS } from "@shared/domain/consignas";
 import { DEFAULT_FINAL_QUESTION_BY_LANGUAGE } from "@shared/domain/language";
+import { defaultBasis } from "@shared/domain/session-summary";
 import { LanguageSwitch } from "./language-switch";
 import { useSaveActivity } from "./api";
 import { EditorSection, RadioCards } from "./parts";
@@ -41,6 +42,7 @@ export const SECTIONS: { id: string; title: string; keys: DraftKey[] }[] = [
   { id: "reflexion", title: "Reflexión final", keys: ["askReflection", "reflectionQuestions"] },
   { id: "mensaje-final", title: "Mensaje final", keys: ["closingMessageOn", "closingMessage"] },
   { id: "entrega", title: "Entrega (archivo o enlace)", keys: ["deliverableMode", "deliverablePrompt"] },
+  { id: "devolucion", title: "Devolución de la IA", keys: ["shareSummary"] },
 ];
 
 function sectionOfError(errors: FieldErrors): string | null {
@@ -436,6 +438,29 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
                 />
               )}
             </Field>
+          ) : null}
+        </EditorSection>
+
+        <EditorSection
+          id="devolucion"
+          title="Devolución de la IA"
+          description="El resumen de la IA sobre el trabajo de cada alumno, con citas suyas y próximos pasos. Siempre lo ves vos en la Evaluación de cada alumno; acá decidís si también lo ven ellos."
+          {...meta("devolucion")}
+        >
+          <Switch
+            checked={draft.shareSummary}
+            onCheckedChange={(v) => set("shareSummary", v)}
+            label="Mostrar a cada alumno el resumen de su trabajo"
+            description={
+              draft.shareSummary
+                ? "Al enviar su trabajo, cada alumno ve el resumen de la IA con sus citas y los próximos pasos. Si lo volvés a resumir en Evaluación, ve el nuevo."
+                : "Solo vos ves el resumen de la IA, en la Evaluación de cada alumno."
+            }
+          />
+          {draft.shareSummary && !defaultBasis({ rubric: draft.rubric, objectives: draft.objectives }).length ? (
+            <Notice tone="amber" className="mt-4">
+              Para armar el resumen, la actividad necesita objetivos o una rúbrica. Cargá alguno de los dos.
+            </Notice>
           ) : null}
         </EditorSection>
 

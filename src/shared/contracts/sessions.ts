@@ -204,6 +204,8 @@ export interface SessionDetail {
     reflectionQuestions: ReflectionQuestion[];
     deliverableMode: DeliverableMode;
     deliverablePrompt: string;
+    /** The student sees the AI summary of their work (Configuración → Devolución de la IA). */
+    shareSummary: boolean;
   };
   messages: SessionMessage[];
   deliverable: SessionDeliverableView | null;

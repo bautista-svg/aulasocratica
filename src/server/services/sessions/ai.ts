@@ -1,6 +1,7 @@
 // AI suggestions about one student's work: rubric levels, a summary and the
-// "Radiografía del pensamiento". All of them run only when the teacher asks, quote only
-// what the student wrote (verified) and are stored as suggestions the teacher reviews.
+// "Radiografía del pensamiento". They run when the teacher asks (the summary also when the
+// student sends work the activity shares it with them), quote only what the student wrote
+// (verified) and are stored as suggestions the teacher reviews.
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -9,7 +10,7 @@ import { generateStructured } from "../../ai/client";
 import { badRequest, conflict, notFound } from "../../lib/errors";
 import { readFile } from "../../lib/storage";
 import { sanitizeRubric } from "@shared/domain/activity-design";
-import { normalizeBasis, sanitizeSummary, splitObjectives, withFullObjectives, type SummaryBasis } from "@shared/domain/session-summary";
+import { defaultBasis, normalizeBasis, sanitizeSummary, splitObjectives, withFullObjectives, type SummaryBasis } from "@shared/domain/session-summary";
 import { XRAY_MOMENTS, sanitizeXrayItems } from "@shared/domain/thinking-xray";
 import { quoteAppears } from "@shared/domain/thinking-xray";
 import { MAX_IMAGE_BYTES } from "@shared/domain/files";
@@ -489,6 +490,22 @@ ${tasks}
     .onConflictDoUpdate({ target: schema.sessionSummaries.sessionId, set: { basis, content: stored, updatedAt: new Date() } })
     .returning();
   return saved!;
+}
+
+/**
+ * The summary a student sees when the activity shares it, made when they send their work: based
+ * on everything the activity has. A summary the teacher already made is kept.
+ */
+export async function summarizeForStudent(row: OwnedSessionRow) {
+  const basis = defaultBasis(row.activity);
+  if (!basis.length) return;
+  const [existing] = await db
+    .select({ id: schema.sessionSummaries.id })
+    .from(schema.sessionSummaries)
+    .where(eq(schema.sessionSummaries.sessionId, row.session.id))
+    .limit(1);
+  if (existing) return;
+  await summarize(row, row.activity.teacherId, basis);
 }
 
 // ───────────── Radiografía ─────────────

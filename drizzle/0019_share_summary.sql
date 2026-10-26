@@ -1,0 +1,1 @@
+ALTER TABLE "activities" ADD COLUMN "share_summary" boolean DEFAULT false NOT NULL;

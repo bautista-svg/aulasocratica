@@ -286,6 +286,7 @@ const OPTIONAL_SECTIONS: { id: string; label: string; isOn: (f: ActivityForm["dr
   { id: "reflexion", label: "Reflexión final", isOn: (d) => d.askReflection, turnOn: (f) => f.set("askReflection", true) },
   { id: "mensaje-final", label: "Mensaje final", isOn: (d) => d.closingMessageOn, turnOn: (f) => f.set("closingMessageOn", true) },
   { id: "entrega", label: "Entrega (archivo o enlace)", isOn: (d) => d.deliverableMode !== "off", turnOn: (f) => f.set("deliverableMode", "optional") },
+  { id: "devolucion", label: "Devolución de la IA", isOn: (d) => d.shareSummary, turnOn: (f) => f.set("shareSummary", true) },
 ];
 
 export function AddSectionMenu({ form, onGo }: { form: ActivityForm; onGo: (id: string) => void }) {

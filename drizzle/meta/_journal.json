@@ -134,6 +134,13 @@
       "when": 1792822672066,
       "tag": "0018_skills_criteria_version",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793036014473,
+      "tag": "0019_share_summary",
+      "breakpoints": true
     }
   ]
 }

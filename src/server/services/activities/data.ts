@@ -43,6 +43,7 @@ export function configOf(a: ActivityRow) {
     voiceLanguage: a.voiceLanguage,
     deliverableMode: a.deliverableMode,
     deliverablePrompt: a.deliverablePrompt,
+    shareSummary: a.shareSummary,
     rubric: sanitizeRubric(a.rubric),
     reflectionQuestions: sanitizeReflectionQuestions(a.reflectionQuestions),
   };
@@ -99,6 +100,7 @@ export async function loadActivity(teacherId: string, activityId: string): Promi
     voiceLanguage: isVoiceLanguage(a.voiceLanguage) ? a.voiceLanguage : "off",
     deliverableMode: isDeliverableMode(a.deliverableMode) ? a.deliverableMode : "off",
     deliverablePrompt: a.deliverablePrompt,
+    shareSummary: a.shareSummary,
     rubric: sanitizeRubric(a.rubric),
     reflectionQuestions: sanitizeReflectionQuestions(a.reflectionQuestions),
     status: a.status as ActivityStatus,

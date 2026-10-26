@@ -289,6 +289,15 @@ const es = {
     show: "Mostrar",
     hide: "Ocultar",
   },
+  feedback: {
+    title: "Devolución de tu trabajo",
+    badge: "Hecha con IA",
+    intro: "Una lectura de la IA sobre lo que hiciste, con frases tuyas. Tu docente también la ve.",
+    pending: "La IA está leyendo tu trabajo para armar tu devolución…",
+    byRubric: "Según la rúbrica",
+    byObjectives: "Según los objetivos",
+    nextSteps: "Próximos pasos",
+  },
   deliv: {
     kind: (kind: DeliverableKind) => deliverableKindLabel(kind),
     /** A link's name is a label the server wrote ("Documento de Google"). */
@@ -801,6 +810,15 @@ const en: StudentStrings = {
     seeChat: "See the chat with the tutor",
     show: "Show",
     hide: "Hide",
+  },
+  feedback: {
+    title: "Feedback on your work",
+    badge: "Made with AI",
+    intro: "An AI reading of what you did, with your own words. Your teacher sees it too.",
+    pending: "The AI is reading your work to write your feedback…",
+    byRubric: "Based on the rubric",
+    byObjectives: "Based on the objectives",
+    nextSteps: "Next steps",
   },
   deliv: {
     kind: (kind: DeliverableKind) => KIND_EN[kind] ?? deliverableKindLabel(kind),

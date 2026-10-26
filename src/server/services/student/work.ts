@@ -22,6 +22,7 @@ import {
 } from "./session";
 import { detectAlerts, recordObservedSignal } from "./alerts";
 import { runInBackground } from "./background";
+import { summarizeForStudent } from "../sessions/ai";
 import { asksFinalProduction, structuredConsignas } from "@shared/domain/structure";
 import { languageOf } from "@shared/domain/language";
 
@@ -177,6 +178,10 @@ export async function finishActivity(
   if (answered > 0) await recordEvent(ctx.session.id, "reflection_submitted", { answered, questions: reflection.length });
   await recordEvent(ctx.session.id, "activity_completed");
   publish(ctx.activity.id, "session", ctx.session.id);
+  // The activity shares the AI summary: it is ready on the student's screen a few seconds later.
+  if (ctx.activity.shareSummary) {
+    runInBackground("summary_shared", () => summarizeForStudent({ session: next.session, activity: next.activity, student: next.student }));
+  }
 
   const text = [finalAnswer ?? "", ...reflection.filter((r) => r.answer).map((r) => r.answer)].filter(Boolean).join("\n\n");
   runInBackground("alerts_final", () =>

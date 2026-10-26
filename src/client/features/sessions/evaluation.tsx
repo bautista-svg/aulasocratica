@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { CheckCircle2, Pencil, RefreshCw, Sparkles, Trash2, Wand2, X } from "lucide-react";
+import { CheckCircle2, Eye, Pencil, RefreshCw, Sparkles, Trash2, Wand2, X } from "lucide-react";
 import { cn } from "@client/lib/cn";
 import { Badge } from "@client/components/ui/misc";
 import { Button } from "@client/components/ui/button";
@@ -328,6 +328,15 @@ function SummaryCard({ detail }: { detail: SessionDetail }) {
       }
     >
       <p className="text-sm text-text-2">Una lectura de la IA sobre el trabajo del alumno, con citas textuales suyas. Revisala antes de usarla.</p>
+      {detail.activity.shareSummary ? (
+        <p className="mt-3 flex items-start gap-2 rounded-md bg-leaf-soft px-3 py-2 text-[13px] leading-5 text-text">
+          <Eye className="mt-0.5 size-3.5 shrink-0 text-leaf" aria-hidden="true" />
+          <span>
+            El alumno ve este resumen y los próximos pasos al enviar su trabajo (Configuración → Devolución de la IA). Si lo volvés a resumir, ve el
+            nuevo.
+          </span>
+        </p>
+      ) : null}
       {none ? (
         <p className="mt-3 text-[15px] text-text-2">
           Para resumir hace falta que la actividad tenga rúbrica u objetivos.{" "}

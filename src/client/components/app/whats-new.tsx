@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as RD from "@radix-ui/react-dialog";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Bell, Bot, Copy, FileUp, KeyRound, Languages, Link2, ListChecks, ListOrdered, LogIn, MessageCircleQuestion, MessageSquareText, NotebookPen, PenLine, Scale, ScanText, Sprout, TrendingUp, X, type LucideIcon } from "lucide-react";
+import { ArrowRight, Bell, Bot, Copy, FileUp, KeyRound, Languages, Link2, ListChecks, ListOrdered, LogIn, MessageCircleQuestion, MessageSquareQuote, MessageSquareText, NotebookPen, PenLine, Scale, ScanText, Sprout, TrendingUp, X, type LucideIcon } from "lucide-react";
 import { cn } from "@client/lib/cn";
 import { api } from "@client/lib/api";
 import { meKey } from "@client/lib/session";
@@ -36,6 +36,7 @@ const ICONS: Record<NewsKey, { icon: LucideIcon; tile: string }> = {
   formative: { icon: TrendingUp, tile: "bg-leaf-soft text-leaf" },
   indicators: { icon: ListChecks, tile: "bg-lilac-soft text-lilac-ink" },
   reflection: { icon: NotebookPen, tile: "bg-amber-soft text-amber" },
+  sharedSummary: { icon: MessageSquareQuote, tile: "bg-leaf-soft text-leaf" },
 };
 
 export function WhatsNew({ me }: { me: Me }) {

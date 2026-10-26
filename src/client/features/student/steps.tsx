@@ -16,6 +16,7 @@ import { canSpeak, speechLang } from "./voice-support";
 import { DeliverableField, DeliverableFileLine } from "./deliverable";
 import { useT } from "./i18n";
 import { localAnswers } from "./consignas";
+import { FeedbackCard } from "./feedback";
 
 function useHeadingFocus(focus: boolean | undefined) {
   const ref = useRef<HTMLHeadingElement | null>(null);
@@ -466,6 +467,8 @@ export function DoneStep({
           </span>
         </p>
       </div>
+
+      {workspace.feedback ? <FeedbackCard feedback={workspace.feedback} /> : null}
 
       <details className="group rounded-xl border border-line bg-surface shadow-1">
         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-5 py-3 font-semibold text-ink [&::-webkit-details-marker]:hidden">

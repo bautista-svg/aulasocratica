@@ -1,6 +1,7 @@
 // Client-safe shapes and rules for the AI summary of one student's work, built
 // from what the teacher ticks: the activity rubric and/or its learning objectives.
 import { quoteAppears } from "./thinking-xray";
+import { sanitizeRubric } from "./activity-design";
 
 export type SummaryBasis = "rubric" | "objectives";
 
@@ -35,6 +36,17 @@ export function normalizeBasis(
   if (requested.includes("rubric") && available.hasRubric) out.push("rubric");
   if (requested.includes("objectives") && available.hasObjectives) out.push("objectives");
   return out;
+}
+
+/**
+ * The bases of a summary made without the teacher choosing (the one shared with the student when
+ * they send their work): everything the activity has. Empty when it has no rubric nor objectives.
+ */
+export function defaultBasis(activity: { rubric: unknown; objectives: string }): SummaryBasis[] {
+  return normalizeBasis(["rubric", "objectives"], {
+    hasRubric: sanitizeRubric(activity.rubric).length > 0,
+    hasObjectives: splitObjectives(activity.objectives).length > 0,
+  });
 }
 
 /** Splits the free-text objectives into separate items (lines, bullets or semicolons). */

@@ -313,6 +313,7 @@ export async function loadSessionDetail(row: OwnedSessionRow): Promise<SessionDe
       reflectionQuestions: sanitizeReflectionQuestions(a.reflectionQuestions),
       deliverableMode: isDeliverableMode(a.deliverableMode) ? a.deliverableMode : "off",
       deliverablePrompt: a.deliverablePrompt,
+      shareSummary: a.shareSummary,
     },
     messages,
     deliverable: deliverableView(deliverableRows[0]),

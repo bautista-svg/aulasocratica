@@ -122,6 +122,8 @@ export interface ActivityDetail {
   deliverableMode: DeliverableMode;
   /** What the file should be, shown to the student. */
   deliverablePrompt: string;
+  /** Each student sees the AI summary of their work (with next steps) after sending it. */
+  shareSummary: boolean;
   rubric: RubricCriterion[];
   reflectionQuestions: ReflectionQuestion[];
   status: ActivityStatus;
@@ -256,6 +258,7 @@ export const activityPatch = z
     voiceLanguage: voiceSchema,
     deliverableMode: z.enum(["off", "optional", "required"], { message: "Elegí si pedís un archivo en la entrega." }),
     deliverablePrompt: text(DELIVERABLE_PROMPT_MAX),
+    shareSummary: z.boolean(),
     rubric: z.array(rubricCriterionInput).max(MAX_CRITERIA, `La rúbrica puede tener hasta ${MAX_CRITERIA} criterios.`),
     reflectionQuestions: z
       .array(reflectionQuestionInput)

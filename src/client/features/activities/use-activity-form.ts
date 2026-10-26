@@ -35,6 +35,7 @@ export interface ActivityDraft {
   voiceLanguage: VoiceLanguage;
   deliverableMode: DeliverableMode;
   deliverablePrompt: string;
+  shareSummary: boolean;
   rubric: RubricCriterion[];
   reflectionQuestions: ReflectionQuestion[];
 }
@@ -62,6 +63,7 @@ export const DRAFT_KEYS = [
   "voiceLanguage",
   "deliverableMode",
   "deliverablePrompt",
+  "shareSummary",
   "rubric",
   "reflectionQuestions",
 ] as const satisfies readonly (keyof ActivityDraft)[];
@@ -95,6 +97,7 @@ export function draftFrom(a: ActivityEditorData): ActivityDraft {
     voiceLanguage: a.voiceLanguage,
     deliverableMode: a.deliverableMode,
     deliverablePrompt: a.deliverablePrompt,
+    shareSummary: a.shareSummary,
     rubric: a.rubric,
     reflectionQuestions: a.reflectionQuestions,
   };

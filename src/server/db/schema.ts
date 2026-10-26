@@ -195,6 +195,8 @@ export const activities = pgTable(
     deliverableMode: text("deliverable_mode").notNull().default("optional"),
     /** What the file should be ("Una foto del barco que armaste"). */
     deliverablePrompt: text("deliverable_prompt").notNull().default(""),
+    /** Each student sees the AI summary of their work (with next steps) after sending it. */
+    shareSummary: boolean("share_summary").notNull().default(false),
     rubric: jsonb("rubric").notNull().default(sql`'[]'::jsonb`),
     reflectionQuestions: jsonb("reflection_questions").notNull().default(sql`'[]'::jsonb`),
     /** In the classroom's "Papelera" since then (archived; removed for good after 30 days). */

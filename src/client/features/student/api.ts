@@ -25,13 +25,16 @@ export function useStudentLink(token: string) {
       rememberLink(token);
       return info;
     },
-    // While a reply is still being written on the server (e.g. after a reload), check often;
-    // otherwise a slow heartbeat notices when the teacher closes the link or ends the session.
-    // A link that no longer exists (replaced by a new one) is not asked again.
+    // While a reply is still being written on the server (e.g. after a reload), or the AI is
+    // writing the shared summary of the work just sent, check often; otherwise a slow heartbeat
+    // notices when the teacher closes the link or ends the session. A link that no longer
+    // exists (replaced by a new one) is not asked again.
     refetchInterval: (query) => {
       const err = query.state.error;
       if (query.state.status === "error" && err instanceof ApiError && err.status === 404) return false;
-      return query.state.data?.workspace?.replyPending && query.state.status !== "error" ? 2000 : 60_000;
+      const w = query.state.data?.workspace;
+      const soon = w?.replyPending ? 2000 : w?.feedback?.status === "pending" ? 4000 : 0;
+      return soon && query.state.status !== "error" ? soon : 60_000;
     },
     refetchIntervalInBackground: false,
     staleTime: 10_000,
