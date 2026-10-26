@@ -261,8 +261,8 @@ const es = {
     finalPlaceholder: "Ahora pienso que…",
     finalAnswer: "Tu respuesta final",
     reflection: "Tu reflexión",
-    reflectionIntro: "Contá cómo fue tu forma de pensar. Podés responder las que quieras.",
-    optional: "(opcional)",
+    reflectionMissing: (n: number) =>
+      n === 1 ? "Te falta responder una pregunta de tu reflexión para poder enviar tu trabajo." : `Te falta responder ${n} preguntas de tu reflexión para poder enviar tu trabajo.`,
     missingFile: "Subí tu archivo o pegá el enlace para poder enviar tu trabajo.",
     keepChatting: "Seguir conversando",
     sendWork: "Enviar mi trabajo",
@@ -392,6 +392,8 @@ const KNOWN_EN: Record<string, string> = {
   "Escribí tu respuesta final.": "Write your final answer.",
   "Escribí tu respuesta a esta consigna.": "Write your answer to this task.",
   "Respondé cada consigna antes de enviar tu trabajo.": "Answer every task before you send your work.",
+  "Respondé esta pregunta.": "Answer this question.",
+  "Respondé todas las preguntas de tu reflexión antes de enviar tu trabajo.": "Answer every question of your reflection before you send your work.",
   "Primero escribí tu respuesta inicial.": "First, write your first idea.",
   // Hand-in
   "Pegá el enlace a tu trabajo.": "Paste the link to your work.",
@@ -772,8 +774,8 @@ const en: StudentStrings = {
     finalPlaceholder: "Now I think that…",
     finalAnswer: "Your final answer",
     reflection: "Your reflection",
-    reflectionIntro: "Tell us how you thought it through. You can answer as many as you want.",
-    optional: "(optional)",
+    reflectionMissing: (n: number) =>
+      n === 1 ? "Answer one more question of your reflection so you can send your work." : `Answer ${n} more questions of your reflection so you can send your work.`,
     missingFile: "Upload your file or paste the link so you can send your work.",
     keepChatting: "Keep chatting",
     sendWork: "Send my work",

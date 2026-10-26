@@ -61,6 +61,7 @@ try {
     material:
       "Esparta era una ciudad-estado del Peloponeso centrada en el ejército. La gobernaban dos reyes, cinco supervisores elegidos y un Consejo de Ancianos de 30 ciudadanos; la Asamblea votaba las leyes. Los ilotas eran esclavos que trabajaban la tierra. En Atenas, en cambio, los ciudadanos varones participaban directamente en la Asamblea: fue la primera democracia.",
     requireInitialAnswer: false,
+    askReflection: false,
     tutorType: "comprension_lectora",
     extraTutorTypes: ["pensamiento_critico", "debate_socratico"],
     rubric: [

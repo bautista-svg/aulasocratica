@@ -21,10 +21,11 @@ export type NewsKey =
   | "structure"
   | "trash"
   | "formative"
-  | "indicators";
+  | "indicators"
+  | "reflection";
 
 /** Releases in order; adding one shows its items to everyone who has not seen them. */
-export const NEWS_RELEASES = ["2026-10-22", "2026-10-22b", "2026-10-22c", "2026-10-23", "2026-10-23b", "2026-10-23c", "2026-10-23d", "2026-10-24", "2026-10-24b"] as const;
+export const NEWS_RELEASES = ["2026-10-22", "2026-10-22b", "2026-10-22c", "2026-10-23", "2026-10-23b", "2026-10-23c", "2026-10-23d", "2026-10-24", "2026-10-24b", "2026-10-26"] as const;
 export type NewsRelease = (typeof NEWS_RELEASES)[number];
 
 export interface NewsItem {
@@ -137,6 +138,12 @@ export const NEWS_ITEMS: NewsItem[] = [
     release: "2026-10-24b",
     title: "Elegí los indicadores de cada habilidad",
     text: "En «Elegir habilidades» tildás los indicadores que la IA busca en cada habilidad. Si un alumno muestra uno de ellos con sus propias palabras, la habilidad queda en «Logrado». Reevaluá los trabajos que ya estaban evaluados para aplicarlo.",
+  },
+  {
+    key: "reflection",
+    release: "2026-10-26",
+    title: "La reflexión final es obligatoria",
+    text: "Tus alumnos tienen que responder todas las preguntas de la reflexión final para enviar su trabajo, y ya no aparecen como opcionales. Seguís pudiendo editarlas o apagar la reflexión en cada actividad.",
   },
   {
     key: "structure",

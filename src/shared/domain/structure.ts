@@ -131,7 +131,7 @@ export const SECTION_DEFAULTS: Record<ActivityLanguage, Record<SectionKey, Secti
       title: "Tu respuesta final",
       subtitle: "Escribí tu respuesta final con tus palabras y contá cómo lo pensaste. Cuando la envíes ya no vas a poder cambiarla, y tu docente va a poder leerla.",
     },
-    reflexion: { title: "Tu reflexión", subtitle: "Contá cómo fue tu forma de pensar. Podés responder las que quieras." },
+    reflexion: { title: "Tu reflexión", subtitle: "Contá cómo fue tu forma de pensar. Respondé todas las preguntas para poder enviar tu trabajo." },
     cierre: { title: "Un mensaje de tu docente", subtitle: "" },
   },
   en: {
@@ -146,7 +146,7 @@ export const SECTION_DEFAULTS: Record<ActivityLanguage, Record<SectionKey, Secti
       subtitle:
         "Write your final answer in your own words and explain how you thought about it. Once you send it, you won't be able to change it, and your teacher will be able to read it.",
     },
-    reflexion: { title: "Your reflection", subtitle: "Tell us how you thought it through. You can answer as many as you want." },
+    reflexion: { title: "Your reflection", subtitle: "Tell us how you thought it through. Answer every question so you can send your work." },
     cierre: { title: "A note from your teacher", subtitle: "" },
   },
 };

@@ -51,6 +51,7 @@ try {
   await req(teacher, "PATCH", `/api/activities/${activity.id}`, {
     requireInitialAnswer: false,
     askFinalAnswer: false,
+    askReflection: false,
     objectives: "Relacionar las características de un planeta con los desafíos de explorarlo y proponer soluciones.",
     material: "Marte: atmósfera delgada de dióxido de carbono (no se puede respirar), temperatura media de -60 °C, agua congelada en los polos, a 225 millones de km de la Tierra.",
     consignas: [

@@ -693,19 +693,22 @@ describe("closing and completion", () => {
 
     const r = await call("POST", `/api/s/${s.token}/finish`, {
       cookie: s.cookie,
-      body: { finalAnswer: "Son equivalentes porque 2/4 se simplifica a 1/2.", reflection: [{ key: "q1", answer: "A simplificar." }, { key: "zz", answer: "ignorada" }] },
+      body: { finalAnswer: "Son equivalentes porque 2/4 se simplifica a 1/2.", reflection: [{ key: "q1", answer: "A simplificar." }, { key: "q2", answer: "Comparar con dibujos." }, { key: "zz", answer: "ignorada" }] },
     });
     expect(r.status).toBe(200);
     const w = r.body.workspace;
     expect(w.stage).toBe("completed");
     expect(w.session.finalAnswer).toBe("Son equivalentes porque 2/4 se simplifica a 1/2.");
-    expect(w.session.reflection).toEqual([{ key: "q1", question: "¿Qué aprendiste?", answer: "A simplificar." }]);
+    expect(w.session.reflection).toEqual([
+      { key: "q1", question: "¿Qué aprendiste?", answer: "A simplificar." },
+      { key: "q2", question: "¿Qué te costó?", answer: "Comparar con dibujos." },
+    ]);
     const [row] = await db.select().from(schema.learningSessions).where(eq(schema.learningSessions.id, s.session.id));
     expect(row!.status).toBe("completed");
     expect(row!.completedAt).not.toBeNull();
     expect(row!.reflection).toEqual([
       { key: "q1", question: "¿Qué aprendiste?", answer: "A simplificar." },
-      { key: "q2", question: "¿Qué te costó?", answer: "" },
+      { key: "q2", question: "¿Qué te costó?", answer: "Comparar con dibujos." },
     ]);
     const evs = (await eventsOf(s.session.id)).map((e) => e.eventType);
     expect(evs.filter((e) => e === "closing_started")).toHaveLength(2);
@@ -821,6 +824,37 @@ describe("reflection and closing message", () => {
     });
     expect(off.workspace.activity.closingMessage).toBeNull();
     expect(off.workspace.activity.reflectionQuestions.length).toBeGreaterThan(0);
+  });
+
+  it("every reflection question needs an answer before the work is sent (Vanina Gerstner, 26-10)", async () => {
+    const keys = ["discovered", "improve"];
+    const s = await joined({
+      requireInitialAnswer: false,
+      reflectionQuestions: [
+        { key: "discovered", question: "¿Qué descubriste durante la actividad?" },
+        { key: "improve", question: "Para mejorar, voy a…" },
+      ],
+    });
+    const finish = (answers: string[]) =>
+      call("POST", `/api/s/${s.token}/finish`, {
+        cookie: s.cookie,
+        body: { finalAnswer: "Son iguales porque es la mitad.", reflection: answers.map((answer, i) => ({ key: keys[i]!, answer })) },
+      });
+    const none = await finish([]);
+    expect(none.status).toBe(400);
+    expect(Object.keys(none.body.error.fields)).toEqual(["reflection.0.answer", "reflection.1.answer"]);
+    const blank = await finish(["Que 2/4 es la mitad de la pizza.", "   "]);
+    expect(blank.status).toBe(400);
+    expect(blank.body.error.fields).toEqual({ "reflection.1.answer": "Respondé esta pregunta." });
+
+    // Nothing was sent until every question had an answer.
+    const done = await finish(["Que 2/4 es la mitad de la pizza.", "Dibujar las fracciones antes de compararlas."]);
+    expect(done.status).toBe(200);
+    expect(done.body.workspace.session.status).toBe("completed");
+    expect(done.body.workspace.session.reflection.map((r: { answer: string }) => r.answer)).toEqual([
+      "Que 2/4 es la mitad de la pizza.",
+      "Dibujar las fracciones antes de compararlas.",
+    ]);
   });
 });
 

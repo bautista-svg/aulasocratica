@@ -343,7 +343,7 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
             label="Pedir una reflexión al terminar"
             description={
               draft.askReflection
-                ? "Al terminar, cada alumno responde estas preguntas (las que quiera)."
+                ? "Al terminar, cada alumno responde todas estas preguntas antes de enviar su trabajo."
                 : "Los alumnos no ven la reflexión. Las preguntas quedan guardadas por si la volvés a activar."
             }
           />

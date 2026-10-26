@@ -132,6 +132,12 @@ export async function finishActivity(
   if (asksProduction && production.length < MIN_ANSWER_CHARS) {
     throw badRequest("Escribí tu respuesta final.", { finalAnswer: "Escribí tu respuesta final." });
   }
+  // Every reflection question needs an answer: the work is not sent with one left blank.
+  const questions = reflectionQuestionsOf(ctx.activity);
+  const byKey = new Map(input.reflection.map((r) => [r.key, r.answer.trim()]));
+  const reflection: ReflectionAnswer[] = questions.map((q) => ({ key: q.key, question: q.question, answer: byKey.get(q.key) ?? "" }));
+  const blank = Object.fromEntries(reflection.flatMap((r, i) => (r.answer ? [] : [[`reflection.${i}.answer`, "Respondé esta pregunta."]])));
+  if (Object.keys(blank).length) throw badRequest("Respondé todas las preguntas de tu reflexión antes de enviar tu trabajo.", blank);
   const finalAnswers = consignas.map((c) => (c.answer ? (given[c.id] ?? "").trim() : ""));
   const answersText =
     asked.length === 1 && consignas.length === 1
@@ -140,9 +146,6 @@ export async function finishActivity(
   let finalAnswer: string | null = null;
   if (asksProduction) finalAnswer = answersText ? `${answersText}\n\n${lang === "en" ? "Final work" : "Producción final"}:\n${production}` : production;
   else if (answersText) finalAnswer = answersText;
-  const questions = reflectionQuestionsOf(ctx.activity);
-  const byKey = new Map(input.reflection.map((r) => [r.key, r.answer.trim()]));
-  const reflection: ReflectionAnswer[] = questions.map((q) => ({ key: q.key, question: q.question, answer: byKey.get(q.key) ?? "" }));
   const now = new Date();
   const [row] = await db
     .update(schema.learningSessions)

@@ -50,6 +50,7 @@ try {
   const saved = await req(teacher, "PATCH", `/api/activities/${activity.id}`, {
     requireInitialAnswer: false,
     askFinalAnswer: false,
+    askReflection: false,
     presentationOn: true,
     presentation: "¡La agencia espacial necesita tu ayuda! Vas a diseñar una misión a un planeta del Sistema Solar.",
     material: "Marte: planeta rocoso, atmósfera delgada de dióxido de carbono, temperatura media de -60 °C, agua congelada en los polos, a 225 millones de km de la Tierra en promedio.",

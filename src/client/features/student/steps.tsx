@@ -149,6 +149,8 @@ export function ClosingStep({
     reflection = {};
   }
   const setAnswerFor = (key: string, value: string) => setReflectionRaw(JSON.stringify({ ...reflection, [key]: value }));
+  // Every reflection question needs an answer before the work can be sent.
+  const unanswered = a.reflectionQuestions.filter((q) => !(reflection[q.key] ?? "").trim()).length;
 
   // Tell the live view the student moved to the closing step (every time it opens).
   const marked = useRef(false);
@@ -159,7 +161,7 @@ export function ClosingStep({
   }, [token, onStale]);
 
   const length = finalAnswer.trim().length;
-  const answered = missing.length === 0 && (!asks || (length >= MIN_ANSWER_CHARS && length <= MAX_ANSWER_CHARS));
+  const answered = missing.length === 0 && unanswered === 0 && (!asks || (length >= MIN_ANSWER_CHARS && length <= MAX_ANSWER_CHARS));
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (busy || !answered) return;
@@ -279,12 +281,7 @@ export function ClosingStep({
                 return (
                   <Field
                     key={q.key}
-                    label={
-                      <>
-                        {q.question}
-                        <span className="ml-1.5 font-normal text-text-3">{t.steps.optional}</span>
-                      </>
-                    }
+                    label={q.question}
                     error={fieldErrors[`reflection.${i}.answer`]}
                     counter={v.length > MAX_REFLECTION_ANSWER_CHARS - 300 ? { value: v.trim().length, max: MAX_REFLECTION_ANSWER_CHARS } : undefined}
                   >
@@ -292,6 +289,7 @@ export function ClosingStep({
                       <Textarea
                         id={id}
                         aria-describedby={describedBy}
+                        aria-required="true"
                         invalid={invalid}
                         value={v}
                         onChange={(e) => setAnswerFor(q.key, e.target.value)}
@@ -308,6 +306,11 @@ export function ClosingStep({
           {asksFile ? <DeliverableField token={token} workspace={workspace} onBusyChange={setUploading} onStale={onStale} disabled={busy} /> : null}
 
           <FormError message={error} />
+          {unanswered ? (
+            <p id="falta-reflexion" className="text-sm font-medium text-text-2 sm:text-right">
+              {t.steps.reflectionMissing(unanswered)}
+            </p>
+          ) : null}
           {missingFile ? (
             <p id="falta-entrega" className="text-sm font-medium text-text-2 sm:text-right">
               {t.steps.missingFile}
@@ -321,7 +324,7 @@ export function ClosingStep({
               type="submit"
               size="lg"
               loading={busy}
-              aria-describedby={missingFile ? "falta-entrega" : undefined}
+              aria-describedby={[unanswered ? "falta-reflexion" : "", missingFile ? "falta-entrega" : ""].filter(Boolean).join(" ") || undefined}
               disabled={!answered || missingFile || uploading}
             >
               {t.steps.sendWork}

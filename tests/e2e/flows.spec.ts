@@ -112,6 +112,9 @@ test("entrega obligatoria: el alumno sube su archivo, envía, y el docente lo ve
   await s.getByRole("button", { name: "Terminar" }).click();
   await expect(s.getByText("Subí tu informe en PDF, Word, texto o una foto.")).toBeVisible();
   await s.getByLabel("Tu respuesta final").fill("El barco flota por su forma: desplaza mucha agua.");
+  // Every reflection question is required.
+  await expect(s.getByText("Te falta responder 2 preguntas de tu reflexión para poder enviar tu trabajo.")).toBeVisible();
+  for (const box of await s.getByRole("group").getByRole("textbox").all()) await box.fill("Que la forma importa más que el material.");
   // Required file: sending is blocked until it is uploaded.
   await expect(s.getByRole("button", { name: "Enviar mi trabajo" })).toBeDisabled();
   await s.locator('input[type="file"]').setInputFiles({ name: "informe.txt", mimeType: "text/plain", buffer: Buffer.from("El barco de aluminio flotó con 20 monedas; la bola se hundió.") });
@@ -152,6 +155,7 @@ test("entrega con enlace: el alumno pega el enlace de su trabajo y el docente lo
   await studentJoins(s, token, "Tomás Ruiz");
   await s.getByRole("button", { name: "Terminar" }).click();
   await s.getByLabel("Tu respuesta final").fill("Esparta era un estado militar y los ilotas trabajaban la tierra.");
+  for (const box of await s.getByRole("group").getByRole("textbox").all()) await box.fill("Que hay que comparar con datos del texto.");
   await s.getByRole("button", { name: "Pegar un enlace" }).click();
   await s.getByLabel(/Enlace a tu trabajo/).fill("www.canva.com/design/DAF123/view");
   await s.getByRole("button", { name: "Guardar enlace" }).click();
