@@ -3,9 +3,11 @@
 // is no level ("sin evidencia suficiente"). The evaluation is formative (Vanina Gerstner, 24-10):
 // for the student's age and the activity, partial progress counts, and the feedback says what the
 // student shows and the next step. The indicators are the ones the teacher ticked, and one of them
-// shown with the student's own words is at least "logrado" (her rule). The teacher can correct a
-// level; corrections survive a new analysis. Counted per activity (group view) and per
-// student (evolution).
+// shown with the student's own words is at least "logrado" (her rule), unless she set how many of
+// them each level asks for (28-10): then the AI lists every ticked indicator the student shows, with
+// a quote each, and the level comes from counting the verified ones (levelFromIndicators). The
+// teacher can correct a level; corrections survive a new analysis. Counted per activity (group
+// view) and per student (evolution).
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "../../db/client";
@@ -19,12 +21,15 @@ import {
   emptyCounts,
   enabledSkills,
   findIndicator,
+  levelFromIndicators,
   sanitizeAssessments,
   sanitizeRecommendations,
+  thresholdsKey,
   toStatus,
   type SkillAssessment,
   type SkillDef,
   type SkillStatus,
+  type SkillThresholds,
 } from "@shared/domain/skills";
 import { assembleMaterial } from "@shared/domain/material-select";
 import type { ActivitySkills, SkillsAnalyzeResult, SkillsView, StudentSkills } from "@shared/contracts/skills";
@@ -79,6 +84,7 @@ export const skillsSchema = z.object({
     z.object({
       skill: z.string(),
       analysis: z.string(),
+      shown: z.array(z.object({ indicator: z.string(), quote: z.string() })),
       repeatsTutor: z.boolean(),
       status: z.string(),
       criterion: z.string(),
@@ -106,6 +112,7 @@ const RULES = `PRINCIPIO: evaluás el nivel de desarrollo de cada habilidad, no 
   · organiza objetivos y recursos básicos → muestra un indicador de planificación.
 - "en_desarrollo" e "inicial" son para cuando el alumno se acerca a un indicador sin llegar a mostrarlo: aporta una idea pertinente que todavía no cumple ninguno ("en_desarrollo"), o apenas un indicio, o cada paso lo dio el tutor ("inicial").
 - La profundidad define si es "avanzado": además de mostrar un indicador, profundiza (muestra varios con precisión, conecta ideas, compara alternativas, anticipa riesgos, propone cómo comprobar) o va más allá de lo que pedía la consigna por su cuenta.
+- EXCEPCIÓN: si una habilidad trae «Cantidad por nivel», la docente fijó cuántos de sus indicadores tiene que mostrar el alumno para llegar a cada nivel, y esa cantidad reemplaza la regla de uno y la de profundidad. Contá cuántos indicadores distintos de la lista muestra el alumno por su cuenta (cada uno con su cita) y elegí el nivel más alto que alcanza esa cantidad. Si no muestra ninguno, elegí con la rúbrica entre los niveles que piden 0 (o "sin_evidencia"). No muestra un indicador por tener una idea parecida: tiene que cumplirlo.
 
 3. NIVELES (con la clave exacta)
 ${SKILL_LEVELS.map((l) => `  · ${l} (${STATUS_LABELS[l]}): ${LEVEL_RUBRIC[l]}`).join("\n")}
@@ -130,7 +137,8 @@ EVIDENCIA
 - Si no hay una cita que muestre la habilidad, el estado es "sin_evidencia" y "evidence" queda vacío.
 
 DEVOLUCIÓN, PARA CADA HABILIDAD de la lista (una entrada por habilidad, con la clave exacta en "skill"):
-- analysis (interno, la docente no lo ve), breve y en este orden: 1) qué indicadores de la lista muestra el alumno por su cuenta y con qué parte de lo que escribió; 2) el nivel, que sale solo de lo que muestra y de su profundidad, decidido en este orden: ¿muestra un indicador y además profundiza o va más allá de lo que pedía la consigna por su cuenta (compara alternativas, justifica con precisión, anticipa riesgos, propone cómo comprobar, conecta ideas)? → avanzado. Si no, ¿muestra al menos un indicador con una evidencia propia? → logrado, aunque falten otros. Si no, ¿se acerca a un indicador con una idea pertinente que todavía no lo cumple? → en_desarrollo. Si apenas hay un indicio o lo guió el tutor paso a paso → inicial. Sé coherente con tu análisis: si dice que el alumno muestra un indicador, el nivel es "logrado" o "avanzado"; si dice que, por su cuenta, compara alternativas, anticipa riesgos, propone cómo comprobar o conecta ideas en esta habilidad, es "avanzado". No menciones lo que falta: eso va en "improve".
+- analysis (interno, la docente no lo ve), breve y en este orden: 1) qué indicadores de la lista muestra el alumno por su cuenta y con qué parte de lo que escribió; 2) el nivel, que sale solo de lo que muestra y de su profundidad, decidido en este orden: ¿muestra un indicador y además profundiza o va más allá de lo que pedía la consigna por su cuenta (compara alternativas, justifica con precisión, anticipa riesgos, propone cómo comprobar, conecta ideas)? → avanzado. Si no, ¿muestra al menos un indicador con una evidencia propia? → logrado, aunque falten otros. Si no, ¿se acerca a un indicador con una idea pertinente que todavía no lo cumple? → en_desarrollo. Si apenas hay un indicio o lo guió el tutor paso a paso → inicial. Sé coherente con tu análisis: si dice que el alumno muestra un indicador, el nivel es "logrado" o "avanzado"; si dice que, por su cuenta, compara alternativas, anticipa riesgos, propone cómo comprobar o conecta ideas en esta habilidad, es "avanzado". Con «Cantidad por nivel», el nivel sale de cuántos indicadores muestra (ver la EXCEPCIÓN). No menciones lo que falta: eso va en "improve".
+- shown: TODOS los indicadores de la lista que el alumno muestra por su cuenta, uno por entrada, sin repetir: "indicator" copiado tal cual de la lista y "quote" una cita TEXTUAL del alumno que lo muestra (con las mismas reglas que "evidence"). Vacío si no muestra ninguno o si repeatsTutor es true.
 - repeatsTutor: true SOLO si lo que muestra la cita lo había planteado antes el TUTOR en la conversación y el alumno solo lo acepta, lo repite o lo copia. Usar por su cuenta un dato del material no es repetir al tutor, y la forma de escribir siempre es del alumno (false). Con true, el nivel es "inicial" como máximo.
 - status: inicial, en_desarrollo, logrado, avanzado o sin_evidencia.
 - criterion: el indicador de la lista que muestra la evidencia, copiado tal cual. Vacío si la evidencia todavía no muestra ninguno ("en_desarrollo" o "inicial").
@@ -152,10 +160,23 @@ export interface SkillsPromptInput {
   skills: SkillDef[];
 }
 
+/** "inicial desde 0, en_desarrollo desde 1, logrado desde 3, avanzado desde 4 (de los 4 indicadores)". */
+function levelsLine(t: SkillThresholds, of: number) {
+  return (
+    SKILL_LEVELS.map((l) => `${l} desde ${t[l]}`).join(", ") +
+    ` (de los ${of} indicadores; con dos niveles en la misma cantidad, el más alto)` +
+    (t.inicial > 0 ? `. Con menos de ${t.inicial}, sin_evidencia` : "")
+  );
+}
+
 /** What the AI reads to evaluate one work (pure, so it can be tried on fixed conversations). */
 export function skillsPrompt(i: SkillsPromptInput): { system: string; content: string } {
   const list = i.skills
-    .map((s) => `- skill: ${s.key} · ${s.label}\n  Indicadores observables (los que eligió la docente):\n${s.criteria.map((c) => `    · ${c}`).join("\n")}`)
+    .map(
+      (s) =>
+        `- skill: ${s.key} · ${s.label}\n  Indicadores observables (los que eligió la docente):\n${s.criteria.map((c) => `    · ${c}`).join("\n")}` +
+        (s.levels ? `\n  Cantidad por nivel (la fijó la docente): ${levelsLine(s.levels, s.criteria.length)}` : ""),
+    )
     .join("\n");
   return {
     system: `Sos un asistente pedagógico. Evaluás de forma formativa las habilidades de un alumno a partir de su trabajo con un tutor socrático, con una rúbrica explícita y citas reales.
@@ -182,40 +203,77 @@ ${list}`,
   };
 }
 
+const NO_QUOTE = "No encontramos una cita textual del alumno que lo muestre.";
+
 /**
  * The AI's answer for one skill, made safe: a level needs a real quote of the student, an idea
  * the tutor gave (the student only accepted or repeated it) is "inicial" at most and shows no
- * indicator, and a ticked indicator shown with the student's own words is at least "logrado".
+ * indicator. By default a ticked indicator shown with the student's own words is at least
+ * "logrado"; with numbers per level, the level comes from counting the ticked indicators shown
+ * with a real quote (the AI's level only chooses among the levels that ask for none).
  */
 export function settleSkill(def: SkillDef, ai: AiSkill | undefined, texts: string[]): { assessment: SkillAssessment; dropped: boolean } {
-  let status: SkillStatus = toStatus(ai?.status) ?? "sin_evidencia";
+  const said: SkillStatus = toStatus(ai?.status) ?? "sin_evidencia";
+  const repeats = Boolean(ai?.repeatsTutor);
   let evidence = ai?.evidence.trim() ?? "";
   let why = ai?.why.trim() ?? "";
-  let dropped = false;
-  if (status !== "sin_evidencia" && !quoteInTexts(evidence, texts)) {
-    // A level needs a real quote of the student: without one there is no valid evaluation.
-    dropped = true;
-    status = "sin_evidencia";
-    evidence = "";
-    why = "No encontramos una cita textual del alumno que lo muestre.";
+  const quoted = quoteInTexts(evidence, texts);
+  const main = repeats ? null : findIndicator(ai?.criterion ?? "", def.criteria);
+
+  // Every ticked indicator the student showed on their own, each with a real quote of theirs.
+  const met: SkillAssessment["met"] = [];
+  const add = (indicator: string | null, quote: string) => {
+    const q = quote.trim();
+    if (indicator && q && !met.some((m) => m.criterion === indicator) && quoteInTexts(q, texts)) met.push({ criterion: indicator, evidence: q });
+  };
+  if (!repeats) {
+    if (said !== "sin_evidencia") add(main, evidence);
+    for (const s of ai?.shown ?? []) add(findIndicator(s.indicator, def.criteria), s.quote);
+    met.sort((a, b) => def.criteria.indexOf(a.criterion) - def.criteria.indexOf(b.criterion));
   }
-  if (status === "sin_evidencia") evidence = evidence && quoteInTexts(evidence, texts) ? evidence : "";
-  if (ai?.repeatsTutor && (status === "en_desarrollo" || status === "logrado" || status === "avanzado")) status = "inicial";
-  const indicator = status === "sin_evidencia" || ai?.repeatsTutor ? null : findIndicator(ai?.criterion ?? "", def.criteria);
-  // Vanina Gerstner (24-10): an indicator with evidence is "logrado".
-  if (indicator && (status === "inicial" || status === "en_desarrollo")) status = "logrado";
+
+  let status: SkillStatus = said;
+  // An idea the tutor gave is "inicial" at most.
+  if (repeats && status !== "sin_evidencia") status = "inicial";
+  let dropped = false;
+  let shown = met;
+  if (def.levels) {
+    // Numbers per level (Vanina Gerstner, 28-10): the count decides, not the AI's level.
+    if (met.length === 0 && status !== "sin_evidencia" && !quoted) {
+      dropped = true;
+      status = "sin_evidencia";
+      why = NO_QUOTE;
+    }
+    status = levelFromIndicators(met.length, def.levels, status);
+    if (!quoted) evidence = met[0]?.evidence ?? "";
+  } else {
+    if (status !== "sin_evidencia" && !quoted) {
+      // A level needs a real quote of the student: without one there is no valid evaluation.
+      dropped = true;
+      status = "sin_evidencia";
+      why = NO_QUOTE;
+    }
+    if (!quoted) evidence = "";
+    if (status === "sin_evidencia") shown = [];
+    // Vanina Gerstner (24-10): an indicator with evidence is "logrado".
+    if (shown.length && (status === "inicial" || status === "en_desarrollo")) status = "logrado";
+  }
+  const criterion = main && shown.some((m) => m.criterion === main) ? main : (shown[0]?.criterion ?? "");
   return {
     assessment: {
       skill: def.key,
       label: def.label,
       dimension: def.dimension,
       status,
-      criterion: indicator ?? "",
+      criterion,
       evidence,
       why,
       improve: status === "sin_evidencia" ? "" : (ai?.improve.trim() ?? ""),
       suggestion: ai?.suggestion.trim() ?? "",
       source: "ai",
+      met: shown,
+      of: def.criteria.length,
+      levels: def.levels ?? null,
     },
     dropped,
   };
@@ -314,7 +372,7 @@ export async function setSkillLevel(row: OwnedSessionRow, skill: string, status:
   const existing = current.find((s) => s.skill === skill);
   const entry: SkillAssessment = existing
     ? { ...existing, status, source: "teacher" }
-    : { skill, label: def.label, dimension: def.dimension, status, criterion: "", evidence: "", why: "", improve: "", suggestion: "", source: "teacher" };
+    : { skill, label: def.label, dimension: def.dimension, status, criterion: "", evidence: "", why: "", improve: "", suggestion: "", source: "teacher", met: [], of: 0, levels: null };
   const skills = existing ? current.map((s) => (s.skill === skill ? entry : s)) : [...current, entry];
   const saved = await save(row.session.id, { skills, ...(previous?.skillsAt ? {} : { skillsAt: new Date(), skillsVersion: SKILL_CRITERIA_VERSION }) });
   return skillsView(saved, catalog);
@@ -345,7 +403,13 @@ export async function activitySkills(activityId: string, teacherId: string): Pro
     latestRun(activityId),
   ]);
   const assessed = rows.filter((r) => r.skillsAt);
-  const skills = enabledSkills(settings).map((def) => {
+  const enabled = enabledSkills(settings);
+  const outdated = (r: (typeof rows)[number]) => (r.skillsVersion ?? 1) < SKILL_CRITERIA_VERSION;
+  // A skill leveled by the AI with other numbers per level than the ones set now (or with the default rule).
+  const levelsNow = new Map(enabled.map((d) => [d.key, thresholdsKey(d.levels)]));
+  const levelsChanged = (r: (typeof rows)[number]) =>
+    sanitizeAssessments(r.skills).some((a) => a.source === "ai" && levelsNow.has(a.skill) && levelsNow.get(a.skill) !== thresholdsKey(a.levels));
+  const skills = enabled.map((def) => {
     const counts = emptyCounts();
     const students: ActivitySkills["skills"][number]["students"] = [];
     for (const r of assessed) {
@@ -366,7 +430,8 @@ export async function activitySkills(activityId: string, teacherId: string): Pro
     assessedWorks: assessed.length,
     interventions: assessed.reduce((n, r) => n + (r.interventions ?? 0), 0),
     pending: rows.filter((r) => r.status === "completed" && r.hasText && !r.skillsAt).map((r) => ({ sessionId: r.sessionId, studentName: r.who })),
-    outdatedWorks: assessed.filter((r) => (r.skillsVersion ?? 1) < SKILL_CRITERIA_VERSION).length,
+    outdatedWorks: assessed.filter(outdated).length,
+    levelsOutdatedWorks: assessed.filter((r) => !outdated(r) && levelsChanged(r)).length,
     skills,
     run,
   };

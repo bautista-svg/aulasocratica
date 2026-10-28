@@ -1,9 +1,10 @@
 // "Elegir habilidades": which skills the AI evaluates in this workspace, which of their
-// indicators count (one shown with the student's own words is "logrado"), and the teacher's own
-// skills with the observable indicators the AI must look for.
-import { useEffect, useId, useState } from "react";
+// indicators count (one shown with the student's own words is "logrado", or as many as the teacher
+// asks for each level), and the teacher's own skills with the observable indicators the AI must
+// look for.
+import { useEffect, useId, useState, type KeyboardEvent } from "react";
 import { toast } from "sonner";
-import { ChevronDown, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Minus, Pencil, Plus, Trash2 } from "lucide-react";
 import { Dialog } from "@client/components/ui/dialog";
 import { Button } from "@client/components/ui/button";
 import { Checkbox, Switch } from "@client/components/ui/controls";
@@ -17,15 +18,34 @@ import {
   DIMENSION_KEYS,
   MAX_CRITERIA,
   MAX_CUSTOM_SKILLS,
+  MIN_INDICATORS_FOR_LEVELS,
   SKILL_LABEL_MAX,
+  SKILL_LEVELS,
+  STATUS_LABELS,
+  clampThresholds,
+  setThreshold,
   skillCatalog,
+  suggestedThresholds,
+  thresholdBands,
+  toneOf,
   type CustomSkill,
   type SkillDef,
   type SkillDimension,
+  type SkillLevel,
   type SkillSettings,
+  type SkillThresholds,
 } from "@shared/domain/skills";
 import { useSaveSkillSettings, useSkillSettings } from "./api";
-import { SkillGlyph } from "./ui";
+import { LevelMeter, SkillGlyph, TONE_STYLE } from "./ui";
+
+/** The skill's numbers per level, fitted again after its ticked indicators change. */
+function refit(d: SkillSettings, key: string): SkillSettings {
+  const def = skillCatalog(d).find((s) => s.key === key);
+  const ticked = def ? def.criteria.filter((c) => !(d.off[key] ?? []).includes(c)).length : 0;
+  const { [key]: current, ...rest } = d.levels;
+  const t = clampThresholds(current, ticked);
+  return { ...d, levels: t ? { ...rest, [key]: t } : rest };
+}
 
 const newId = () => `c_${Math.random().toString(36).slice(2, 10).padEnd(8, "0")}`;
 
@@ -53,21 +73,36 @@ export function SkillSettingsDialog({ open, onOpenChange }: { open: boolean; onO
     setDraft((d) => {
       if (!d) return d;
       const off = (d.off[key] ?? []).filter((c) => c !== criterion);
-      return { ...d, off: { ...d.off, [key]: on ? off : [...off, criterion] } };
+      // Fewer ticked indicators: the numbers per level never ask for more than there are.
+      return refit({ ...d, off: { ...d.off, [key]: on ? off : [...off, criterion] } }, key);
+    });
+  const setLevels = (key: string, t: SkillThresholds | null) =>
+    setDraft((d) => {
+      if (!d) return d;
+      const { [key]: _, ...rest } = d.levels;
+      return { ...d, levels: t ? { ...rest, [key]: t } : rest };
     });
   const upsert = (skill: CustomSkill) =>
     setDraft((d) => {
       if (!d) return d;
       const exists = d.custom.some((c) => c.id === skill.id);
-      return {
-        custom: exists ? d.custom.map((c) => (c.id === skill.id ? skill : c)) : [...d.custom, skill],
-        enabled: exists || d.enabled.includes(skill.id) ? d.enabled : [...d.enabled, skill.id],
-        // Indicators rewritten in the form come back ticked.
-        off: { ...d.off, [skill.id]: (d.off[skill.id] ?? []).filter((c) => skill.criteria.includes(c)) },
-      };
+      return refit(
+        {
+          custom: exists ? d.custom.map((c) => (c.id === skill.id ? skill : c)) : [...d.custom, skill],
+          enabled: exists || d.enabled.includes(skill.id) ? d.enabled : [...d.enabled, skill.id],
+          // Indicators rewritten in the form come back ticked.
+          off: { ...d.off, [skill.id]: (d.off[skill.id] ?? []).filter((c) => skill.criteria.includes(c)) },
+          levels: d.levels,
+        },
+        skill.id,
+      );
     });
   const remove = (id: string) =>
-    setDraft((d) => (d ? { custom: d.custom.filter((c) => c.id !== id), enabled: d.enabled.filter((k) => k !== id), off: { ...d.off, [id]: [] } } : d));
+    setDraft((d) => {
+      if (!d) return d;
+      const { [id]: _, ...levels } = d.levels;
+      return { custom: d.custom.filter((c) => c.id !== id), enabled: d.enabled.filter((k) => k !== id), off: { ...d.off, [id]: [] }, levels };
+    });
 
   return (
     <Dialog
@@ -75,7 +110,7 @@ export function SkillSettingsDialog({ open, onOpenChange }: { open: boolean; onO
       onOpenChange={onOpenChange}
       wide
       title="Elegir habilidades"
-      description="Qué habilidades evalúa la IA en los trabajos de tus alumnos y con qué indicadores. Si un alumno muestra uno de los indicadores tildados con sus propias palabras, la habilidad queda en Logrado."
+      description="Qué habilidades evalúa la IA en los trabajos de tus alumnos y con qué indicadores. Si un alumno muestra uno de los indicadores tildados con sus propias palabras, la habilidad queda en Logrado, salvo que elijas cuántos pide cada nivel."
       footer={
         <>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
@@ -120,8 +155,10 @@ export function SkillSettingsDialog({ open, onOpenChange }: { open: boolean; onO
                       skill={s}
                       on={draft.enabled.includes(s.key)}
                       off={draft.off[s.key] ?? []}
+                      levels={draft.levels[s.key] ?? null}
                       onToggle={(v) => toggle(s.key, v)}
                       onTick={(c, v) => tick(s.key, c, v)}
+                      onLevels={(t) => setLevels(s.key, t)}
                       onEdit={s.custom ? () => setEditing(draft.custom.find((c) => c.id === s.key) ?? null) : undefined}
                       onRemove={s.custom ? () => remove(s.key) : undefined}
                     />
@@ -168,8 +205,10 @@ function SkillRow({
   skill,
   on,
   off,
+  levels,
   onToggle,
   onTick,
+  onLevels,
   onEdit,
   onRemove,
 }: {
@@ -177,8 +216,11 @@ function SkillRow({
   on: boolean;
   /** Unticked indicators. */
   off: string[];
+  /** How many ticked indicators each level asks for (null: one shown is Logrado). */
+  levels: SkillThresholds | null;
   onToggle: (v: boolean) => void;
   onTick: (criterion: string, on: boolean) => void;
+  onLevels: (t: SkillThresholds | null) => void;
   onEdit?: () => void;
   onRemove?: () => void;
 }) {
@@ -219,6 +261,12 @@ function SkillRow({
               </span>
               <ChevronDown className={cn("size-4 transition-transform", show && "rotate-180")} aria-hidden="true" />
             </button>
+            {levels ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-leaf-soft px-2 py-0.5 text-[11px] font-semibold text-leaf tabular">
+                <LevelMeter status="logrado" className="scale-75" />
+                Logrado con {levels.logrado} de {ticked}
+              </span>
+            ) : null}
             {onEdit ? (
               <button type="button" onClick={onEdit} className="inline-flex min-h-9 items-center gap-1 rounded-md px-1 text-sm font-semibold text-ink hover:underline max-sm:min-h-11">
                 <Pencil className="size-3.5" aria-hidden="true" /> Editar
@@ -231,7 +279,8 @@ function SkillRow({
             ) : null}
           </div>
           {show ? (
-            <fieldset id={listId} className="mt-2 rounded-[12px] bg-paper px-3.5 py-3">
+            // On a phone the panel takes the icon's column too: the steppers need the width.
+            <fieldset id={listId} className="mt-2 rounded-[12px] bg-paper px-3.5 py-3 max-sm:-ml-12">
               <legend className="sr-only">Indicadores de {skill.label}</legend>
               <p className="mb-2.5 text-xs leading-5 text-text-2">La IA busca solo los tildados. Tiene que quedar al menos uno.</p>
               <ul className="grid gap-2.5">
@@ -250,11 +299,108 @@ function SkillRow({
                   );
                 })}
               </ul>
+              <LevelsEditor skill={skill.label} ticked={ticked} value={levels} onChange={onLevels} />
             </fieldset>
           ) : null}
         </div>
       </div>
     </li>
+  );
+}
+
+const rangeText = (from: number, to: number) => (from === to ? `${from}` : to === from + 1 ? `${from} o ${to}` : `${from} a ${to}`);
+
+/**
+ * "Pedir una cantidad por nivel" (Vanina Gerstner, 28-10): how many of the ticked indicators the
+ * student has to show for each level, one stepper per level, and the rule it makes in plain words.
+ */
+function LevelsEditor({ skill, ticked, value, onChange }: { skill: string; ticked: number; value: SkillThresholds | null; onChange: (t: SkillThresholds | null) => void }) {
+  const can = ticked >= MIN_INDICATORS_FOR_LEVELS;
+  const bands = value ? thresholdBands(value, ticked) : [];
+  return (
+    <div className="mt-3.5 border-t border-line pt-3.5">
+      <Switch
+        checked={Boolean(value)}
+        disabled={!can}
+        onCheckedChange={(v) => onChange(v ? suggestedThresholds(ticked) : null)}
+        label="Elegir cuántos pide cada nivel"
+        description={
+          !can
+            ? "Tildá al menos dos indicadores para pedir una cantidad por nivel."
+            : value
+              ? "Cuántos de los indicadores tildados tiene que mostrar el alumno, con sus palabras, para llegar a cada nivel."
+              : "Ahora, con uno de los tildados queda en Logrado. Activalo para pedir más."
+        }
+      />
+      {value ? (
+        <>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {SKILL_LEVELS.map((l) => (
+              <LevelStepper key={l} skill={skill} level={l} value={value[l]} ticked={ticked} onChange={(v) => onChange(setThreshold(value, l, v, ticked))} />
+            ))}
+          </div>
+          <ul className="mt-3 grid gap-1 text-[13px] leading-5 text-text-2" aria-live="polite" aria-label={`Así se asigna el nivel en ${skill}`}>
+            {bands.map((b) => (
+              <li key={b.from} className="flex items-start gap-2">
+                <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", TONE_STYLE[toneOf(b.levels.at(-1) ?? "sin_evidencia")].dot)} aria-hidden="true" />
+                <span>
+                  {b.from === 0 && b.to === 0 ? "Sin ninguno" : `Con ${rangeText(b.from, b.to)}`}:{" "}
+                  <span className="font-semibold text-text">
+                    {b.levels.length === 0 ? STATUS_LABELS.sin_evidencia : b.levels.map((l) => STATUS_LABELS[l]).join(" o ")}
+                  </span>
+                  {b.levels.length > 1 ? ", según lo que vea la IA" : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+/** One level's number: − and + for touch, arrows on the keyboard (a spinbutton). */
+function LevelStepper({ skill, level, value, ticked, onChange }: { skill: string; level: SkillLevel; value: number; ticked: number; onChange: (v: number) => void }) {
+  const min = level === "logrado" || level === "avanzado" ? 1 : 0;
+  const label = STATUS_LABELS[level];
+  const step = (d: number) => onChange(Math.min(ticked, Math.max(min, value + d)));
+  const onKey = (e: KeyboardEvent) => {
+    const to = { ArrowUp: value + 1, ArrowRight: value + 1, ArrowDown: value - 1, ArrowLeft: value - 1, Home: min, End: ticked }[e.key];
+    if (to === undefined) return;
+    e.preventDefault();
+    onChange(Math.min(ticked, Math.max(min, to)));
+  };
+  const button =
+    "relative inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-sunken text-ink transition-colors before:absolute before:-inset-1 before:content-[''] hover:bg-line disabled:cursor-not-allowed disabled:opacity-40";
+  return (
+    <div className="rounded-[12px] border border-line bg-surface px-2 pt-2 pb-2.5">
+      <p className="flex items-center gap-1.5 px-0.5 text-[13px] font-semibold text-text">
+        <LevelMeter status={level} className="scale-[0.8] origin-left" />
+        {label}
+      </p>
+      <div className="mt-1.5 flex items-center justify-between gap-1">
+        <button type="button" tabIndex={-1} className={button} disabled={value <= min} aria-label={`Un indicador menos para ${label}`} onClick={() => step(-1)}>
+          <Minus className="size-4" aria-hidden="true" />
+        </button>
+        <div
+          role="spinbutton"
+          tabIndex={0}
+          aria-label={`${label} en ${skill}: indicadores que pide`}
+          aria-valuenow={value}
+          aria-valuemin={min}
+          aria-valuemax={ticked}
+          aria-valuetext={`${value} de ${ticked} indicadores`}
+          onKeyDown={onKey}
+          className="min-w-0 flex-1 rounded-md py-0.5 text-center focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lilac-ink"
+        >
+          <span className="block font-display text-xl leading-6 font-semibold text-ink tabular">{value}</span>
+          <span className="block text-[11px] leading-4 text-text-2">de {ticked}</span>
+        </div>
+        <button type="button" tabIndex={-1} className={button} disabled={value >= ticked} aria-label={`Un indicador más para ${label}`} onClick={() => step(1)}>
+          <Plus className="size-4" aria-hidden="true" />
+        </button>
+      </div>
+    </div>
   );
 }
 

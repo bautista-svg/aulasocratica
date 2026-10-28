@@ -4,7 +4,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { ChevronDown, RefreshCw, SlidersHorizontal, Sparkles, Sprout, Target, TrendingUp } from "lucide-react";
+import { ChevronDown, ListChecks, RefreshCw, SlidersHorizontal, Sparkles, Sprout, Target, TrendingUp } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ConfirmDialog } from "@client/components/ui/dialog";
 import { Notice } from "@client/components/ui/misc";
@@ -160,6 +160,24 @@ export function SkillsPanel({ activityId }: { activityId: string }) {
             Reevaluar habilidades
           </Button>
         </div>
+      ) : d.levelsOutdatedWorks > 0 && !group.run.running ? (
+        <div className="flex flex-col gap-4 rounded-[18px] bg-leaf-soft/70 p-4 sm:flex-row sm:items-center sm:p-5">
+          <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-[12px] bg-surface text-leaf shadow-1" aria-hidden="true">
+            <ListChecks className="size-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-text">Cambiaste cuántos indicadores pide cada nivel</p>
+            <p className="mt-0.5 text-sm leading-6 text-text-2">
+              {d.levelsOutdatedWorks === d.assessedWorks
+                ? "Estos trabajos se evaluaron con los niveles anteriores."
+                : `${plural(d.levelsOutdatedWorks, "trabajo se evaluó", "trabajos se evaluaron")} con los niveles anteriores.`}{" "}
+              Reevaluá para aplicar los actuales.
+            </p>
+          </div>
+          <Button variant="primary" icon={<RefreshCw className="size-4" />} className={cn("shrink-0", !canEdit && "hidden")} onClick={() => setConfirming(true)}>
+            Reevaluar habilidades
+          </Button>
+        </div>
       ) : null}
 
       {!running && (d.pending.length || group.run.running) ? (
@@ -253,7 +271,7 @@ export function SkillsPanel({ activityId }: { activityId: string }) {
         description={
           <>
             <p>
-              Se vuelven a analizar las conversaciones originales de los alumnos con los criterios de evaluación actuales y las habilidades e indicadores
+              Se vuelven a analizar las conversaciones originales de los alumnos con los criterios de evaluación actuales y las habilidades, indicadores y niveles
               que elegiste ahora. Los resultados anteriores se reemplazan por completo, también los niveles que corregiste a mano.
             </p>
             <p className="mt-2">No se tocan las conversaciones, las respuestas ni los datos de los alumnos. Si algo falla, se mantienen los resultados anteriores.</p>

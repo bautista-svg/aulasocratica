@@ -26,10 +26,11 @@ export type NewsKey =
   | "sharedSummary"
   | "alertsTab"
   | "divisions"
-  | "sharedClassrooms";
+  | "sharedClassrooms"
+  | "indicatorLevels";
 
 /** Releases in order; adding one shows its items to everyone who has not seen them. */
-export const NEWS_RELEASES = ["2026-10-22", "2026-10-22b", "2026-10-22c", "2026-10-23", "2026-10-23b", "2026-10-23c", "2026-10-23d", "2026-10-24", "2026-10-24b", "2026-10-26", "2026-10-26b", "2026-10-28", "2026-10-28b", "2026-10-28c"] as const;
+export const NEWS_RELEASES = ["2026-10-22", "2026-10-22b", "2026-10-22c", "2026-10-23", "2026-10-23b", "2026-10-23c", "2026-10-23d", "2026-10-24", "2026-10-24b", "2026-10-26", "2026-10-26b", "2026-10-28", "2026-10-28b", "2026-10-28c", "2026-10-29"] as const;
 export type NewsRelease = (typeof NEWS_RELEASES)[number];
 
 export interface NewsItem {
@@ -172,6 +173,12 @@ export const NEWS_ITEMS: NewsItem[] = [
     release: "2026-10-28c",
     title: "Compartí un aula con otros docentes",
     text: "En «···» de cada aula, «Compartir aula» crea un enlace para sumar a otro docente como Admin, Editor o Lector. Las aulas que te comparten aparecen en Aulas, con tu rol.",
+  },
+  {
+    key: "indicatorLevels",
+    release: "2026-10-29",
+    title: "Cuántos indicadores pide cada nivel",
+    text: "En «Elegir habilidades», abrí los indicadores de una habilidad y elegí cuántos de los tildados tiene que mostrar el alumno para Inicial, En desarrollo, Logrado y Avanzado. En cada trabajo ves cuáles mostró, con su cita. Reevaluá para aplicarlo a lo ya evaluado.",
   },
   {
     key: "structure",

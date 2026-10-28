@@ -83,8 +83,14 @@ function skills(body) {
   // The first indicator listed for each skill (the ones the teacher left ticked).
   // The prompt is JSON here, so its line breaks are the two characters "\n".
   const firstIndicator = Object.fromEntries([...text.matchAll(/- skill: ([a-z_0-9]+)[^\\]*\\n[^\\]*\\n {4}· ([^\\"]+)/g)].map((m) => [m[1], m[2]]));
+  // Every ticked indicator of each skill, in order.
+  const indicators = Object.fromEntries(
+    [...text.matchAll(/- skill: ([a-z_0-9]+)[^\\]*\\n[^\\]*((?:\\n {4}· [^\\"]+)+)/g)].map((m) => [m[1], [...m[2].matchAll(/· ([^\\"]+)/g)].map((x) => x[1])]),
+  );
   const said = [...text.matchAll(/ALUMNO: ([^\\]{12,160})/g)].map((m) => m[1].split(/(?<=[.!?])\s/)[0].trim()).filter((q) => q.split(/\s+/).length >= 4);
   const levels = ["logrado", "en_desarrollo", "avanzado", "inicial", "logrado", "sin_evidencia"];
+  // How many indicators each level shows (avanzado: all of them).
+  const howMany = { logrado: 2, en_desarrollo: 1, avanzado: 99, inicial: 0, sin_evidencia: 0 };
   return {
     skills: keys.map((skill, i) => {
       const status = said.length ? levels[i % levels.length] : "sin_evidencia";
@@ -92,6 +98,7 @@ function skills(body) {
       return {
         skill,
         analysis: "Muestra el indicador central con una idea propia.",
+        shown: (indicators[skill] ?? []).slice(0, howMany[status]).map((indicator, j) => ({ indicator, quote: said[(i + j) % said.length] })),
         repeatsTutor: false,
         status,
         criterion: status === "sin_evidencia" || status === "en_desarrollo" || status === "inicial" ? "" : (firstIndicator[skill] ?? ""),
