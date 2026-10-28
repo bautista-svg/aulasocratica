@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ClassroomRole } from "../domain/sharing";
 
 const short = (max: number) => z.string().trim().max(max, `Usá hasta ${max} caracteres.`);
 
@@ -36,6 +37,12 @@ export interface ClassroomSummary {
   studentCount: number;
   /** Students working right now (signal in the last 2 minutes) across its activities. */
   activeNow: number;
+  /** The teacher's role here: "owner" for their own classrooms, else the role it was shared with. */
+  role: ClassroomRole;
+  /** Who created a classroom shared with this teacher ("" for their own). */
+  ownerName: string;
+  /** Other teachers it is shared with. */
+  memberCount: number;
 }
 
 export interface ClassroomDetail extends ClassroomSummary {}

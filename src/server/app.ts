@@ -17,6 +17,7 @@ import { log } from "./lib/logger";
 import { healthRoutes } from "./routes/health";
 import { authRoutes } from "./routes/auth";
 import { classroomRoutes } from "./routes/classrooms";
+import { classroomSharingRoutes, inviteRoutes } from "./routes/sharing";
 import { activityRoutes } from "./routes/activities";
 import { sessionRoutes } from "./routes/sessions";
 import { liveRoutes } from "./routes/live";
@@ -81,6 +82,8 @@ export function createApp(opts: { staticDir?: string | null } = {}) {
   api.route("/auth", authRoutes);
   api.route("/dashboard", dashboardRoutes);
   api.route("/classrooms", classroomRoutes);
+  api.route("/classrooms", classroomSharingRoutes);
+  api.route("/invites", inviteRoutes);
   api.route("/activities", activityRoutes);
   api.route("/sessions", sessionRoutes);
   api.route("/live", liveRoutes);

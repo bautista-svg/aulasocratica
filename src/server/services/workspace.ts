@@ -43,6 +43,16 @@ export async function workspaceHasContent(teacherId: string): Promise<boolean> {
 export async function mergeWorkspaces(fromId: string, intoId: string): Promise<void> {
   if (fromId === intoId) return;
   await db.transaction(async (tx) => {
+    // Shared classrooms: the account stops being a member of the classrooms it now owns, and takes
+    // the memberships of the other workspace where it has none (the rest go with that workspace).
+    await tx.execute(sql`delete from classroom_members where teacher_id = ${intoId}
+      and classroom_id in (select id from classrooms where teacher_id = ${fromId})`);
+    await tx.execute(sql`update classroom_members set teacher_id = ${intoId} where teacher_id = ${fromId}
+      and classroom_id not in (select classroom_id from classroom_members where teacher_id = ${intoId})
+      and classroom_id not in (select id from classrooms where teacher_id = ${intoId})`);
+    await tx.update(schema.classroomMembers).set({ invitedBy: intoId }).where(eq(schema.classroomMembers.invitedBy, fromId));
+    await tx.update(schema.classroomInvites).set({ createdBy: intoId }).where(eq(schema.classroomInvites.createdBy, fromId));
+    await tx.update(schema.classroomInvites).set({ usedBy: intoId }).where(eq(schema.classroomInvites.usedBy, fromId));
     await tx.update(schema.classrooms).set({ teacherId: intoId }).where(eq(schema.classrooms.teacherId, fromId));
     await tx.update(schema.activities).set({ teacherId: intoId }).where(eq(schema.activities.teacherId, fromId));
     await tx.update(schema.materials).set({ teacherId: intoId }).where(eq(schema.materials.teacherId, fromId));
@@ -72,7 +82,10 @@ export async function mergeWorkspaces(fromId: string, intoId: string): Promise<v
   log.info("workspace_merged", { fromId, intoId });
 }
 
-/** Permanently deletes a workspace, its rows (cascade) and its files on disk. */
+/**
+ * Permanently deletes a workspace, its rows (cascade) and its files on disk. Its memberships in
+ * classrooms shared with it go too; those classrooms, being another workspace's, stay untouched.
+ */
 export async function deleteWorkspace(teacherId: string): Promise<void> {
   const fileKeys = await collectWorkspaceFileKeys(teacherId);
   await db.delete(schema.teachers).where(eq(schema.teachers.id, teacherId));

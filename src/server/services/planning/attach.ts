@@ -83,7 +83,8 @@ async function attachTextAsFile(activityId: string, title: string, body: string)
   return { attachedAs: "file", processing: false };
 }
 
-export async function attachMaterialToActivity(m: MaterialRow, activityId: string): Promise<AttachResult> {
+/** Copies a library item into an activity; the copy counts against the activity owner's storage. */
+export async function attachMaterialToActivity(m: MaterialRow, activityId: string, activityTeacherId = m.teacherId): Promise<AttachResult> {
   if (m.kind === "link") {
     const block = materialAsActivityText(m);
     if (await appendToActivityMaterial(activityId, block)) return { attachedAs: "text", processing: false };
@@ -103,7 +104,7 @@ export async function attachMaterialToActivity(m: MaterialRow, activityId: strin
     throw badRequest(`No pudimos leer «${m.title}». Reintentá la lectura en Mis materiales o subilo en otro formato.`);
   }
   await assertFileRoom(activityId);
-  await assertStorageRoom(m.teacherId, m.sizeBytes ?? 0);
+  await assertStorageRoom(activityTeacherId, m.sizeBytes ?? 0);
   const ext = fileExtension(m.storageKey) || fileExtension(m.fileName ?? "");
   const key = newKey("activities", activityId, ext);
   try {

@@ -18,6 +18,7 @@ import {
   type ReflectionQuestion,
 } from "../domain/activity-design";
 import type { VoiceLanguage } from "../domain/voice";
+import type { ClassroomRole } from "../domain/sharing";
 import { DELIVERABLE_PROMPT_MAX, type DeliverableMode } from "../domain/deliverables";
 import type { FileKind, ProcessingStatus } from "../domain/files";
 import { MAX_TUTOR_TYPES, TUTOR_TYPES } from "../domain/pedagogy";
@@ -144,6 +145,8 @@ export interface ActivityEditorData extends ActivityDetail {
   /** Students who joined this activity (its learning sessions). */
   participants: number;
   completed: number;
+  /** The teacher's role in the activity's classroom ("owner" unless it is a shared classroom). */
+  role: ClassroomRole;
 }
 
 /** A file attached to an activity. Its extracted text is what the tutor reads. */

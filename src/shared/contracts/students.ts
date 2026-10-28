@@ -1,5 +1,6 @@
 // A student's page: their works (learning sessions) across the activities of their classroom.
 import type { StudentSkills } from "./skills";
+import type { ClassroomRole } from "../domain/sharing";
 
 export interface StudentWork {
   sessionId: string;
@@ -20,6 +21,8 @@ export interface StudentWork {
 }
 
 export interface StudentDetail {
+  /** The teacher's role in the classroom ("owner" unless it was shared with them): what they can change. */
+  role: ClassroomRole;
   student: { id: string; fullName: string; selfRegistered: boolean; createdAt: string };
   classroom: { id: string; name: string; label: string; isArchived: boolean };
   works: StudentWork[];

@@ -1,6 +1,8 @@
 // Activity editor API: create, edit, files, sharing (link), lifecycle and AI design helpers.
 // Every route is teacher-only and resolves the activity through ownedActivity (404 for
-// activities of other workspaces).
+// activities of other workspaces). In a shared classroom, changes need the "edit" role (editor,
+// admin or owner) and the destructive ones (papelera, reiniciar, eliminar) "manage" (admin or owner).
+// The activity stays in the classroom owner's workspace: storage and AI are counted there.
 import { legacyFields, sanitizeConsignas, structuredConsignas } from "@shared/domain/structure";
 import { Readable } from "node:stream";
 import { Hono, type Context } from "hono";
@@ -11,7 +13,8 @@ import { badRequest, notFound, readJson, tooMany } from "../lib/errors";
 import { assertStorageRoom } from "../services/quota";
 import { namesRemoved, reconcileReports, studentsWithWork } from "../services/reports/reconcile";
 import { requireTeacher, teacherOf } from "../auth/teacher";
-import { ownedActivity, ownedClassroom, ownedTutor } from "../services/access";
+import { ownedActivity, ownedClassroom, ownedTutor, requireRole } from "../services/access";
+import type { ClassroomAction } from "@shared/domain/sharing";
 import { audit } from "../services/audit";
 import { publish } from "../lib/events";
 import { hit } from "../lib/rate-limit";
@@ -69,9 +72,11 @@ function assertUploadRate(teacherId: string) {
   }
 }
 
-async function owned(c: Context<AppEnv>) {
+/** The activity of the route, checking the teacher's role when the route changes something. */
+async function owned(c: Context<AppEnv>, action?: ClassroomAction) {
   const t = teacherOf(c);
   const activity = await ownedActivity(t.id, c.req.param("id") ?? "");
+  if (action) requireRole(activity, action);
   return { t, activity };
 }
 
@@ -93,8 +98,11 @@ export const activityRoutes = new Hono<AppEnv>()
     // A double click or a retry with the same request id returns the activity created the first time.
     const activity = await once("activity", t.id, requestId, body, async () => {
       const room = await ownedClassroom(t.id, body.classroomId);
+      requireRole(room, "edit");
+      // The teacher's own tutor is a template: its configuration is copied into the activity.
       const tutor = body.tutorId ? await ownedTutor(t.id, body.tutorId) : null;
-      const id = await createActivity({ teacherId: t.id, classroom: room, title: body.title, tutor, language: body.language });
+      // In a shared classroom the activity belongs to the classroom owner's workspace.
+      const id = await createActivity({ teacherId: room.teacherId, classroom: room, title: body.title, tutor, language: body.language });
       return loadActivity(t.id, id);
     });
     return c.json({ activity }, 201);
@@ -107,21 +115,21 @@ export const activityRoutes = new Hono<AppEnv>()
 
   // "Habilidades" of the group: counts per skill and level, with each student's evidence.
   .get("/:id/skills", async (c) => {
-    const { t, activity } = await owned(c);
-    return c.json(await activitySkills(activity.id, t.id));
+    const { activity } = await owned(c);
+    return c.json(await activitySkills(activity.id, activity.teacherId));
   })
 
   // "Reevaluar habilidades": every work again, from scratch, replacing the previous results.
   .post("/:id/skills/reevaluate", async (c) => {
-    const { t, activity } = await owned(c);
-    const run = await startReevaluation(activity.id, t.id);
+    const { t, activity } = await owned(c, "edit");
+    const run = await startReevaluation(activity.id, activity.teacherId);
     await audit(c, t.id, "skills_reevaluation_started", "activity", activity.id, { works: run.total });
     return c.json({ run }, 202);
   })
 
   // ── Edit ──
   .patch("/:id", async (c) => {
-    const { t, activity } = await owned(c);
+    const { t, activity } = await owned(c, "edit");
     const body = await readJson(c, activityPatch);
     const { rubric, reflectionQuestions, extraTutorTypes, moreInstructions, consignas, ...rest } = body;
     const values: Partial<typeof schema.activities.$inferInsert> = { ...rest };
@@ -154,17 +162,17 @@ export const activityRoutes = new Hono<AppEnv>()
   })
 
   .post("/:id/tutor", async (c) => {
-    const { t, activity } = await owned(c);
+    const { t, activity } = await owned(c, "edit");
     const { tutorId } = await readJson(c, applyTutorBody);
     const tutor = await ownedTutor(t.id, tutorId);
-    await setStatus(activity.id, tutorConfig(tutor));
+    await setStatus(activity.id, tutorConfig(tutor, activity.teacherId));
     publish(activity.id, "activity");
     return respond(c, t.id, activity.id);
   })
 
   // ── Lifecycle ──
   .post("/:id/publish", async (c) => {
-    const { t, activity } = await owned(c);
+    const { t, activity } = await owned(c, "edit");
     if (activity.status === "archived") throw badRequest("Restaurá la actividad antes de publicarla.");
     const [room] = await db
       .select({ archived: schema.classrooms.isArchived })
@@ -185,7 +193,7 @@ export const activityRoutes = new Hono<AppEnv>()
   })
 
   .post("/:id/unpublish", async (c) => {
-    const { t, activity } = await owned(c);
+    const { t, activity } = await owned(c, "edit");
     if (activity.status === "published") {
       await setStatus(activity.id, { status: "draft" });
       await audit(c, t.id, "activity_unpublished", "activity", activity.id);
@@ -195,7 +203,7 @@ export const activityRoutes = new Hono<AppEnv>()
   })
 
   .post("/:id/archive", async (c) => {
-    const { t, activity } = await owned(c);
+    const { t, activity } = await owned(c, "edit");
     if (activity.status !== "archived") {
       await setStatus(activity.id, { status: "archived" });
       await audit(c, t.id, "activity_archived", "activity", activity.id);
@@ -206,7 +214,7 @@ export const activityRoutes = new Hono<AppEnv>()
 
   // "Eliminar": to the classroom's "Papelera" (archived, so the link stops; recoverable for 30 days).
   .post("/:id/trash", async (c) => {
-    const { t, activity } = await owned(c);
+    const { t, activity } = await owned(c, "manage");
     if (!activity.deletedAt) {
       await setStatus(activity.id, { status: "archived", deletedAt: new Date() });
       await audit(c, t.id, "activity_trashed", "activity", activity.id, { status: activity.status });
@@ -216,7 +224,7 @@ export const activityRoutes = new Hono<AppEnv>()
   })
 
   .post("/:id/untrash", async (c) => {
-    const { t, activity } = await owned(c);
+    const { t, activity } = await owned(c, "manage");
     if (activity.deletedAt) {
       // Back as a draft: reopening the link to students is an explicit "Publicar".
       await setStatus(activity.id, { status: "draft", deletedAt: null });
@@ -227,7 +235,7 @@ export const activityRoutes = new Hono<AppEnv>()
   })
 
   .post("/:id/restore", async (c) => {
-    const { t, activity } = await owned(c);
+    const { t, activity } = await owned(c, "edit");
     if (activity.deletedAt) throw badRequest("Esta actividad está en la papelera: restaurala desde ahí.");
     if (activity.status === "archived") {
       // Back as a draft: reopening the link to students is an explicit "Publicar".
@@ -239,38 +247,39 @@ export const activityRoutes = new Hono<AppEnv>()
   })
 
   .post("/:id/duplicate", async (c) => {
-    const { t, activity } = await owned(c);
+    const { t, activity } = await owned(c, "edit");
     const { requestId, ...body } = await readJson(c, duplicateBody);
     const targetId = body.classroomId ?? activity.classroomId;
     // The same request id (double click, retry) returns the copy made the first time.
     const out = await once(`duplicate:${activity.id}`, t.id, requestId, { targetId }, async () => {
       const room = await ownedClassroom(t.id, targetId);
+      requireRole(room, "edit");
       if (room.isArchived) throw badRequest("Esa aula está archivada. Elegí otra o restaurala.");
       if (!hit(`duplicate:${t.id}`, 30, 60 * 60_000)) {
         throw tooMany("Duplicaste muchas actividades seguidas. Esperá unos minutos y probá de nuevo.");
       }
-      const r = await duplicateActivity(activity, room.id);
+      const r = await duplicateActivity(activity, room);
       return { activity: await loadActivity(t.id, r.id), copiedFiles: r.copiedFiles, skippedFiles: r.skippedFiles };
     });
     return c.json(out, 201);
   })
 
   .post("/:id/reset", async (c) => {
-    const { t, activity } = await owned(c);
+    const { t, activity } = await owned(c, "manage");
     const body = await readJson(c, resetBody);
     const before = await studentsWithWork(activity.id);
     const r = await resetActivity(activity, { regenerateLink: body.regenerateLink === true });
-    await reconcileReports(t.id, await namesRemoved(before));
+    await reconcileReports(activity.teacherId, await namesRemoved(before));
     await audit(c, t.id, "activity_reset", "activity", activity.id, { ...r.deleted, linkRegenerated: r.linkRegenerated });
     publish(activity.id, "activity");
     return c.json({ ok: true, ...r, activity: await loadActivity(t.id, activity.id) });
   })
 
   .delete("/:id", async (c) => {
-    const { t, activity } = await owned(c);
+    const { t, activity } = await owned(c, "manage");
     await readJson(c, deleteActivityBody);
     const r = await deleteActivity(activity);
-    await reconcileReports(t.id);
+    await reconcileReports(activity.teacherId);
     await audit(c, t.id, "activity_deleted", "activity", activity.id, r);
     publish(activity.id, "activity");
     return c.json({ ok: true, classroomId: activity.classroomId });
@@ -278,7 +287,7 @@ export const activityRoutes = new Hono<AppEnv>()
 
   // ── Link ──
   .patch("/:id/link", async (c) => {
-    const { t, activity } = await owned(c);
+    const { t, activity } = await owned(c, "edit");
     const body = await readJson(c, linkPatch);
     const startsAt = body.startsAt !== undefined ? body.startsAt : (activity.startsAt?.toISOString() ?? null);
     const expiresAt = body.expiresAt !== undefined ? body.expiresAt : (activity.expiresAt?.toISOString() ?? null);
@@ -297,7 +306,7 @@ export const activityRoutes = new Hono<AppEnv>()
   })
 
   .post("/:id/link/regenerate", async (c) => {
-    const { t, activity } = await owned(c);
+    const { t, activity } = await owned(c, "edit");
     await setStatus(activity.id, { linkToken: newLinkToken() });
     await audit(c, t.id, "activity_link_regenerated", "activity", activity.id);
     publish(activity.id, "activity");
@@ -311,16 +320,16 @@ export const activityRoutes = new Hono<AppEnv>()
   })
 
   .post("/:id/files", async (c) => {
-    const { t, activity } = await owned(c);
+    const { t, activity } = await owned(c, "edit");
     assertUploadRate(t.id);
     const parts = await readFileParts(c);
-    await assertStorageRoom(t.id, parts.reduce((n, f) => n + f.size, 0));
+    await assertStorageRoom(activity.teacherId, parts.reduce((n, f) => n + f.size, 0));
     const r = await saveActivityUploads(activity.id, parts);
     return c.json(r, 201);
   })
 
   .patch("/:id/files/:fileId", async (c) => {
-    const { activity } = await owned(c);
+    const { activity } = await owned(c, "edit");
     const f = await fileOf(activity.id, c.req.param("fileId"));
     const { teacherNote } = await readJson(c, fileNoteBody);
     await db.update(schema.activityFiles).set({ teacherNote }).where(eq(schema.activityFiles.id, f.id));
@@ -328,7 +337,7 @@ export const activityRoutes = new Hono<AppEnv>()
   })
 
   .post("/:id/files/:fileId/retry", async (c) => {
-    const { activity } = await owned(c);
+    const { activity } = await owned(c, "edit");
     const f = await fileOf(activity.id, c.req.param("fileId"));
     if (f.processingStatus === "ready") throw badRequest("Este archivo ya está leído.");
     await retryActivityFile(f.id);
@@ -336,7 +345,7 @@ export const activityRoutes = new Hono<AppEnv>()
   })
 
   .delete("/:id/files/:fileId", async (c) => {
-    const { activity } = await owned(c);
+    const { activity } = await owned(c, "edit");
     const f = await fileOf(activity.id, c.req.param("fileId"));
     await removeActivityFile(activity.id, f.id, f.storageKey);
     return c.json({ ok: true });
@@ -369,21 +378,21 @@ export const activityRoutes = new Hono<AppEnv>()
 
   // ── AI design helpers (suggestions only; nothing is saved) ──
   .post("/:id/ai/rubric", async (c) => {
-    const { t, activity } = await owned(c);
+    const { t, activity } = await owned(c, "edit");
     const body = await readJson(c, aiRubricBody);
     assertAiRate(t.id);
     return c.json(await proposeRubric(activity, body));
   })
 
   .post("/:id/ai/reflection", async (c) => {
-    const { t, activity } = await owned(c);
+    const { t, activity } = await owned(c, "edit");
     const body = await readJson(c, aiReflectionBody);
     assertAiRate(t.id);
     return c.json(await proposeReflection(activity, body));
   })
 
   .post("/:id/rubric/import", async (c) => {
-    const { t, activity } = await owned(c);
+    const { t, activity } = await owned(c, "edit");
     assertAiRate(t.id);
     const [file] = await readFileParts(c);
     if (!file) throw badRequest("Elegí el archivo de la rúbrica.");

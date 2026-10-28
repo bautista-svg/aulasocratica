@@ -1,11 +1,13 @@
-// Inicio: what is happening now in the teacher's classrooms, what needs review and what to
-// do next. Four queries in parallel; the onboarding checklist comes from real data.
+// Inicio: what is happening now in the teacher's classrooms (own and shared with them), what
+// needs review and what to do next. Four queries in parallel; the onboarding checklist comes from
+// real data.
 import { Hono } from "hono";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import type { AppEnv } from "../types";
 import { db, schema } from "../db/client";
 import { requireTeacher, teacherOf } from "../auth/teacher";
 import { activitySummaries } from "./classrooms";
+import { visibleClassroomIds } from "../services/access";
 import { activityState } from "@shared/domain/activity-state";
 import { classroomLabel } from "@shared/contracts/classrooms";
 import type { DashboardResponse } from "@shared/contracts/dashboard";
@@ -47,7 +49,7 @@ async function latestOpenAlerts(teacherId: string) {
     })
     .from(sa)
     .innerJoin(schema.activities, eq(schema.activities.id, sa.activityId))
-    .where(and(eq(schema.activities.teacherId, teacherId), isNull(schema.activities.deletedAt), eq(sa.status, "open")))
+    .where(and(sql`${schema.activities.classroomId} in ${visibleClassroomIds(teacherId)}`, isNull(schema.activities.deletedAt), eq(sa.status, "open")))
     // Immediate-attention alerts first, then the most recent.
     .orderBy(sql`case when ${sa.severity} = 'immediate' then 0 else 1 end`, desc(sa.createdAt))
     .limit(ALERTS)
@@ -75,22 +77,24 @@ export const dashboardRoutes = new Hono<AppEnv>()
 
   .get("/", async (c) => {
     const t = teacherOf(c);
+    const mine = visibleClassroomIds(t.id);
     const [countsRows, activities, rooms, alerts] = await Promise.all([
       db.execute<CountsRow>(sql`
+        with v as ${mine}
         select
-          (select count(*)::int from classrooms c where c.teacher_id = ${t.id} and c.is_archived = false) as classrooms,
+          (select count(*)::int from classrooms c where c.id in (select id from v) and c.is_archived = false) as classrooms,
           (select count(*)::int from activities a join classrooms c on c.id = a.classroom_id
-             where a.teacher_id = ${t.id} and c.is_archived = false and a.status <> 'archived') as activities,
+             where c.id in (select id from v) and c.is_archived = false and a.status <> 'archived') as activities,
           (select count(*)::int from activities a join classrooms c on c.id = a.classroom_id
-             where a.teacher_id = ${t.id} and c.is_archived = false and a.status = 'published') as published,
+             where c.id in (select id from v) and c.is_archived = false and a.status = 'published') as published,
           (select count(*)::int from students s join classrooms c on c.id = s.classroom_id
-             where c.teacher_id = ${t.id} and c.is_archived = false) as students,
+             where c.id in (select id from v) and c.is_archived = false) as students,
           (select count(*)::int from student_alerts sa join activities a on a.id = sa.activity_id
-             where a.teacher_id = ${t.id} and sa.status = 'open') as open_alerts,
-          exists(select 1 from classrooms c where c.teacher_id = ${t.id}) as has_classroom,
-          exists(select 1 from activities a where a.teacher_id = ${t.id}) as has_activity,
-          exists(select 1 from activities a where a.teacher_id = ${t.id} and (a.status = 'published' or a.published_at is not null)) as has_published,
-          exists(select 1 from learning_sessions ls join activities a on a.id = ls.activity_id where a.teacher_id = ${t.id}) as has_session`),
+             where a.classroom_id in (select id from v) and sa.status = 'open') as open_alerts,
+          exists(select 1 from v) as has_classroom,
+          exists(select 1 from activities a where a.classroom_id in (select id from v)) as has_activity,
+          exists(select 1 from activities a where a.classroom_id in (select id from v) and (a.status = 'published' or a.published_at is not null)) as has_published,
+          exists(select 1 from learning_sessions ls join activities a on a.id = ls.activity_id where a.classroom_id in (select id from v)) as has_session`),
       activitySummaries(t.id, null),
       db
         .select({
@@ -101,7 +105,7 @@ export const dashboardRoutes = new Hono<AppEnv>()
           isArchived: schema.classrooms.isArchived,
         })
         .from(schema.classrooms)
-        .where(eq(schema.classrooms.teacherId, t.id))
+        .where(sql`classrooms.id in ${mine}`)
         .orderBy(desc(schema.classrooms.updatedAt)),
       latestOpenAlerts(t.id),
     ]);

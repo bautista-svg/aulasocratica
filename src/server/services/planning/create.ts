@@ -6,7 +6,7 @@ import { HttpError, conflict } from "../../lib/errors";
 import { randomToken } from "../../lib/crypto";
 import { log } from "../../lib/logger";
 import { newKey, saveFile, deleteFile } from "../../lib/storage";
-import { ownedClassroom, ownedTutor } from "../access";
+import { ownedClassroom, ownedTutor, requireRole } from "../access";
 import { rulesOfTutor } from "../tutors/queries";
 import { loadOwnedMaterials } from "./material-context";
 import { appendToActivityMaterial, attachMaterialToActivity } from "./attach";
@@ -22,6 +22,7 @@ const safeReason = (err: unknown) => (err instanceof HttpError ? err.message : "
 
 export async function createActivityFromProposal(teacherId: string, input: CreateInput): Promise<CreateFromProposalResponse> {
   const room = await ownedClassroom(teacherId, input.classroomId);
+  requireRole(room, "edit");
   if (room.isArchived) throw conflict("Esta aula está archivada. Restaurala para crear actividades en ella.");
   const tutor = input.tutorId ? await ownedTutor(teacherId, input.tutorId) : null;
   const materials = await loadOwnedMaterials(teacherId, input.materialIds);
@@ -40,7 +41,9 @@ export async function createActivityFromProposal(teacherId: string, input: Creat
     .insert(schema.activities)
     .values({
       classroomId: room.id,
-      teacherId,
+      // In a shared classroom the activity belongs to the classroom owner's workspace; the teacher's
+      // own tutor and materials are copied into it.
+      teacherId: room.teacherId,
       title: p.title,
       subject: (input.subject || room.subject).slice(0, 80),
       objectives: p.objectives,
@@ -49,7 +52,7 @@ export async function createActivityFromProposal(teacherId: string, input: Creat
       tutorType,
       helpLevel,
       tutorRules: rules.text,
-      tutorId: tutor?.id ?? null,
+      tutorId: tutor && tutor.teacherId === room.teacherId ? tutor.id : null,
       // "None" stays none: an empty list is stored as an empty list.
       reflectionQuestions: sanitizeReflectionQuestions(p.reflectionQuestions),
       status,
@@ -96,7 +99,7 @@ export async function createActivityFromProposal(teacherId: string, input: Creat
 
   for (const m of materials) {
     try {
-      await attachMaterialToActivity(m, activityId);
+      await attachMaterialToActivity(m, activityId, room.teacherId);
       attached++;
     } catch (err) {
       skipped.push({ title: m.title, reason: safeReason(err) });

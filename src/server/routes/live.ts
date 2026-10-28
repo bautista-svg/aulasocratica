@@ -1,4 +1,5 @@
 // Live view of one activity (teacher only). Participants = the activity's learning sessions.
+// Every teacher with access to the classroom can watch (also a reader); acting needs "edit".
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { and, eq } from "drizzle-orm";
@@ -6,7 +7,7 @@ import type { AppEnv } from "../types";
 import { db, schema } from "../db/client";
 import { readJson, notFound } from "../lib/errors";
 import { requireTeacher, teacherOf } from "../auth/teacher";
-import { ownedActivity, isUuid } from "../services/access";
+import { ownedActivity, isUuid, requireRole } from "../services/access";
 import { audit } from "../services/audit";
 import { publish, subscribe } from "../lib/events";
 import { log } from "../lib/logger";
@@ -24,7 +25,7 @@ export const liveRoutes = new Hono<AppEnv>()
     const activity = await ownedActivity(teacherOf(c).id, c.req.param("activityId"));
     const w = c.req.query("window");
     const window: LiveWindow = (LIVE_WINDOWS as readonly string[]).includes(w ?? "") ? (w as LiveWindow) : "30m";
-    return c.json(await liveSnapshot(activity, window));
+    return c.json(await liveSnapshot(activity, window, activity.role));
   })
 
   // Server-Sent Events: a `change` event (coalesced over ~400 ms) whenever a session of this
@@ -71,6 +72,7 @@ export const liveRoutes = new Hono<AppEnv>()
 
   .patch("/:activityId/alerts/:alertId", async (c) => {
     const activity = await ownedActivity(teacherOf(c).id, c.req.param("activityId"));
+    requireRole(activity, "edit");
     const alertId = c.req.param("alertId");
     if (!isUuid(alertId)) throw notFound("La alerta");
     const { status } = await readJson(c, alertStatusBody);
@@ -87,6 +89,7 @@ export const liveRoutes = new Hono<AppEnv>()
   .post("/:activityId/end-all", async (c) => {
     const t = teacherOf(c);
     const activity = await ownedActivity(t.id, c.req.param("activityId"));
+    requireRole(activity, "edit");
     const body = await readJson(c, endAllBody);
     // Close the link first: nobody new can join while (or after) the current works are ended.
     let linkClosed = false;

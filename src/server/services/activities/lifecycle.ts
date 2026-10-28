@@ -28,11 +28,15 @@ const COPY_SUFFIX = " (Copia)";
 /** A new link token (url-safe, 128 bits). */
 export const newLinkToken = () => randomToken(16);
 
-/** The activity fields a saved tutor sets. Its texts land in the teacher-rules block. */
-export function tutorConfig(t: TutorRow) {
+/**
+ * The activity fields a saved tutor sets. Its texts land in the teacher-rules block. A tutor is a
+ * template: a member of a shared classroom can use their own, and only its configuration is copied
+ * (`tutorId`, "Basada en", points only to tutors of the activity's own workspace).
+ */
+export function tutorConfig(t: TutorRow, activityTeacherId = t.teacherId) {
   const helpLevel = ["autonomous", "moderate", "intensive"].includes(t.helpLevel) ? t.helpLevel : "moderate";
   return {
-    tutorId: t.id,
+    tutorId: t.teacherId === activityTeacherId ? t.id : null,
     tutorType: t.tutorType in TUTOR_TYPES ? t.tutorType : "pensamiento_critico",
     // A saved tutor replaces the type: no combination left over from before.
     extraTutorTypes: [],
@@ -80,7 +84,7 @@ export async function createActivity(input: {
       reflectionQuestions: DEFAULT_REFLECTION_QUESTIONS.map((q) => ({ ...q })),
       linkToken: newLinkToken(),
       language: input.language ?? "es",
-      ...(input.tutor ? tutorConfig(input.tutor) : {}),
+      ...(input.tutor ? tutorConfig(input.tutor, input.teacherId) : {}),
     })
     .returning({ id: schema.activities.id });
   return row!.id;
@@ -92,13 +96,15 @@ export function copyTitle(title: string): string {
 
 /**
  * New draft with the same configuration and copies of the files (new storage keys; the
- * text already read is kept so the copy does not have to be processed again).
+ * text already read is kept so the copy does not have to be processed again). The copy belongs to
+ * the target classroom's owner (another workspace when copying to or from a shared classroom).
  */
-export async function duplicateActivity(source: ActivityRow, targetClassroomId: string) {
+export async function duplicateActivity(source: ActivityRow, target: { id: string; teacherId: string }) {
+  const targetClassroomId = target.id;
   await assertRoomForActivity(targetClassroomId);
   const newId = randomUUID();
   const files = await db.select().from(schema.activityFiles).where(eq(schema.activityFiles.activityId, source.id));
-  await assertStorageRoom(source.teacherId, files.reduce((n, f) => n + f.sizeBytes, 0));
+  await assertStorageRoom(target.teacherId, files.reduce((n, f) => n + f.sizeBytes, 0));
   const copies: (typeof schema.activityFiles.$inferInsert)[] = [];
   let skipped = 0;
   for (const f of files) {
@@ -132,9 +138,11 @@ export async function duplicateActivity(source: ActivityRow, targetClassroomId: 
       await tx.insert(schema.activities).values({
         id: newId,
         classroomId: targetClassroomId,
-        teacherId: source.teacherId,
+        teacherId: target.teacherId,
         title: copyTitle(source.title),
         ...configOf(source),
+        // "Basada en" a tutor of the same workspace only.
+        ...(target.teacherId === source.teacherId ? {} : { tutorId: null }),
         status: "draft",
         linkToken: newLinkToken(),
       });

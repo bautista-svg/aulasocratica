@@ -2,6 +2,7 @@
 // (students who joined this activity), never the whole classroom roster.
 import { z } from "zod";
 import type { HELP_EVENT_TYPES, LiveStatus, Stage } from "../domain/live-monitor";
+import type { ClassroomRole } from "../domain/sharing";
 
 export const alertStatusBody = z.object({
   status: z.enum(["open", "reviewed", "dismissed"], { error: "Elegí un estado válido para la alerta." }),
@@ -105,6 +106,8 @@ export interface Heatmap {
 }
 
 export interface LiveSnapshot {
+  /** The teacher's role in the classroom ("owner" unless it was shared with them): what they can change. */
+  role: ClassroomRole;
   activity: {
     id: string;
     title: string;

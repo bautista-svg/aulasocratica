@@ -5,7 +5,7 @@ import type { AppEnv } from "../types";
 import { db, schema } from "../db/client";
 import { readJson, badRequest, notFound } from "../lib/errors";
 import { requireTeacher, teacherOf } from "../auth/teacher";
-import { ownedClassroom, isUuid } from "../services/access";
+import { ownedClassroom, isUuid, requireRole, visibleClassroomIds } from "../services/access";
 import { audit } from "../services/audit";
 import { deleteFile, deletePrefix } from "../lib/storage";
 import { reconcileReports } from "../services/reports/reconcile";
@@ -22,9 +22,11 @@ import {
 import { TRASH_DAYS, type ActivitySummary, type TrashedActivity } from "@shared/contracts/activities";
 import { nameKey, tidyName } from "@shared/domain/names";
 import { BUILTIN_ALERTS, LOCKED_ALERT_KEYS, builtinEnabled } from "@shared/domain/alerts";
+import type { ClassroomRole } from "@shared/domain/sharing";
 
 const ACTIVE_MS = 2 * 60_000;
 
+/** The classrooms the teacher can open (own and shared with them), with their role in each. */
 async function summaries(teacherId: string, where: ReturnType<typeof and>): Promise<ClassroomSummary[]> {
   const activeSince = new Date(Date.now() - ACTIVE_MS).toISOString();
   const rows = await db
@@ -36,11 +38,14 @@ async function summaries(teacherId: string, where: ReturnType<typeof and>): Prom
       // An archived classroom has nobody working: its links stop students on their next request.
       activeNow: sql<number>`(case when classrooms.is_archived then 0 else (select count(*)::int from learning_sessions ls join activities a on a.id = ls.activity_id
         where a.classroom_id = classrooms.id and ls.status = 'in_progress' and ls.last_activity_at > ${activeSince}::timestamptz) end)`,
+      memberRole: sql<string | null>`(select m.role from classroom_members m where m.classroom_id = classrooms.id and m.teacher_id = ${teacherId})`,
+      memberCount: sql<number>`(select count(*)::int from classroom_members m where m.classroom_id = classrooms.id)`,
+      ownerName: sql<string>`(select coalesce(nullif(o.display_name, ''), o.email, '') from teachers o where o.id = classrooms.teacher_id)`,
     })
     .from(schema.classrooms)
-    .where(and(eq(schema.classrooms.teacherId, teacherId), where))
+    .where(and(sql`classrooms.id in ${visibleClassroomIds(teacherId)}`, where))
     .orderBy(desc(schema.classrooms.updatedAt));
-  return rows.map(({ c, ...counts }) => ({
+  return rows.map(({ c, memberRole, ownerName, ...counts }) => ({
     id: c.id,
     name: c.name,
     school: c.school,
@@ -53,6 +58,8 @@ async function summaries(teacherId: string, where: ReturnType<typeof and>): Prom
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
     ...counts,
+    role: (c.teacherId === teacherId ? "owner" : (memberRole ?? "reader")) as ClassroomRole,
+    ownerName: c.teacherId === teacherId ? "" : ownerName,
   }));
 }
 
@@ -84,8 +91,8 @@ export async function activitySummaries(teacherId: string, classroomId: string |
     .from(schema.activities)
     .where(
       and(
-        eq(schema.activities.teacherId, teacherId),
-        classroomId ? eq(schema.activities.classroomId, classroomId) : undefined,
+        // One classroom (access already checked by the caller) or every classroom the teacher can open.
+        classroomId ? eq(schema.activities.classroomId, classroomId) : sql`activities.classroom_id in ${visibleClassroomIds(teacherId)}`,
         isNull(schema.activities.deletedAt),
       ),
     )
@@ -147,6 +154,7 @@ export const classroomRoutes = new Hono<AppEnv>()
   .patch("/:id", async (c) => {
     const t = teacherOf(c);
     const room = await ownedClassroom(t.id, c.req.param("id"));
+    requireRole(room, "manage");
     const body = await readJson(c, classroomPatch);
     await db.update(schema.classrooms).set(body).where(eq(schema.classrooms.id, room.id));
     if (body.isArchived !== undefined) await audit(c, t.id, body.isArchived ? "classroom_archived" : "classroom_restored", "classroom", room.id);
@@ -157,6 +165,7 @@ export const classroomRoutes = new Hono<AppEnv>()
   .delete("/:id", async (c) => {
     const t = teacherOf(c);
     const room = await ownedClassroom(t.id, c.req.param("id"));
+    requireRole(room, "own");
     const acts = await db.select({ id: schema.activities.id }).from(schema.activities).where(eq(schema.activities.classroomId, room.id));
     const files = acts.length
       ? await db.select({ key: schema.activityFiles.storageKey }).from(schema.activityFiles).where(inArray(schema.activityFiles.activityId, acts.map((a) => a.id)))
@@ -188,7 +197,7 @@ export const classroomRoutes = new Hono<AppEnv>()
         participants: sql<number>`(select count(*)::int from learning_sessions ls where ls.activity_id = activities.id)`,
       })
       .from(schema.activities)
-      .where(and(eq(schema.activities.classroomId, room.id), eq(schema.activities.teacherId, t.id), isNotNull(schema.activities.deletedAt)))
+      .where(and(eq(schema.activities.classroomId, room.id), isNotNull(schema.activities.deletedAt)))
       .orderBy(desc(schema.activities.deletedAt));
     const trash: TrashedActivity[] = rows.map((r) => ({
       id: r.id,
@@ -239,6 +248,7 @@ export const classroomRoutes = new Hono<AppEnv>()
   .post("/:id/students", async (c) => {
     const t = teacherOf(c);
     const room = await ownedClassroom(t.id, c.req.param("id"));
+    requireRole(room, "manage");
     const body = await readJson(c, addStudentsBody);
     const values = body.names
       .map((n) => ({ fullName: tidyName(n), nameKey: nameKey(n) }))
@@ -253,6 +263,7 @@ export const classroomRoutes = new Hono<AppEnv>()
   .patch("/:id/students/:studentId", async (c) => {
     const t = teacherOf(c);
     const room = await ownedClassroom(t.id, c.req.param("id"));
+    requireRole(room, "manage");
     const studentId = c.req.param("studentId");
     if (!isUuid(studentId)) throw notFound("El alumno");
     const body = await readJson(c, renameStudentBody);
@@ -276,6 +287,7 @@ export const classroomRoutes = new Hono<AppEnv>()
   .delete("/:id/students/:studentId", async (c) => {
     const t = teacherOf(c);
     const room = await ownedClassroom(t.id, c.req.param("id"));
+    requireRole(room, "manage");
     const studentId = c.req.param("studentId");
     if (!isUuid(studentId)) throw notFound("El alumno");
     const keys = await deliverableKeys({ studentId });
@@ -285,7 +297,7 @@ export const classroomRoutes = new Hono<AppEnv>()
       .returning({ id: schema.students.id, fullName: schema.students.fullName });
     if (!row) throw notFound("El alumno");
     await deleteStoredKeys(keys);
-    await reconcileReports(t.id, [row.fullName]);
+    await reconcileReports(room.teacherId, [row.fullName]);
     await audit(c, t.id, "student_deleted", "student", studentId);
     return c.json({ ok: true });
   })
@@ -305,6 +317,7 @@ export const classroomRoutes = new Hono<AppEnv>()
   .put("/:id/alerts/builtin/:key", async (c) => {
     const t = teacherOf(c);
     const room = await ownedClassroom(t.id, c.req.param("id"));
+    requireRole(room, "manage");
     const key = c.req.param("key");
     const def = BUILTIN_ALERTS.find((a) => a.key === key);
     if (!def) throw notFound("La alerta");
@@ -320,6 +333,7 @@ export const classroomRoutes = new Hono<AppEnv>()
   .post("/:id/alerts", async (c) => {
     const t = teacherOf(c);
     const room = await ownedClassroom(t.id, c.req.param("id"));
+    requireRole(room, "manage");
     const body = await readJson(c, alertBody);
     const [n] = await db
       .select({ n: sql<number>`count(*)::int` })
@@ -333,6 +347,7 @@ export const classroomRoutes = new Hono<AppEnv>()
   .patch("/:id/alerts/:alertId", async (c) => {
     const t = teacherOf(c);
     const room = await ownedClassroom(t.id, c.req.param("id"));
+    requireRole(room, "manage");
     const alertId = c.req.param("alertId");
     if (!isUuid(alertId)) throw notFound("La alerta");
     const body = await readJson(c, alertBody.partial().extend({ enabled: z.boolean().optional() }));
@@ -348,6 +363,7 @@ export const classroomRoutes = new Hono<AppEnv>()
   .delete("/:id/alerts/:alertId", async (c) => {
     const t = teacherOf(c);
     const room = await ownedClassroom(t.id, c.req.param("id"));
+    requireRole(room, "manage");
     const alertId = c.req.param("alertId");
     if (!isUuid(alertId)) throw notFound("La alerta");
     const [row] = await db
