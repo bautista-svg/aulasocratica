@@ -50,8 +50,10 @@ export function updateWorkspace(qc: QueryClient, token: string, fn: (w: StudentW
 }
 
 export const studentApi = {
-  join: (token: string, name: string) => api.post<WorkspaceResponse & { created: boolean }>(`${base(token)}/join`, { name }),
-  resume: (token: string, name: string, code: string) => api.post<WorkspaceResponse>(`${base(token)}/resume`, { name, code }),
+  join: (token: string, name: string, division = "") =>
+    api.post<WorkspaceResponse & { created: boolean }>(`${base(token)}/join`, { name, ...(division ? { division } : {}) }),
+  resume: (token: string, name: string, code: string, division = "") =>
+    api.post<WorkspaceResponse>(`${base(token)}/resume`, { name, code, ...(division ? { division } : {}) }),
   leave: (token: string) => api.post<{ ok: true }>(`${base(token)}/leave`),
   initial: (token: string, answer: string) => api.post<WorkspaceResponse>(`${base(token)}/initial`, { answer }),
   closing: (token: string) => api.post<{ ok: true }>(`${base(token)}/closing`),

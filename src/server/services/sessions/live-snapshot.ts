@@ -1,6 +1,7 @@
 // Snapshot of the live view of one activity. Participants are the activity's learning
 // sessions only. Everything is fetched in bulk (sessions, events, alerts, last tutor turn)
 // and computed in memory with the shared live-monitor rules — no per-student queries.
+import { divisionCounts, sanitizeDivisionOptions } from "@shared/domain/divisions";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, schema } from "../../db/client";
 import {
@@ -52,7 +53,7 @@ const WINDOWS: Record<LiveWindow, { ms: number | null; buckets: number }> = {
 export async function liveSnapshot(activity: Activity, window: LiveWindow, role: ClassroomRole, nowMs = Date.now()): Promise<LiveSnapshot> {
   const requireInitialAnswer = activity.requireInitialAnswer;
   const ls = schema.learningSessions;
-  const sessions = await db
+  const sessionsQuery = db
     .select({
       // Only what the live view uses (not the final answer or the reflection texts).
       s: {
@@ -68,10 +69,15 @@ export async function liveSnapshot(activity: Activity, window: LiveWindow, role:
         completedAt: ls.completedAt,
       },
       studentName: schema.students.fullName,
+      division: schema.students.division,
     })
     .from(ls)
     .innerJoin(schema.students, eq(schema.students.id, ls.studentId))
     .where(eq(ls.activityId, activity.id));
+  const [sessions, [room]] = await Promise.all([
+    sessionsQuery,
+    db.select({ divisionOptions: schema.classrooms.divisionOptions }).from(schema.classrooms).where(eq(schema.classrooms.id, activity.classroomId)).limit(1),
+  ]);
 
   const ids = sessions.map((r) => r.s.id);
   const [events, alertRows, alertCounts, lastTutor] = ids.length
@@ -130,7 +136,7 @@ export async function liveSnapshot(activity: Activity, window: LiveWindow, role:
   const countsBySession = new Map(alertCounts.map((r) => [r.sessionId, r]));
   const questionBySession = new Map(lastTutor.map((r) => [r.sessionId, tutorQuestion(r.content)]));
 
-  const participants: LiveParticipant[] = sessions.map(({ s, studentName }) => {
+  const participants: LiveParticipant[] = sessions.map(({ s, studentName, division }) => {
     const evs = eventsBySession.get(s.id) ?? [];
     const live: LiveSession = {
       status: s.status,
@@ -165,6 +171,7 @@ export async function liveSnapshot(activity: Activity, window: LiveWindow, role:
       sessionId: s.id,
       studentId: s.studentId,
       studentName,
+      division,
       status: s.status === "completed" ? "completed" : "in_progress",
       liveStatus: status,
       lastSignalAt: new Date(signal).toISOString(),
@@ -282,6 +289,10 @@ export async function liveSnapshot(activity: Activity, window: LiveWindow, role:
     generatedAt: new Date(nowMs).toISOString(),
     window,
     totals,
+    divisions: divisionCounts(
+      sanitizeDivisionOptions(room?.divisionOptions),
+      participants.map((p) => p.division),
+    ),
     participants,
     alerts,
     heatmaps: { help, timeline, stages },

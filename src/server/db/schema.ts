@@ -86,6 +86,8 @@ export const classrooms = pgTable(
     grade: text("grade").notNull().default(""),
     division: text("division").notNull().default(""),
     description: text("description").notNull().default(""),
+    /** Divisions the students pick when entering an activity (e.g. ["N", "F", "S"]); empty: not asked. */
+    divisionOptions: jsonb("division_options").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
     isArchived: boolean("is_archived").notNull().default(false),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -106,6 +108,8 @@ export const students = pgTable(
     /** Normalized name (lowercase, no accents, single spaces) used to recognise the same student. */
     nameKey: text("name_key").notNull(),
     selfRegistered: boolean("self_registered").notNull().default(true),
+    /** The division they picked when entering (one of the classroom's divisionOptions), or "". */
+    division: text("division").notNull().default(""),
     createdAt: createdAt(),
   },
   (t) => [

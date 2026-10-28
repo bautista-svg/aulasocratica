@@ -220,3 +220,41 @@ test("entrega con enlace: el alumno pega el enlace de su trabajo y el docente lo
 
   await api(page.request, base, "DELETE", "/api/auth/workspace", { confirm: "BORRAR" });
 });
+
+test("divisiones: el alumno elige la suya al entrar y la docente filtra En vivo por división", async ({ page, browser, baseURL }) => {
+  const base = new URL(baseURL!).origin;
+  await startWorkspace(page);
+  const { classroom } = await api(page.request, base, "POST", "/api/classrooms", { name: "E2E 1.º año", divisionOptions: ["N", "F", "S"] });
+  const { activity } = await api(page.request, base, "POST", "/api/activities", { classroomId: classroom.id, title: "Divisiones" });
+  await api(page.request, base, "PATCH", `/api/activities/${activity.id}`, { instructions: "Contá qué aprendiste hoy.", requireInitialAnswer: false });
+  await api(page.request, base, "POST", `/api/activities/${activity.id}/publish`);
+  const token: string = (await api(page.request, base, "GET", `/api/activities/${activity.id}`)).activity.linkToken;
+
+  for (const [name, division] of [
+    ["Ana Gómez", "F"],
+    ["Bruno Pérez", "N"],
+  ] as const) {
+    const ctx = await browser.newContext();
+    const s = await ctx.newPage();
+    await s.goto(`/clase/${token}`);
+    await s.getByRole("textbox").first().fill(name);
+    // Without a division it does not go in.
+    await s.getByRole("button", { name: "Entrar a la actividad" }).click();
+    await expect(s.getByText("Elegí tu división.")).toBeVisible();
+    await s.getByRole("radiogroup", { name: "¿En qué división estás?" }).getByRole("radio", { name: division }).check({ force: true });
+    await s.getByRole("button", { name: "Entrar a la actividad" }).click();
+    await expect(s.getByText("Elegí tu división.")).toHaveCount(0);
+    await expect(s.getByRole("button", { name: "Entrar a la actividad" })).toHaveCount(0);
+    await ctx.close();
+  }
+
+  await page.goto(`/app/actividades/${activity.id}?tab=en-vivo`);
+  const filter = page.getByRole("group", { name: "División" });
+  await expect(filter.getByRole("button", { name: /Todas/ })).toHaveAttribute("aria-pressed", "true");
+  await filter.getByRole("button", { name: /^F/ }).click();
+  const participants = page.getByRole("region", { name: "Quién hizo esta actividad" });
+  await expect(participants.getByText("Ana Gómez").filter({ visible: true }).first()).toBeVisible();
+  await expect(participants.getByText("Bruno Pérez").filter({ visible: true })).toHaveCount(0);
+
+  await api(page.request, base, "DELETE", "/api/auth/workspace", { confirm: "BORRAR" });
+});

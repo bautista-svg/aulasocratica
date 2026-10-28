@@ -16,6 +16,8 @@ import { fmtRelative, plural } from "@client/lib/format";
 import { XL_QUERY, useMediaQuery } from "@client/lib/media";
 import { LIVE_STATUS_HELP, LIVE_STATUS_LABELS, formatDuration } from "@shared/domain/live-monitor";
 import type { LiveParticipant, LiveSnapshot, LiveWindow } from "@shared/contracts/live";
+import { inDivision, type DivisionCount } from "@shared/domain/divisions";
+import { DivisionTag } from "@client/features/classrooms/divisions";
 import { liveKeys, useActivityStream, useLiveMutations, useLiveSnapshot, useNow, useThrottled } from "./api";
 import { LiveStatusLabel, StageProgress } from "./bits";
 import { Heatmaps } from "./heatmaps";
@@ -272,10 +274,59 @@ function Stage({ p, className }: { p: LiveParticipant; className?: string }) {
   );
 }
 
+/** «Todas · N · F · S»: shows one division at a time (combined with the status filter). */
+function DivisionFilter({ divisions, total, value, onChange }: { divisions: DivisionCount[]; total: number; value: string | null; onChange: (v: string | null) => void }) {
+  const options: { value: string | null; label: string; count: number }[] = [
+    { value: null, label: "Todas", count: total },
+    ...divisions.map((d) => ({ value: d.value, label: d.value || "Sin división", count: d.count })),
+  ];
+  return (
+    <div className="mb-3 flex items-center gap-2">
+      <span id="division-filter-label" className="shrink-0 text-xs font-semibold tracking-wide text-text-3 uppercase">
+        División
+      </span>
+      <div
+        role="group"
+        aria-labelledby="division-filter-label"
+        className="-mx-1 flex min-w-0 gap-1 overflow-x-auto px-1 py-1 [scrollbar-width:none]"
+      >
+        <div className="flex shrink-0 gap-0.5 rounded-full bg-lilac-soft p-1">
+          {options.map((o) => {
+            const on = value === o.value;
+            return (
+              <button
+                key={o.value ?? "all"}
+                type="button"
+                aria-pressed={on}
+                onClick={() => onChange(o.value)}
+                className={cn(
+                  "inline-flex h-9 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-semibold transition-colors",
+                  on ? "bg-surface text-ink shadow-1" : "text-lilac-ink hover:bg-surface/60",
+                  !o.value && o.value !== null && !on && "font-medium italic",
+                )}
+              >
+                {o.label}
+                <span className={cn("tabular text-xs", on ? "text-text-2" : "text-lilac-ink/80")}>{o.count}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ParticipantsSection({ snap, activityId }: { snap: LiveSnapshot; activityId: string }) {
   const [filter, setFilter] = useState<Filter>("all");
-  const counts = useMemo(() => Object.fromEntries(FILTERS.map((f) => [f.value, snap.participants.filter((p) => matches(p, f.value)).length])), [snap]);
-  const list = snap.participants.filter((p) => matches(p, filter));
+  const [divisionPick, setDivision] = useState<string | null>(null);
+  // A division nobody has anymore (and the classroom no longer lists) goes back to «Todas».
+  const division = divisionPick !== null && snap.divisions.some((d) => d.value === divisionPick) ? divisionPick : null;
+  const inScope = useMemo(
+    () => (division === null ? snap.participants : snap.participants.filter((p) => inDivision(p.division, division))),
+    [snap, division],
+  );
+  const counts = useMemo(() => Object.fromEntries(FILTERS.map((f) => [f.value, inScope.filter((p) => matches(p, f.value)).length])), [inScope]);
+  const list = inScope.filter((p) => matches(p, filter));
   const actions = useRowActions(activityId, snap.activity.title);
   // Only the layout that fits is rendered (less work per update). Cards up to 1279 px: at 1024 px
   // the table did not fit next to the sidebar (D13).
@@ -304,6 +355,7 @@ function ParticipantsSection({ snap, activityId }: { snap: LiveSnapshot; activit
           ))}
         </div>
       </div>
+      {snap.divisions.length ? <DivisionFilter divisions={snap.divisions} total={snap.participants.length} value={division} onChange={setDivision} /> : null}
       {list.length === 0 ? (
         <p className="rounded-md border border-dashed border-line-strong px-4 py-6 text-center text-sm text-text-2">Nadie en este grupo por ahora.</p>
       ) : !wide ? (
@@ -314,9 +366,12 @@ function ParticipantsSection({ snap, activityId }: { snap: LiveSnapshot; activit
               <li key={p.sessionId} className="flex flex-col rounded-lg border border-line bg-surface p-4 shadow-1">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <Link to="/app/sesiones/$sessionId" params={{ sessionId: p.sessionId }} className="block truncate text-[16px] font-semibold text-ink underline-offset-4 hover:underline">
-                      {p.studentName}
-                    </Link>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Link to="/app/sesiones/$sessionId" params={{ sessionId: p.sessionId }} className="block truncate text-[16px] font-semibold text-ink underline-offset-4 hover:underline">
+                        {p.studentName}
+                      </Link>
+                      <DivisionTag division={p.division} />
+                    </div>
                     <RosterMark p={p} />
                     <LiveStatusLabel status={p.liveStatus} endedByTeacher={p.endedByTeacher} className="mt-1" />
                     {p.liveStatus !== "active" && p.status !== "completed" ? (
@@ -392,9 +447,12 @@ function ParticipantsSection({ snap, activityId }: { snap: LiveSnapshot; activit
                 {list.map((p) => (
                   <tr key={p.sessionId} className="border-t border-line align-top">
                     <td className="px-4 py-3">
-                      <Link to="/app/sesiones/$sessionId" params={{ sessionId: p.sessionId }} className="font-semibold text-ink underline-offset-4 hover:underline">
-                        {p.studentName}
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        <Link to="/app/sesiones/$sessionId" params={{ sessionId: p.sessionId }} className="font-semibold text-ink underline-offset-4 hover:underline">
+                          {p.studentName}
+                        </Link>
+                        <DivisionTag division={p.division} />
+                      </div>
                       <RosterMark p={p} />
                       {p.supportReasons.length ? <p className="mt-0.5 text-xs font-medium text-amber">{p.supportReasons.join(" · ")}</p> : null}
                     </td>

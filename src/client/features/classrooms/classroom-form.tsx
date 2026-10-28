@@ -6,10 +6,20 @@ import { Field, FormError, Input, Textarea } from "@client/components/ui/field";
 import { ApiError, errorMessage } from "@client/lib/api";
 import type { ClassroomSummary } from "@shared/contracts/classrooms";
 import { useSaveClassroom } from "./api";
+import { DivisionChips } from "./divisions";
 import { useRequestId, useSingleFlight } from "@client/features/activities/single-flight";
 
-type Values = { name: string; school: string; teacherName: string; subject: string; grade: string; division: string; description: string };
-const EMPTY: Values = { name: "", school: "", teacherName: "", subject: "", grade: "", division: "", description: "" };
+type Values = {
+  name: string;
+  school: string;
+  teacherName: string;
+  subject: string;
+  grade: string;
+  division: string;
+  description: string;
+  divisionOptions: string[];
+};
+const EMPTY: Values = { name: "", school: "", teacherName: "", subject: "", grade: "", division: "", description: "", divisionOptions: [] };
 
 export function ClassroomFormDialog({
   open,
@@ -40,6 +50,7 @@ export function ClassroomFormDialog({
               grade: classroom.grade,
               division: classroom.division,
               description: classroom.description,
+              divisionOptions: classroom.divisionOptions,
             }
           : EMPTY,
       );
@@ -48,7 +59,7 @@ export function ClassroomFormDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, classroom?.id]);
 
-  const set = (k: keyof Values) => (e: { target: { value: string } }) => setValues((v) => ({ ...v, [k]: e.target.value }));
+  const set = (k: Exclude<keyof Values, "divisionOptions">) => (e: { target: { value: string } }) => setValues((v) => ({ ...v, [k]: e.target.value }));
 
   const submit = () => {
     // Enter + click, or a double click, must not create two classrooms.
@@ -116,6 +127,22 @@ export function ClassroomFormDialog({
             {(p) => <Input id={p.id} aria-describedby={p.describedBy} value={values.division} onChange={set("division")} maxLength={40} placeholder="B" />}
           </Field>
         </div>
+        <Field
+          label="Divisiones que eligen los alumnos al entrar"
+          optional
+          error={fields.divisionOptions}
+          hint="Cada alumno elige la suya al entrar a una actividad y en En vivo podés verlos por división. Si lo dejás vacío, no se pregunta."
+        >
+          {(p) => (
+            <DivisionChips
+              id={p.id}
+              describedBy={p.describedBy}
+              invalid={p.invalid}
+              value={values.divisionOptions}
+              onChange={(divisionOptions) => setValues((v) => ({ ...v, divisionOptions }))}
+            />
+          )}
+        </Field>
         <Field label="Notas" optional error={fields.description} counter={{ value: values.description.length, max: 2000 }}>
           {(p) => <Textarea id={p.id} aria-describedby={p.describedBy} value={values.description} onChange={set("description")} minRows={2} />}
         </Field>

@@ -3,6 +3,7 @@
 import { z } from "zod";
 import type { HELP_EVENT_TYPES, LiveStatus, Stage } from "../domain/live-monitor";
 import type { ClassroomRole } from "../domain/sharing";
+import type { DivisionCount } from "../domain/divisions";
 
 export const alertStatusBody = z.object({
   status: z.enum(["open", "reviewed", "dismissed"], { error: "Elegí un estado válido para la alerta." }),
@@ -43,6 +44,8 @@ export interface LiveParticipant {
   sessionId: string;
   studentId: string;
   studentName: string;
+  /** The division they picked when entering ("" = none). */
+  division: string;
   status: "in_progress" | "completed";
   liveStatus: LiveStatus;
   lastSignalAt: string;
@@ -128,6 +131,11 @@ export interface LiveSnapshot {
     needSupport: number;
     openAlerts: number;
   };
+  /**
+   * Choices of the filter by division, with how many participants have each: the classroom's
+   * divisions plus any other a participant has, and "" (without division) last. Empty: no filter.
+   */
+  divisions: DivisionCount[];
   participants: LiveParticipant[];
   alerts: LiveAlert[];
   heatmaps: {
