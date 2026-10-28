@@ -1,7 +1,7 @@
 // Reading activities and their files in the shape the editor uses.
 import { asksFinalProduction, sanitizeConsignas, sanitizeSectionTitles, structuredConsignas } from "@shared/domain/structure";
 import { sanitizeExtraTutorTypes } from "@shared/domain/pedagogy";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, isNotNull, or, sql } from "drizzle-orm";
 import { db, schema } from "../../db/client";
 import { notFound } from "../../lib/errors";
 import { isUuid } from "../access";
@@ -12,6 +12,7 @@ import { ACTIVITY_LIMITS, type ActivityEditorData, type ActivityFile, type Activ
 import type { FileKind, ProcessingStatus } from "@shared/domain/files";
 import { MAX_CONSIGNAS, sanitizeMoreInstructions } from "@shared/domain/consignas";
 import { languageOf } from "@shared/domain/language";
+import type { MemberRole } from "@shared/domain/sharing";
 
 type ActivityRow = typeof schema.activities.$inferSelect;
 
@@ -49,7 +50,7 @@ export function configOf(a: ActivityRow) {
   };
 }
 
-/** The editor view of one activity of this teacher (404 when it is not theirs). */
+/** The editor view of one activity of this teacher's own or shared classrooms (404 when they have no access). */
 export async function loadActivity(teacherId: string, activityId: string): Promise<ActivityEditorData> {
   if (!isUuid(activityId)) throw notFound("La actividad");
   const [row] = await db
@@ -61,11 +62,16 @@ export async function loadActivity(teacherId: string, activityId: string): Promi
       participants: sql<number>`(select count(*)::int from learning_sessions ls where ls.activity_id = activities.id)`,
       completed: sql<number>`(select count(*)::int from learning_sessions ls where ls.activity_id = activities.id and ls.status = 'completed')`,
       openAlerts: sql<number>`(select count(*)::int from student_alerts sa where sa.activity_id = activities.id and sa.status = 'open')`,
+      memberRole: schema.classroomMembers.role,
     })
     .from(schema.activities)
     .innerJoin(schema.classrooms, eq(schema.classrooms.id, schema.activities.classroomId))
     .leftJoin(schema.tutors, eq(schema.tutors.id, schema.activities.tutorId))
-    .where(and(eq(schema.activities.id, activityId), eq(schema.activities.teacherId, teacherId)))
+    .leftJoin(
+      schema.classroomMembers,
+      and(eq(schema.classroomMembers.classroomId, schema.activities.classroomId), eq(schema.classroomMembers.teacherId, teacherId)),
+    )
+    .where(and(eq(schema.activities.id, activityId), or(eq(schema.activities.teacherId, teacherId), isNotNull(schema.classroomMembers.teacherId))))
     .limit(1);
   if (!row) throw notFound("La actividad");
   const a = row.a;
@@ -116,6 +122,7 @@ export async function loadActivity(teacherId: string, activityId: string): Promi
     completed: row.completed,
     openAlerts: row.openAlerts,
     deletedAt: a.deletedAt?.toISOString() ?? null,
+    role: a.teacherId === teacherId ? "owner" : ((row.memberRole ?? "reader") as MemberRole),
   };
 }
 

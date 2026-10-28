@@ -43,6 +43,8 @@ export interface AlertInboxItem {
   status: AlertStatus;
   createdAt: string;
   reviewedAt: string | null;
+  /** False in a classroom shared with the teacher as "Lector": they see it but cannot mark it. */
+  canEdit: boolean;
 }
 
 export interface AlertInboxCounts {

@@ -10,6 +10,7 @@ import { Field, FormError, Select } from "@client/components/ui/field";
 import { errorMessage } from "@client/lib/api";
 import { plural } from "@client/lib/format";
 import { useClassrooms } from "@client/features/classrooms/api";
+import { can } from "@shared/domain/sharing";
 import type { ActivityEditorData } from "@shared/contracts/activities";
 import { activityKeys, forgetActivity, useActivityAction, useDeleteActivity, useDuplicateActivity, useResetActivity } from "./api";
 import { useRequestId, useSingleFlight } from "./single-flight";
@@ -185,7 +186,8 @@ export function DuplicateDialog({ activity, open, onClose }: { activity: Duplica
   const dup = useDuplicateActivity(activity.id);
   const start = useSingleFlight(dup.isPending);
   const requestId = useRequestId(open);
-  const options = rooms.data ?? [];
+  // Classrooms shared as "Lector" cannot receive copies.
+  const options = (rooms.data ?? []).filter((r) => can(r.role, "edit"));
   // Only active classrooms receive copies; an archived current classroom is shown, marked and disabled (D21).
   const currentActive = options.some((r) => r.id === activity.classroomId);
   const fallback = currentActive || activity.classroomArchived === false ? activity.classroomId : (options[0]?.id ?? "");
@@ -247,7 +249,7 @@ export function DuplicateDialog({ activity, open, onClose }: { activity: Duplica
             {options.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
-                {r.id === activity.classroomId ? " (esta aula)" : ""}
+                {r.id === activity.classroomId ? " (esta aula)" : r.role !== "owner" ? " (compartida)" : ""}
               </option>
             ))}
           </Select>

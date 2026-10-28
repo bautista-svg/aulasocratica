@@ -114,6 +114,50 @@ export const students = pgTable(
   ],
 );
 
+// ───────────────────────── Shared classrooms ─────────────────────────
+
+/**
+ * Other teachers who can open a classroom ("Compartir aula"). The classroom (and every activity in
+ * it) stays in its owner's workspace; a member only gets access with a role: 'admin' | 'editor' | 'reader'.
+ */
+export const classroomMembers = pgTable(
+  "classroom_members",
+  {
+    classroomId: uuid("classroom_id").notNull().references(() => classrooms.id, { onDelete: "cascade" }),
+    teacherId: uuid("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    invitedBy: uuid("invited_by").references(() => teachers.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("classroom_members_unique").on(t.classroomId, t.teacherId),
+    index("classroom_members_teacher_idx").on(t.teacherId),
+    check("classroom_members_role", sql`${t.role} in ('admin', 'editor', 'reader')`),
+  ],
+);
+
+/** A one-time invitation link to a classroom (the token is only stored hashed). */
+export const classroomInvites = pgTable(
+  "classroom_invites",
+  {
+    id: id(),
+    classroomId: uuid("classroom_id").notNull().references(() => classrooms.id, { onDelete: "cascade" }),
+    role: text("role").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    createdBy: uuid("created_by").references(() => teachers.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    usedBy: uuid("used_by").references(() => teachers.id, { onDelete: "set null" }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("classroom_invites_token_unique").on(t.tokenHash),
+    index("classroom_invites_classroom_idx").on(t.classroomId),
+    check("classroom_invites_role", sql`${t.role} in ('admin', 'editor', 'reader')`),
+  ],
+);
+
 // ───────────────────────── Tutors ─────────────────────────
 
 /** Saved tutors. Built-in presets are copied into every workspace (preset_key) and are editable. */

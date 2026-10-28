@@ -27,7 +27,7 @@ export function NewReportDialog({ open, onOpenChange }: { open: boolean; onOpenC
   const formRef = useRef<HTMLFormElement>(null);
   const create = useCreateReport();
   const navigate = useNavigate();
-  const rooms = useClassrooms(false);
+  const rooms = useClassrooms(false, "own");
   const kindName = useId();
 
   useEffect(() => {

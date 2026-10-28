@@ -14,6 +14,7 @@ import type { ClassroomStudent } from "@shared/contracts/classrooms";
 import { useClassroomActivities, useClassroomStudents, useStudentMutations } from "./api";
 import { workStatusLabel } from "@client/features/live/bits";
 import { useSingleFlight } from "@client/features/activities/single-flight";
+import { useCan } from "@client/features/sharing/role";
 
 // Memoized: the classroom tabs re-render on every tab change; this panel only depends on its props.
 export const StudentsPanel = memo(function StudentsPanel({
@@ -28,6 +29,8 @@ export const StudentsPanel = memo(function StudentsPanel({
   const students = useClassroomStudents(classroomId);
   const activities = useClassroomActivities(classroomId);
   const m = useStudentMutations(classroomId);
+  // In a shared classroom only the owner and admins change the list.
+  const canManage = useCan("manage");
   const [adding, setAdding] = useState(false);
   const [renaming, setRenaming] = useState<ClassroomStudent | null>(null);
   const [removing, setRemoving] = useState<ClassroomStudent | null>(null);
@@ -59,9 +62,11 @@ export const StudentsPanel = memo(function StudentsPanel({
             ))}
           </Select>
         </div>
-        <Button variant="secondary" icon={<UserPlus className="size-4" />} onClick={() => setAdding(true)}>
-          Agregar alumnos
-        </Button>
+        {canManage ? (
+          <Button variant="secondary" icon={<UserPlus className="size-4" />} onClick={() => setAdding(true)}>
+            Agregar alumnos
+          </Button>
+        ) : null}
       </div>
 
       {students.data.length === 0 ? (
@@ -71,9 +76,11 @@ export const StudentsPanel = memo(function StudentsPanel({
           title="Todavía no hay alumnos en esta aula"
           description="Los alumnos aparecen solos cuando entran a una actividad con su nombre. También podés cargar la lista antes."
           action={
-            <Button variant="secondary" icon={<UserPlus className="size-4" />} onClick={() => setAdding(true)}>
-              Cargar lista de alumnos
-            </Button>
+            canManage ? (
+              <Button variant="secondary" icon={<UserPlus className="size-4" />} onClick={() => setAdding(true)}>
+                Cargar lista de alumnos
+              </Button>
+            ) : undefined
           }
         />
       ) : filtered.length === 0 ? (
@@ -110,17 +117,19 @@ export const StudentsPanel = memo(function StudentsPanel({
                       </ul>
                     )}
                   </div>
-                  <Menu
-                    trigger={
-                      <Button variant="ghost" size="icon" aria-label={`Opciones de ${s.fullName}`}>
-                        <MoreHorizontal className="size-5" />
-                      </Button>
-                    }
-                    items={[
-                      { label: "Corregir nombre", icon: <Pencil className="size-4" />, onSelect: () => setRenaming(s) },
-                      { label: "Eliminar alumno y sus trabajos", icon: <Trash2 className="size-4" />, danger: true, onSelect: () => setRemoving(s) },
-                    ]}
-                  />
+                  {canManage ? (
+                    <Menu
+                      trigger={
+                        <Button variant="ghost" size="icon" aria-label={`Opciones de ${s.fullName}`}>
+                          <MoreHorizontal className="size-5" />
+                        </Button>
+                      }
+                      items={[
+                        { label: "Corregir nombre", icon: <Pencil className="size-4" />, onSelect: () => setRenaming(s) },
+                        { label: "Eliminar alumno y sus trabajos", icon: <Trash2 className="size-4" />, danger: true, onSelect: () => setRemoving(s) },
+                      ]}
+                    />
+                  ) : null}
                 </li>
               );
             })}

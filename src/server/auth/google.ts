@@ -20,7 +20,8 @@ export const redirectUri = () => `${new URL(env.PUBLIC_URL).origin}/api/auth/goo
 
 /** Where to go after signing in: only paths inside the app (never another site). */
 export function safeNext(next: string | undefined): string {
-  return next && /^\/(app|ingresar)(\/|$|\?)/.test(next) && !next.startsWith("//") ? next : "/app";
+  // "/invitacion/<token>": a teacher invited to a shared classroom comes back to accept it.
+  return next && /^\/(app|ingresar|invitacion)(\/|$|\?)/.test(next) && !next.startsWith("//") ? next : "/app";
 }
 
 interface Flow {

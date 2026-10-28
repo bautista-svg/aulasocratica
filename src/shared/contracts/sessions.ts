@@ -8,6 +8,7 @@ import type { SkillsView } from "./skills";
 import type { AlertStatus } from "./live";
 import type { FileKind, ProcessingStatus } from "../domain/files";
 import type { DeliverableKind, DeliverableMode } from "../domain/deliverables";
+import type { ClassroomRole } from "../domain/sharing";
 
 export { confirmBody } from "./live";
 
@@ -166,6 +167,8 @@ export interface ObservedSignals {
 }
 
 export interface SessionDetail {
+  /** The teacher's role in the classroom ("owner" unless it was shared with them): what they can change. */
+  role: ClassroomRole;
   session: {
     id: string;
     status: "in_progress" | "completed";

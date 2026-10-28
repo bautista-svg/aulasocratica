@@ -28,11 +28,16 @@ import type { SkillGroupRow, SkillStudentEntry } from "@shared/contracts/skills"
 import { useActivitySkills, useGroupAnalysis, useReevaluate } from "./api";
 import { EvidenceCard, LevelPill, SkillGlyph, TONE_STYLE, ToneLegend } from "./ui";
 import { SkillSettingsDialog } from "./settings-dialog";
+import { useRole } from "@client/features/sharing/role";
+import { can } from "@shared/domain/sharing";
 
 export function SkillsPanel({ activityId }: { activityId: string }) {
   const q = useActivitySkills(activityId);
   const group = useGroupAnalysis(activityId);
   const reevaluate = useReevaluate(activityId);
+  // Shared classroom: the skills are the owner's ("Elegir habilidades" is theirs); a reader does not run the AI.
+  const role = useRole();
+  const canEdit = can(role, "edit");
   const qc = useQueryClient();
   const [choosing, setChoosing] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -76,10 +81,10 @@ export function SkillsPanel({ activityId }: { activityId: string }) {
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
-          <Button variant="secondary" size="sm" icon={<SlidersHorizontal className="size-4" />} onClick={() => setChoosing(true)}>
+          <Button variant="secondary" size="sm" icon={<SlidersHorizontal className="size-4" />} className={cn(role !== "owner" && "hidden")} onClick={() => setChoosing(true)}>
             Elegir habilidades
           </Button>
-          {d.assessedWorks > 0 ? (
+          {d.assessedWorks > 0 && canEdit ? (
             <Button
               variant="secondary"
               size="sm"
@@ -130,7 +135,7 @@ export function SkillsPanel({ activityId }: { activityId: string }) {
           tone="amber"
           title="La reevaluación no se completó"
           action={
-            <Button size="sm" variant="secondary" icon={<RefreshCw className="size-4" />} loading={reevaluate.isPending} onClick={() => setConfirming(true)}>
+            <Button size="sm" variant="secondary" icon={<RefreshCw className="size-4" />} className={cn(!canEdit && "hidden")} loading={reevaluate.isPending} onClick={() => setConfirming(true)}>
               Intentar de nuevo
             </Button>
           }
@@ -151,7 +156,7 @@ export function SkillsPanel({ activityId }: { activityId: string }) {
               Reevaluá para aplicar los actuales: un indicador que el alumno muestra con sus palabras ya es Logrado.
             </p>
           </div>
-          <Button variant="primary" icon={<RefreshCw className="size-4" />} className="shrink-0" onClick={() => setConfirming(true)}>
+          <Button variant="primary" icon={<RefreshCw className="size-4" />} className={cn("shrink-0", !canEdit && "hidden")} onClick={() => setConfirming(true)}>
             Reevaluar habilidades
           </Button>
         </div>
@@ -187,7 +192,7 @@ export function SkillsPanel({ activityId }: { activityId: string }) {
                 </p>
                 <p className="mt-0.5 text-sm text-text-2">La IA los lee uno por uno y evalúa cada habilidad con su nivel y una cita del alumno.</p>
               </div>
-              <Button variant="primary" icon={<Sparkles className="size-4" />} className="shrink-0" onClick={() => void analyzePending()}>
+              <Button variant="primary" icon={<Sparkles className="size-4" />} className={cn("shrink-0", !canEdit && "hidden")} onClick={() => void analyzePending()}>
                 Evaluar {plural(d.pending.length, "trabajo", "trabajos")}
               </Button>
             </>

@@ -31,6 +31,7 @@ import {
   type LiveSnapshot,
   type LiveWindow,
 } from "@shared/contracts/live";
+import type { ClassroomRole } from "@shared/domain/sharing";
 
 type Activity = typeof schema.activities.$inferSelect;
 
@@ -48,7 +49,7 @@ const WINDOWS: Record<LiveWindow, { ms: number | null; buckets: number }> = {
   all: { ms: null, buckets: 24 },
 };
 
-export async function liveSnapshot(activity: Activity, window: LiveWindow, nowMs = Date.now()): Promise<LiveSnapshot> {
+export async function liveSnapshot(activity: Activity, window: LiveWindow, role: ClassroomRole, nowMs = Date.now()): Promise<LiveSnapshot> {
   const requireInitialAnswer = activity.requireInitialAnswer;
   const ls = schema.learningSessions;
   const sessions = await db
@@ -269,6 +270,7 @@ export async function liveSnapshot(activity: Activity, window: LiveWindow, nowMs
   };
 
   return {
+    role,
     activity: {
       id: activity.id,
       title: activity.title,

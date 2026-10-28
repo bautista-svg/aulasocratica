@@ -21,6 +21,7 @@ import { LiveStatusLabel, StageProgress } from "./bits";
 import { Heatmaps } from "./heatmaps";
 import { useJourneyDownload, useSessionActions } from "@client/features/sessions/api";
 import { DeleteWorkDialog, EndWorkDialog, ResumeCodeDialog } from "@client/features/sessions/dialogs";
+import { useCan } from "@client/features/sharing/role";
 
 // One vocabulary (D19): "Activos" is the same rule as the "Activos ahora" card; "Sin terminar"
 // are all the works still open, whatever their live state.
@@ -153,6 +154,7 @@ function LiveHeader({
   const [confirmAll, setConfirmAll] = useState(false);
   const [closeLink, setCloseLink] = useState(true);
   const { endAll } = useLiveMutations(activityId);
+  const canEdit = useCan("edit");
   return (
     <section aria-labelledby="live-title">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -168,7 +170,7 @@ function LiveHeader({
             {!connected ? " · se actualiza cada 15 s" : null}
           </p>
         </div>
-        {open > 0 ? (
+        {open > 0 && canEdit ? (
           <Button
             variant="secondary"
             icon={<CircleStop className="size-4" />}
@@ -490,6 +492,9 @@ function useRowActions(activityId: string, activityTitle: string) {
 }
 
 function RowMenu({ p, actions }: { p: LiveParticipant; actions: RowActions }) {
+  // Shared classroom: a reader downloads and looks; ending works needs "edit", deleting "manage".
+  const canEdit = useCan("edit");
+  const canManage = useCan("manage");
   return (
     <Menu
       trigger={
@@ -500,19 +505,23 @@ function RowMenu({ p, actions }: { p: LiveParticipant; actions: RowActions }) {
       items={[
         { label: "Descargar PDF del recorrido", icon: <Download className="size-4" />, onSelect: () => void actions.pdf.download(p.sessionId) },
         { label: "Mostrar código para continuar", icon: <KeyRound className="size-4" />, onSelect: () => actions.setShowingCode(p) },
-        "separator",
-        p.status === "in_progress"
-          ? { label: "Terminar su trabajo", icon: <CircleStop className="size-4" />, onSelect: () => actions.setEnding(p) }
-          : {
-              label: "Permitir continuar",
-              icon: <Play className="size-4" />,
-              onSelect: () =>
-                actions.reopen.mutate(p.sessionId, {
-                  onSuccess: () => toast.success(`${p.studentName} puede continuar su trabajo`),
-                  onError: (e) => toast.error(errorMessage(e)),
-                }),
-            },
-        { label: "Eliminar trabajo", icon: <Trash2 className="size-4" />, danger: true, onSelect: () => actions.setDeleting(p) },
+        ...(canEdit ? ["separator" as const] : []),
+        ...(!canEdit
+          ? []
+          : [
+              p.status === "in_progress"
+                ? { label: "Terminar su trabajo", icon: <CircleStop className="size-4" />, onSelect: () => actions.setEnding(p) }
+                : {
+                    label: "Permitir continuar",
+                    icon: <Play className="size-4" />,
+                    onSelect: () =>
+                      actions.reopen.mutate(p.sessionId, {
+                        onSuccess: () => toast.success(`${p.studentName} puede continuar su trabajo`),
+                        onError: (e) => toast.error(errorMessage(e)),
+                      }),
+                  },
+            ]),
+        ...(canManage ? [{ label: "Eliminar trabajo", icon: <Trash2 className="size-4" />, danger: true, onSelect: () => actions.setDeleting(p) }] : []),
       ]}
     />
   );

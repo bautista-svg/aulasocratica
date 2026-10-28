@@ -64,7 +64,8 @@ function AlertsPage() {
   const items = inbox.data?.pages.flatMap((p) => p.items) ?? [];
   const counts = inbox.data?.pages[0]?.counts;
   const filtered = Boolean(search.aula || search.actividad || search.gravedad || search.origen);
-  const openShown = items.filter((a) => a.status === "open");
+  // Alerts of classrooms shared as "Lector" are only seen: they are left out of the bulk action.
+  const openShown = items.filter((a) => a.status === "open" && a.canEdit);
 
   const setSearch = (patch: Partial<typeof search>) => void navigate({ search: (s) => ({ ...s, ...patch }), replace: true });
 
@@ -175,6 +176,7 @@ function AlertsPage() {
               <AlertItem
                 key={a.id}
                 alert={a}
+                readOnly={!a.canEdit}
                 busy={setStatus.isPending && setStatus.variables?.id === a.id}
                 context={
                   <>

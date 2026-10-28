@@ -15,10 +15,12 @@ import { deliverableKindLabel } from "@shared/domain/deliverables";
 import type { SessionDetail } from "@shared/contracts/sessions";
 import { useState } from "react";
 import { useSessionMutations } from "./api";
+import { useCan } from "@client/features/sharing/role";
 
 export function DeliverableCard({ detail, onUseLevels }: { detail: SessionDetail; onUseLevels: (levels: Record<string, number>) => void }) {
   const d = detail.deliverable;
   const m = useSessionMutations(detail.session.id);
+  const canEdit = useCan("edit");
   const [error, setError] = useState<string | null>(null);
   const required = detail.activity.deliverableMode === "required";
   const hasRubric = detail.activity.rubric.length > 0;
@@ -99,6 +101,7 @@ export function DeliverableCard({ detail, onUseLevels }: { detail: SessionDetail
                 variant="secondary"
                 icon={<RefreshCw className="size-4" />}
                 loading={m.retryDeliverable.isPending}
+                disabled={!canEdit}
                 onClick={() => m.retryDeliverable.mutate(undefined, { onError: (e) => toast.error(errorMessage(e)) })}
               >
                 Reintentar la lectura
@@ -134,7 +137,7 @@ export function DeliverableCard({ detail, onUseLevels }: { detail: SessionDetail
                 variant="lilac"
                 icon={d.analysis ? <RefreshCw className="size-4" /> : <Sparkles className="size-4" />}
                 loading={m.analyzeDeliverable.isPending}
-                disabled={!hasRubric || d.processingStatus !== "ready" || unreadLink}
+                disabled={!hasRubric || d.processingStatus !== "ready" || unreadLink || !canEdit}
                 onClick={() => {
                   setError(null);
                   m.analyzeDeliverable.mutate(undefined, {

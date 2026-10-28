@@ -18,6 +18,7 @@ import {
   type ReflectionQuestion,
 } from "../domain/activity-design";
 import type { VoiceLanguage } from "../domain/voice";
+import type { ClassroomRole } from "../domain/sharing";
 import { DELIVERABLE_PROMPT_MAX, type DeliverableMode } from "../domain/deliverables";
 import type { FileKind, ProcessingStatus } from "../domain/files";
 import { MAX_TUTOR_TYPES, TUTOR_TYPES } from "../domain/pedagogy";
@@ -146,6 +147,8 @@ export interface ActivityEditorData extends ActivityDetail {
   completed: number;
   /** Alerts still to review (the badge of the «Alertas» tab until the live snapshot loads). */
   openAlerts: number;
+  /** The teacher's role in the activity's classroom ("owner" unless it is a shared classroom). */
+  role: ClassroomRole;
 }
 
 /** A file attached to an activity. Its extracted text is what the tutor reads. */

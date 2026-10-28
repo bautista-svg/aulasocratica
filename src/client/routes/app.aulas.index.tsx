@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Plus, School, Users, LayoutList } from "lucide-react";
+import { Plus, School, Users, LayoutList, UserRound } from "lucide-react";
 import { optionalBoolean, searchParams } from "@client/lib/search";
 import { PageHeader, EmptyState, ErrorState, SkeletonList, Badge } from "@client/components/ui/misc";
 import { Button } from "@client/components/ui/button";
@@ -9,6 +9,7 @@ import { plural } from "@client/lib/format";
 import { usePageTitle } from "@client/lib/page-title";
 import { useClassrooms } from "@client/features/classrooms/api";
 import { ClassroomFormDialog } from "@client/features/classrooms/classroom-form";
+import { ROLE_LABEL } from "@shared/domain/sharing";
 
 export const Route = createFileRoute("/app/aulas/")({
   validateSearch: searchParams({ archivadas: optionalBoolean }),
@@ -86,6 +87,19 @@ function ClassroomsPage() {
                 params={{ classroomId: c.id }}
                 className="group flex h-full flex-col rounded-lg border border-line bg-surface p-5 shadow-1 transition-[border-color,box-shadow] hover:border-line-strong hover:shadow-2"
               >
+                {c.role !== "owner" ? (
+                  // Shared with this teacher: whose it is and what they can do, before the name.
+                  <p className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <Badge tone="lilac">
+                      <Users className="size-3" aria-hidden="true" />
+                      Compartida · {ROLE_LABEL[c.role]}
+                    </Badge>
+                    <span className="inline-flex min-w-0 items-center gap-1 text-[13px] text-text-2">
+                      <UserRound className="size-3.5 shrink-0" aria-hidden="true" />
+                      <span className="truncate">De {c.ownerName || "otro docente"}</span>
+                    </span>
+                  </p>
+                ) : null}
                 <div className="flex items-start justify-between gap-3">
                   <h2 className="font-display text-xl leading-snug font-semibold text-ink group-hover:underline group-hover:decoration-lilac group-hover:underline-offset-4">
                     {c.name}
@@ -108,6 +122,12 @@ function ClassroomsPage() {
                     <Users className="size-4" aria-hidden="true" />
                     {plural(c.studentCount, "alumno", "alumnos")}
                   </span>
+                  {c.role === "owner" && c.memberCount > 0 ? (
+                    <span className="inline-flex items-center gap-1.5 text-lilac-ink">
+                      <UserRound className="size-4" aria-hidden="true" />
+                      Compartida con {plural(c.memberCount, "docente", "docentes")}
+                    </span>
+                  ) : null}
                 </div>
               </Link>
             </li>

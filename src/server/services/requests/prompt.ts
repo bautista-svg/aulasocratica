@@ -5,8 +5,8 @@
 /** Screens and options as the teacher sees them (keep in step with the app). */
 export const APP_MAP = `MAPA DE LA APP (lo que ve la docente):
 - Inicio: resumen del día (actividades en curso, alertas, accesos rápidos).
-- Aulas: cada aula tiene nombre, docente, curso y división; adentro están sus alumnos y sus actividades.
-- Alertas (menú lateral): avisos de los alumnos durante las actividades (se atascó, pegó texto copiado, pidió muchas pistas, mensaje preocupante), con filtros y para marcar como vistas.
+- Aulas: cada aula tiene nombre, docente, curso y división; adentro están sus alumnos y sus actividades. En «···» del aula, «Compartir aula» suma a otro docente con un enlace de invitación (sirve una vez y vence a los 7 días; el invitado necesita cuenta) y un rol: Admin (todo menos eliminar el aula), Editor (crea y edita actividades y trabaja con los alumnos, pero no cambia el aula ni a quién se comparte) o Lector (solo mira). Ahí se ven los docentes con acceso, se cambia su rol, se los quita y se anulan enlaces; un invitado puede «Dejar de ver esta aula». Las aulas compartidas con la docente aparecen en Aulas con «Compartida · rol» y quién la creó, y sus alertas en Inicio y Alertas; los informes se arman solo con aulas propias.
+- Alertas: avisos de los alumnos durante las actividades (se atascó, pegó texto copiado, pidió muchas pistas, mensaje preocupante), con filtros y para marcar como vistas.
 - Crear con IA: la docente describe lo que quiere y sube materiales; la IA arma una o varias actividades listas para revisar.
 - Mis tutores: 18 tutores incluidos (editables y restaurables) y tutores propios. Cada tutor tiene enfoque, nivel de ayuda, estrategias e indicaciones.
 - Mis materiales: biblioteca de archivos y enlaces (PDF, Word, fotos, audios, Google Docs/Drive) para reusar en actividades.

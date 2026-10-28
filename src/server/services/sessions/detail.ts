@@ -38,6 +38,7 @@ import { isDeliverableMode, type DeliverableKind } from "@shared/domain/delivera
 import { alertOrigin, progressFor, stepsFor } from "./live-rules";
 import { readXrayItems, visibleXray } from "./xray-store";
 import { consignasOf, readFinalAnswers } from "@shared/domain/consignas";
+import type { ClassroomRole } from "@shared/domain/sharing";
 
 export type OwnedSessionRow = {
   session: typeof schema.learningSessions.$inferSelect;
@@ -242,7 +243,7 @@ export function deliverableView(row: typeof schema.sessionDeliverables.$inferSel
   };
 }
 
-export async function loadSessionDetail(row: OwnedSessionRow): Promise<SessionDetail> {
+export async function loadSessionDetail(row: OwnedSessionRow & { role: ClassroomRole }): Promise<SessionDetail> {
   const { session: s, activity: a, student } = row;
   const [classroomRows, messages, events, alertRows, rubricRows, summaryRows, aspectRows, xrayRows, deliverableRows, skillSettings] = await Promise.all([
     db.select().from(schema.classrooms).where(eq(schema.classrooms.id, a.classroomId)).limit(1),
@@ -278,6 +279,7 @@ export async function loadSessionDetail(row: OwnedSessionRow): Promise<SessionDe
   }));
 
   return {
+    role: row.role,
     session: {
       id: s.id,
       status: s.status === "completed" ? "completed" : "in_progress",

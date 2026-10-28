@@ -113,13 +113,14 @@ export function buildPrompt(input: ProposalsInput, material: { text: string; mod
   return `${rules}\n\nDATOS DE LA CLASE\n<<<DATOS\n${data}\nDATOS>>>\n${materialBlock}`;
 }
 
-export async function generateProposals(teacherId: string, input: ProposalsInput): Promise<ProposalsResponse> {
+/** `teacherId` owns the materials; the AI call is counted in `aiTeacherId` (the classroom owner's budget). */
+export async function generateProposals(teacherId: string, input: ProposalsInput, aiTeacherId = teacherId): Promise<ProposalsResponse> {
   const rows = await readyMaterials(teacherId, input.materialIds);
   const ctx = buildMaterialContext(rows, input.extraText, materialQuery(input));
   const content = buildPrompt(input, { text: ctx.text, mode: ctx.usage.mode, totalChars: ctx.usage.totalChars });
   const out = await generateStructured({
     purpose: "class_proposals",
-    teacherId,
+    teacherId: aiTeacherId,
     activityId: null,
     system: PLANNING_SYSTEM,
     content,

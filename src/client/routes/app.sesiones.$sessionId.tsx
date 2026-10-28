@@ -20,6 +20,8 @@ import { ConversationTab } from "@client/features/sessions/conversation";
 import { EvaluationTab } from "@client/features/sessions/evaluation";
 import { XrayTab } from "@client/features/sessions/xray";
 import type { SessionDetail } from "@shared/contracts/sessions";
+import { EditGuard, ReadOnlyNotice, RoleProvider } from "@client/features/sharing/role";
+import { can } from "@shared/domain/sharing";
 
 const TABS = ["recorrido", "conversacion", "evaluacion", "radiografia"] as const;
 const TAB_LABELS: Record<(typeof TABS)[number], string> = {
@@ -66,7 +68,7 @@ function SessionPage() {
   const d = q.data;
 
   return (
-    <>
+    <RoleProvider role={d.role}>
       {/* One line, names truncated: wrapped rows made the 44 px touch areas of the links overlap. */}
       <nav aria-label="Ruta" className="mb-3 flex min-w-0 items-center text-sm text-text-3">
         <Link to="/app/aulas" className="-my-3 shrink-0 py-3 hover:text-ink">
@@ -87,6 +89,7 @@ function SessionPage() {
       </nav>
 
       <Header d={d} />
+      <ReadOnlyNotice className="mb-5" />
 
       <OpenAlerts d={d} />
 
@@ -105,12 +108,24 @@ function SessionPage() {
             value: "evaluacion",
             label: "Evaluación",
             badge: d.rubric.status === "confirmed" ? <Badge tone="leaf">Confirmada</Badge> : undefined,
-            content: <EvaluationTab detail={d} />,
+            content: (
+              <EditGuard>
+                <EvaluationTab detail={d} />
+              </EditGuard>
+            ),
           },
-          { value: "radiografia", label: "Radiografía", content: <XrayTab detail={d} /> },
+          {
+            value: "radiografia",
+            label: "Radiografía",
+            content: (
+              <EditGuard>
+                <XrayTab detail={d} />
+              </EditGuard>
+            ),
+          },
         ]}
       />
-    </>
+    </RoleProvider>
   );
 }
 
@@ -124,6 +139,9 @@ function Header({ d }: { d: SessionDetail }) {
   const [showCode, setShowCode] = useState(false);
   const s = d.session;
   const inProgress = s.status === "in_progress";
+  // Shared classroom: a reader downloads and looks; ending needs "edit", deleting "manage".
+  const canEdit = can(d.role, "edit");
+  const canManage = can(d.role, "manage");
 
   return (
     <>
@@ -135,7 +153,7 @@ function Header({ d }: { d: SessionDetail }) {
             <Button icon={<Download className="size-4" />} loading={pdf.busyId === s.id} onClick={() => void pdf.download(s.id)}>
               Descargar PDF del recorrido
             </Button>
-            {inProgress ? (
+            {!canEdit ? null : inProgress ? (
               <Button variant="secondary" icon={<CircleStop className="size-4" />} onClick={() => setEnding(true)}>
                 Terminar
               </Button>
@@ -163,8 +181,9 @@ function Header({ d }: { d: SessionDetail }) {
               items={[
                 { label: "Todos sus trabajos", icon: <UserRound className="size-4" />, onSelect: () => void navigate({ to: "/app/alumnos/$studentId", params: { studentId: d.student.id } }) },
                 { label: "Mostrar código para continuar", icon: <KeyRound className="size-4" />, onSelect: () => setShowCode(true) },
-                "separator",
-                { label: "Eliminar trabajo", icon: <Trash2 className="size-4" />, danger: true, onSelect: () => setDeleting(true) },
+                ...(canManage
+                  ? (["separator", { label: "Eliminar trabajo", icon: <Trash2 className="size-4" />, danger: true, onSelect: () => setDeleting(true) }] as const)
+                  : []),
               ]}
             />
           </>

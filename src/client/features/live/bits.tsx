@@ -9,6 +9,7 @@ import { fmtRelative } from "@client/lib/format";
 import { LIVE_STATUS_HELP, LIVE_STATUS_LABELS, STAGE_LABELS, liveStatus, stageNumber, type LiveStatus, type Stage } from "@shared/domain/live-monitor";
 import { ALERT_CATEGORY_LABELS, ALERT_SEVERITY_LABELS, type AlertCategory } from "@shared/domain/alerts";
 import type { AlertStatus } from "@shared/contracts/live";
+import { useCan } from "@client/features/sharing/role";
 
 const DOT: Record<LiveStatus, string> = {
   active: "bg-leaf-bright",
@@ -126,6 +127,7 @@ export function AlertItem({
   showStudent = true,
   showConversationLink = true,
   context,
+  readOnly,
 }: {
   alert: AlertLike;
   onStatus: (status: AlertStatus) => void;
@@ -134,7 +136,11 @@ export function AlertItem({
   showConversationLink?: boolean;
   /** Where the alert comes from (activity and classroom), for lists that mix activities. */
   context?: ReactNode;
+  /** Without "Revisada / Descartar / Reabrir" (a reader of a shared classroom). Defaults to the classroom role on screen. */
+  readOnly?: boolean;
 }) {
+  const canEdit = useCan("edit");
+  const actions = !(readOnly ?? !canEdit);
   const immediate = alert.severity === "immediate";
   const open = alert.status === "open";
   return (
@@ -170,7 +176,7 @@ export function AlertItem({
       ) : null}
       {alert.reason ? <p className="mt-1.5 text-sm text-text-2">{alert.reason}</p> : null}
       <div className="mt-3 flex flex-wrap gap-2">
-        {open ? (
+        {!actions ? null : open ? (
           <>
             <Button size="sm" variant="secondary" icon={<Check className="size-4" />} loading={busy} onClick={() => onStatus("reviewed")}>
               Revisada

@@ -3,7 +3,7 @@
 // included; AI suggestions that the teacher did not confirm never reach a report.
 import { and, asc, eq, inArray, ne, or, sql, type SQL } from "drizzle-orm";
 import { db, schema } from "../../db/client";
-import { badRequest } from "../../lib/errors";
+import { badRequest, forbidden } from "../../lib/errors";
 import { ownedActivity, ownedClassroom, ownedSession, ownedStudent } from "../access";
 import { classroomLabel } from "@shared/contracts/classrooms";
 import type { ReportScope } from "@shared/contracts/reports";
@@ -177,6 +177,15 @@ const XRAY_NOTE = "Solo interpretaciones que el docente validó. Las sugerencias
 
 // ───────────────────────── Individual ─────────────────────────
 
+/**
+ * Reports live in the workspace that asks for them and are kept in sync with its own students
+ * (reconcileReports), so they are built only from the teacher's own classrooms, not shared ones.
+ */
+function ownOnly<T extends { role: string }>(row: T): T {
+  if (row.role !== "owner") throw forbidden("Los informes se arman con tus propias aulas. Esta aula es compartida: el informe lo puede armar quien la creó.");
+  return row;
+}
+
 async function buildIndividual(teacherId: string, input: { studentId?: string; sessionId?: string }, now: Date): Promise<BuiltReport> {
   let where: SQL;
   let studentName: string;
@@ -184,7 +193,7 @@ async function buildIndividual(teacherId: string, input: { studentId?: string; s
   let activityTitle: string | null = null;
   const scope: ReportScope = { label: "" };
   if (input.sessionId) {
-    const owned = await ownedSession(teacherId, input.sessionId);
+    const owned = ownOnly(await ownedSession(teacherId, input.sessionId));
     const room = await ownedClassroom(teacherId, owned.activity.classroomId);
     where = eq(ls.id, owned.session.id);
     studentName = owned.student.fullName;
@@ -194,7 +203,7 @@ async function buildIndividual(teacherId: string, input: { studentId?: string; s
     scope.studentId = owned.student.id;
     scope.classroomId = room.id;
   } else {
-    const owned = await ownedStudent(teacherId, input.studentId ?? "");
+    const owned = ownOnly(await ownedStudent(teacherId, input.studentId ?? ""));
     // A student belongs to one classroom: the report is scoped to that classroom only.
     where = eq(ls.studentId, owned.student.id);
     studentName = owned.student.fullName;
@@ -306,14 +315,14 @@ async function buildGroup(teacherId: string, input: { classroomId?: string; acti
   let where: SQL;
   const scope: ReportScope = { label: "" };
   if (input.activityId) {
-    const a = await ownedActivity(teacherId, input.activityId);
+    const a = ownOnly(await ownedActivity(teacherId, input.activityId));
     room = await ownedClassroom(teacherId, a.classroomId);
     activityList = [{ id: a.id, title: a.title, objectives: a.objectives, status: a.status }];
     where = eq(ls.activityId, a.id);
     scope.activityId = a.id;
     scope.classroomId = room.id;
   } else {
-    room = await ownedClassroom(teacherId, input.classroomId ?? "");
+    room = ownOnly(await ownedClassroom(teacherId, input.classroomId ?? ""));
     // Drafts never had students; they would only add empty rows.
     activityList = await db
       .select({ id: acts.id, title: acts.title, objectives: acts.objectives, status: acts.status })

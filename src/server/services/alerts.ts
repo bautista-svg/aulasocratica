@@ -1,13 +1,15 @@
-// The alerts panel: every alert of the teacher's students, across classrooms and activities.
+// The alerts panel: every alert of the teacher's students, across their own classrooms and the
+// ones shared with them (a reader sees them but cannot change their status).
 // Open alerts needing immediate attention come first, then the rest of the open ones, then the
 // reviewed or dismissed ones; newest first inside each group (keyset pagination).
 import { and, desc, asc, eq, inArray, isNull, notInArray, sql, type SQL } from "drizzle-orm";
 import { db, schema } from "../db/client";
-import { badRequest, notFound } from "../lib/errors";
+import { badRequest, forbidden, notFound } from "../lib/errors";
 import { publish } from "../lib/events";
-import { isUuid } from "./access";
+import { editableClassroomIds, isUuid, visibleClassroomIds } from "./access";
 import { alertOrigin } from "./sessions/live-rules";
 import { OBSERVED_ALERT_KEYS } from "@shared/domain/alerts";
+import { deniedMessage } from "@shared/domain/sharing";
 import { classroomLabel } from "@shared/contracts/classrooms";
 import type { AlertCountResponse, AlertInboxItem, AlertInboxQuery, AlertInboxResponse } from "@shared/contracts/alerts";
 import type { AlertStatus } from "@shared/contracts/live";
@@ -42,7 +44,7 @@ const RANK = sql<number>`(case when "student_alerts"."status" = 'open' and "stud
 /** Filters shared by the list and its counts (everything except the status). */
 function scope(teacherId: string, q: Omit<AlertInboxQuery, "status" | "cursor">): SQL | undefined {
   return and(
-    eq(schema.activities.teacherId, teacherId),
+    sql`${schema.activities.classroomId} in ${visibleClassroomIds(teacherId)}`,
     // Activities in the "Papelera" do not show their alerts.
     isNull(schema.activities.deletedAt),
     q.classroomId ? eq(schema.activities.classroomId, q.classroomId) : undefined,
@@ -73,6 +75,7 @@ export async function alertInbox(teacherId: string, q: AlertInboxQuery): Promise
         classroom: { id: schema.classrooms.id, name: schema.classrooms.name, grade: schema.classrooms.grade, division: schema.classrooms.division },
         studentId: schema.students.id,
         studentName: schema.students.fullName,
+        canEdit: sql<boolean>`("activities"."classroom_id" in ${editableClassroomIds(teacherId)})`,
       })
       .from(sa)
       .innerJoin(schema.activities, eq(schema.activities.id, sa.activityId))
@@ -114,6 +117,7 @@ export async function alertInbox(teacherId: string, q: AlertInboxQuery): Promise
     status: r.a.status as AlertStatus,
     createdAt: r.a.createdAt.toISOString(),
     reviewedAt: r.a.reviewedAt?.toISOString() ?? null,
+    canEdit: Boolean(r.canEdit),
   }));
   const last = page.at(-1);
   return {
@@ -131,18 +135,35 @@ export async function alertCount(teacherId: string): Promise<AlertCountResponse>
     })
     .from(sa)
     .innerJoin(schema.activities, eq(schema.activities.id, sa.activityId))
-    .where(and(eq(schema.activities.teacherId, teacherId), isNull(schema.activities.deletedAt), eq(sa.status, "open")));
+    .where(and(sql`${schema.activities.classroomId} in ${visibleClassroomIds(teacherId)}`, isNull(schema.activities.deletedAt), eq(sa.status, "open")));
   return row ?? { open: 0, immediate: 0 };
 }
 
 /**
- * Sets the status of alerts of the teacher's own activities (an id from another workspace is
- * simply not found). The live views of the affected activities are notified.
+ * Sets the status of alerts of the teacher's activities, own or shared with the "edit" role (an id
+ * from another workspace is simply not found; one of a classroom where they only read is a 403).
+ * The live views of the affected activities are notified.
  */
 export async function setAlertsStatus(teacherId: string, ids: string[], status: AlertStatus) {
   const unique = [...new Set(ids)].filter(isUuid);
   if (unique.length === 0) return [];
-  const owned = db.select({ id: schema.activities.id }).from(schema.activities).where(eq(schema.activities.teacherId, teacherId));
+  const [readOnly] = await db
+    .select({ id: sa.id })
+    .from(sa)
+    .innerJoin(schema.activities, eq(schema.activities.id, sa.activityId))
+    .where(
+      and(
+        inArray(sa.id, unique),
+        sql`${schema.activities.classroomId} in ${visibleClassroomIds(teacherId)}`,
+        sql`${schema.activities.classroomId} not in ${editableClassroomIds(teacherId)}`,
+      ),
+    )
+    .limit(1);
+  if (readOnly) throw forbidden(deniedMessage("reader", "edit"));
+  const owned = db
+    .select({ id: schema.activities.id })
+    .from(schema.activities)
+    .where(sql`${schema.activities.classroomId} in ${editableClassroomIds(teacherId)}`);
   const rows = await db
     .update(sa)
     .set({ status, reviewedAt: status === "open" ? null : new Date() })

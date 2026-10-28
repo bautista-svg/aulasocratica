@@ -14,7 +14,7 @@ import { useRequestId, useSingleFlight } from "@client/features/activities/singl
 
 /** Creates a draft activity that starts from this tutor and opens it. */
 export function UseTutorDialog({ tutor, open, onOpenChange }: { tutor: TutorSummary | null; open: boolean; onOpenChange: (o: boolean) => void }) {
-  const rooms = useClassrooms(false);
+  const rooms = useClassrooms(false, "editable");
   const [classroomId, setClassroomId] = useState("");
   const [title, setTitle] = useState("");
   const navigate = useNavigate();

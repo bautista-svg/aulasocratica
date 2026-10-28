@@ -15,6 +15,7 @@ import { classroomKeys } from "@client/features/classrooms/api";
 import { TRASH_DAYS, type TrashedActivity } from "@shared/contracts/activities";
 import { activityKeys, forgetActivity } from "./api";
 import { DuplicateDialog, type DuplicateSource } from "./lifecycle-dialogs";
+import { useCan } from "@client/features/sharing/role";
 
 export interface RowActivity {
   id: string;
@@ -76,11 +77,14 @@ export function TrashActivityDialog({ activity, open, onClose, onTrashed }: { ac
   );
 }
 
-/** "···" on a row of the classroom list. */
+/** "···" on a row of the classroom list (none for a reader of a shared classroom; no "Eliminar" for an editor). */
 export function ActivityRowMenu({ activity, room }: { activity: RowActivity; room: { name: string; isArchived: boolean } }) {
   const navigate = useNavigate();
+  const canEdit = useCan("edit");
+  const canManage = useCan("manage");
   const [dialog, setDialog] = useState<"duplicate" | "trash" | null>(null);
   const source: DuplicateSource = { id: activity.id, classroomId: activity.classroomId, classroomName: room.name, classroomArchived: room.isArchived };
+  if (!canEdit) return null;
   return (
     <>
       <Menu
@@ -96,8 +100,7 @@ export function ActivityRowMenu({ activity, room }: { activity: RowActivity; roo
             onSelect: () => void navigate({ to: "/app/actividades/$activityId", params: { activityId: activity.id }, search: { tab: "configuracion" } }),
           },
           { label: "Duplicar actividad", icon: <Copy className="size-4" />, onSelect: () => setDialog("duplicate") },
-          "separator",
-          { label: "Eliminar actividad", icon: <Trash2 className="size-4" />, danger: true, onSelect: () => setDialog("trash") },
+          ...(canManage ? (["separator", { label: "Eliminar actividad", icon: <Trash2 className="size-4" />, danger: true, onSelect: () => setDialog("trash") }] as const) : []),
         ]}
       />
       <DuplicateDialog activity={source} open={dialog === "duplicate"} onClose={() => setDialog(null)} />
@@ -109,12 +112,15 @@ export function ActivityRowMenu({ activity, room }: { activity: RowActivity; roo
 /** The classroom's "Papelera": restore, or remove for good before the 30 days. */
 export function TrashSection({ classroomId }: { classroomId: string }) {
   const qc = useQueryClient();
+  // The "Papelera" is for who can delete (owner and admins of a shared classroom).
+  const canManage = useCan("manage");
   const [open, setOpen] = useState(false);
   const [purging, setPurging] = useState<TrashedActivity | null>(null);
   const q = useQuery({
     queryKey: trashKey(classroomId),
     queryFn: ({ signal }) => api.get<{ activities: TrashedActivity[] }>(`/api/classrooms/${classroomId}/trash`, signal),
     select: (d) => d.activities,
+    enabled: canManage,
   });
   const restore = useMutation({
     mutationFn: (id: string) => api.post(`/api/activities/${id}/untrash`),
@@ -135,7 +141,7 @@ export function TrashSection({ classroomId }: { classroomId: string }) {
     onError: (e) => toast.error(errorMessage(e)),
   });
   const list = q.data ?? [];
-  if (!list.length) return null;
+  if (!canManage || !list.length) return null;
   return (
     <section className="mt-6 rounded-lg border border-dashed border-line-strong bg-surface/60" aria-labelledby="papelera-title">
       <button

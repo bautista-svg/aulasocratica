@@ -28,7 +28,7 @@ function Row({ label, children, onEdit }: { label: string; children: ReactNode; 
 const none = <span className="text-text-3">—</span>;
 
 export function StepReview({ state: s, onGo }: { state: WizardState; onGo: (step: number) => void }) {
-  const rooms = useClassrooms(false);
+  const rooms = useClassrooms(false, "editable");
   const lib = useMaterials(NO_FILTERS);
   const tutors = useTutors();
   const d = s.draft!;

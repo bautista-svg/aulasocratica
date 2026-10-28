@@ -36,7 +36,7 @@ const HEADINGS: { title: string; description: string }[] = [
 
 export function CreateWizard({ teacherId, aula }: { teacherId: string; aula?: string }) {
   const { state: s, update, reset } = useWizard(teacherId);
-  const rooms = useClassrooms(false);
+  const rooms = useClassrooms(false, "editable");
   const lib = useMaterials(NO_FILTERS);
   const create = useCreateFromProposal();
   const tutors = useTutors();

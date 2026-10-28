@@ -9,7 +9,7 @@ import { db, schema } from "../db/client";
 import { readJson, badRequest, tooMany, HttpError } from "../lib/errors";
 import { hit } from "../lib/rate-limit";
 import { requireTeacher, teacherOf } from "../auth/teacher";
-import { ownedActivity, ownedMaterial } from "../services/access";
+import { ownedActivity, ownedMaterial, requireRole } from "../services/access";
 import { audit } from "../services/audit";
 import { enqueueFile } from "../services/file-jobs";
 import { attachMaterialToActivity } from "../services/planning/attach";
@@ -326,7 +326,9 @@ export const materialRoutes = new Hono<AppEnv>()
     const row = await ownedMaterial(t.id, c.req.param("id"));
     const { activityId } = await readJson(c, attachMaterialBody);
     const activity = await ownedActivity(t.id, activityId);
-    const r = await attachMaterialToActivity(row, activity.id);
+    requireRole(activity, "edit");
+    // The teacher's own library item is copied into the activity (also in a shared classroom).
+    const r = await attachMaterialToActivity(row, activity.id, activity.teacherId);
     const res: AttachResponse = { attachedAs: r.attachedAs, activityId: activity.id, processing: r.processing };
     return c.json(res);
   });

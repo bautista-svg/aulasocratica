@@ -10,12 +10,31 @@ import { errorMessage } from "@client/lib/api";
 import { ALERT_CATEGORY_LABELS, ALERT_SEVERITY_LABELS, type AlertCategory, type AlertSeverity } from "@shared/domain/alerts";
 import { useAlertMutations, useClassroomAlerts } from "./api";
 import { useSingleFlight } from "@client/features/activities/single-flight";
+import { useCan } from "@client/features/sharing/role";
+import { cn } from "@client/lib/cn";
 
 const severityTone = (s: string) => (s === "immediate" ? "rose" : "amber") as "rose" | "amber";
+
+/** State of an alert that cannot be switched here (locked, or a member without permission). */
+function AlertStateTag({ locked, enabled }: { locked: boolean; enabled: boolean }) {
+  return (
+    <span
+      className={cn(
+        "mt-0.5 inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
+        locked || enabled ? "bg-sunken text-text-2" : "border border-line text-text-3",
+      )}
+    >
+      {locked ? <Lock className="size-3" aria-hidden="true" /> : null}
+      {locked ? "Siempre activa" : enabled ? "Activa" : "Apagada"}
+    </span>
+  );
+}
 
 export function AlertsPanel({ classroomId }: { classroomId: string }) {
   const q = useClassroomAlerts(classroomId);
   const m = useAlertMutations(classroomId);
+  // In a shared classroom only the owner and admins change which alerts are on.
+  const canManage = useCan("manage");
   const [creating, setCreating] = useState(false);
   const [removing, setRemoving] = useState<{ id: string; name: string } | null>(null);
 
@@ -36,9 +55,10 @@ export function AlertsPanel({ classroomId }: { classroomId: string }) {
         <ul className="mt-3 divide-y divide-line">
           {q.data.builtins.map((a) => (
             <li key={a.key} className="px-5 py-3.5">
-              {a.locked ? (
-                // Safety alerts cannot be turned off: a static row (not a greyed-out switch, whose
-                // faded text failed contrast) that says so.
+              {a.locked || !canManage ? (
+                // Safety alerts cannot be turned off, and a member who cannot manage the classroom
+                // cannot change them: a static row (not a greyed-out switch, whose faded text failed
+                // contrast) that says so.
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <p className="flex flex-wrap items-center gap-2 text-[15px] font-semibold text-text">
@@ -47,9 +67,7 @@ export function AlertsPanel({ classroomId }: { classroomId: string }) {
                     </p>
                     <p className="mt-0.5 text-sm leading-5 text-text-2">{`${ALERT_CATEGORY_LABELS[a.category]} · ${a.description}`}</p>
                   </div>
-                  <span className="mt-0.5 inline-flex shrink-0 items-center gap-1.5 rounded-full bg-sunken px-2.5 py-1 text-xs font-semibold text-text-2">
-                    <Lock className="size-3" aria-hidden="true" /> Siempre activa
-                  </span>
+                  <AlertStateTag locked={a.locked} enabled={a.enabled} />
                 </div>
               ) : (
                 <Switch
@@ -75,33 +93,50 @@ export function AlertsPanel({ classroomId }: { classroomId: string }) {
           title="Alertas propias del aula"
           description="Describí con tus palabras qué querés que la IA te avise."
           action={
-            <Button variant="secondary" size="sm" icon={<Plus className="size-4" />} onClick={() => setCreating(true)}>
-              Nueva alerta
-            </Button>
+            canManage ? (
+              <Button variant="secondary" size="sm" icon={<Plus className="size-4" />} onClick={() => setCreating(true)}>
+                Nueva alerta
+              </Button>
+            ) : undefined
           }
         />
         {q.data.custom.length === 0 ? (
-          <p className="px-5 pt-3 pb-5 text-sm text-text-3">Todavía no creaste alertas propias.</p>
+          <p className="px-5 pt-3 pb-5 text-sm text-text-3">{canManage ? "Todavía no creaste alertas propias." : "Esta aula no tiene alertas propias."}</p>
         ) : (
           <ul className="mt-3 divide-y divide-line">
             {q.data.custom.map((a) => (
               <li key={a.id} className="flex items-start gap-3 px-5 py-3.5">
                 <div className="min-w-0 flex-1">
-                  <Switch
-                    checked={a.enabled}
-                    onCheckedChange={(enabled) => m.update.mutate({ id: a.id, enabled }, { onError })}
-                    label={
-                      <span className="flex flex-wrap items-center gap-2">
-                        {a.name}
-                        <Badge tone={severityTone(a.severity)}>{ALERT_SEVERITY_LABELS[a.severity as AlertSeverity] ?? a.severity}</Badge>
-                      </span>
-                    }
-                    description={`${ALERT_CATEGORY_LABELS[a.category as AlertCategory] ?? a.category} · ${a.description}`}
-                  />
+                  {canManage ? (
+                    <Switch
+                      checked={a.enabled}
+                      onCheckedChange={(enabled) => m.update.mutate({ id: a.id, enabled }, { onError })}
+                      label={
+                        <span className="flex flex-wrap items-center gap-2">
+                          {a.name}
+                          <Badge tone={severityTone(a.severity)}>{ALERT_SEVERITY_LABELS[a.severity as AlertSeverity] ?? a.severity}</Badge>
+                        </span>
+                      }
+                      description={`${ALERT_CATEGORY_LABELS[a.category as AlertCategory] ?? a.category} · ${a.description}`}
+                    />
+                  ) : (
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="flex flex-wrap items-center gap-2 text-[15px] font-semibold text-text">
+                          {a.name}
+                          <Badge tone={severityTone(a.severity)}>{ALERT_SEVERITY_LABELS[a.severity as AlertSeverity] ?? a.severity}</Badge>
+                        </p>
+                        <p className="mt-0.5 text-sm leading-5 text-text-2">{`${ALERT_CATEGORY_LABELS[a.category as AlertCategory] ?? a.category} · ${a.description}`}</p>
+                      </div>
+                      <AlertStateTag locked={false} enabled={a.enabled} />
+                    </div>
+                  )}
                 </div>
-                <Button variant="ghost" size="icon" aria-label={`Eliminar alerta ${a.name}`} onClick={() => setRemoving(a)}>
-                  <Trash2 className="size-4" />
-                </Button>
+                {canManage ? (
+                  <Button variant="ghost" size="icon" aria-label={`Eliminar alerta ${a.name}`} onClick={() => setRemoving(a)}>
+                    <Trash2 className="size-4" />
+                  </Button>
+                ) : null}
               </li>
             ))}
           </ul>

@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as RD from "@radix-ui/react-dialog";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Bell, BellRing, Bot, Copy, FileUp, KeyRound, Languages, Link2, ListChecks, ListOrdered, LogIn, MessageCircleQuestion, MessageSquareQuote, MessageSquareText, NotebookPen, PenLine, Scale, ScanText, Sprout, TrendingUp, X, type LucideIcon } from "lucide-react";
+import { ArrowRight, Bell, BellRing, Bot, Copy, FileUp, KeyRound, Languages, Link2, ListChecks, ListOrdered, LogIn, MessageCircleQuestion, MessageSquareQuote, MessageSquareText, NotebookPen, PenLine, Scale, ScanText, Sprout, TrendingUp, UsersRound, X, type LucideIcon } from "lucide-react";
 import { cn } from "@client/lib/cn";
 import { api } from "@client/lib/api";
 import { meKey } from "@client/lib/session";
@@ -38,6 +38,7 @@ const ICONS: Record<NewsKey, { icon: LucideIcon; tile: string }> = {
   reflection: { icon: NotebookPen, tile: "bg-amber-soft text-amber" },
   sharedSummary: { icon: MessageSquareQuote, tile: "bg-leaf-soft text-leaf" },
   alertsTab: { icon: BellRing, tile: "bg-rose-soft text-rose" },
+  sharedClassrooms: { icon: UsersRound, tile: "bg-lilac-soft text-lilac-ink" },
 };
 
 export function WhatsNew({ me }: { me: Me }) {

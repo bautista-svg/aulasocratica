@@ -3,6 +3,7 @@ import { api } from "@client/lib/api";
 import type { ClassroomInput, ClassroomStudent, ClassroomSummary } from "@shared/contracts/classrooms";
 import type { ActivitySummary } from "@shared/contracts/activities";
 import type { AlertDefinition } from "@shared/domain/alerts";
+import { can } from "@shared/domain/sharing";
 
 export const classroomKeys = {
   all: ["classrooms"] as const,
@@ -13,11 +14,15 @@ export const classroomKeys = {
   alerts: (id: string) => ["classrooms", id, "alerts"] as const,
 };
 
-export function useClassrooms(archived = false) {
+/**
+ * The teacher's classrooms, own and shared with them. `only`: where they can create or change
+ * activities ("editable", for pickers that create something), or their own ("own", for reports).
+ */
+export function useClassrooms(archived = false, only?: "editable" | "own") {
   return useQuery({
     queryKey: classroomKeys.list(archived),
     queryFn: ({ signal }) => api.get<{ classrooms: ClassroomSummary[] }>(`/api/classrooms${archived ? "?archived=1" : ""}`, signal),
-    select: (d) => d.classrooms,
+    select: (d) => (only ? d.classrooms.filter((c) => (only === "own" ? c.role === "owner" : can(c.role, "edit"))) : d.classrooms),
   });
 }
 

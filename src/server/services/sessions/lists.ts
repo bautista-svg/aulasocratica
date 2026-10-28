@@ -3,12 +3,13 @@
 import { and, asc, desc, eq, ilike, inArray, isNull, sql } from "drizzle-orm";
 import { db, schema } from "../../db/client";
 import { badRequest } from "../../lib/errors";
-import { isUuid } from "../access";
+import { isUuid, visibleClassroomIds } from "../access";
 import { classroomLabel } from "@shared/contracts/classrooms";
 import type { XrayListItem, XrayListResponse } from "@shared/contracts/sessions";
 import type { StudentDetail, StudentWork } from "@shared/contracts/students";
 import { xrayCounts } from "./xray-store";
 import { studentSkills } from "./skills";
+import type { ClassroomRole } from "@shared/domain/sharing";
 
 export const XRAY_PAGE_SIZE = 30;
 
@@ -44,7 +45,8 @@ export async function xrayList(
   const rank = sql<number>`(case when "learning_sessions"."status" = 'completed' then 0 else 1 end)`;
   const ts = sql`coalesce("learning_sessions"."completed_at", "learning_sessions"."last_activity_at")`;
   const where = and(
-    eq(schema.activities.teacherId, teacherId),
+    // Own classrooms and the ones shared with the teacher.
+    sql`${schema.activities.classroomId} in ${visibleClassroomIds(teacherId)}`,
     isNull(schema.activities.deletedAt),
     q.classroomId ? eq(schema.activities.classroomId, q.classroomId) : undefined,
     q.activityId ? eq(schema.activities.id, q.activityId) : undefined,
@@ -125,6 +127,7 @@ const preview = (s: string | null, max = 280) => {
 export async function studentDetail(row: {
   student: typeof schema.students.$inferSelect;
   classroom: typeof schema.classrooms.$inferSelect;
+  role: ClassroomRole;
 }): Promise<StudentDetail> {
   const { student, classroom } = row;
   const sessions = await db
@@ -176,6 +179,7 @@ export async function studentDetail(row: {
     };
   });
   return {
+    role: row.role,
     student: { id: student.id, fullName: student.fullName, selfRegistered: student.selfRegistered, createdAt: student.createdAt.toISOString() },
     classroom: { id: classroom.id, name: classroom.name, label: classroomLabel(classroom), isArchived: classroom.isArchived },
     works,
