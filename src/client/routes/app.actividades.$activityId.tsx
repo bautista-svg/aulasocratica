@@ -10,6 +10,7 @@ import { ApiError, errorMessage } from "@client/lib/api";
 import { fmtDate, plural } from "@client/lib/format";
 import { usePageTitle } from "@client/lib/page-title";
 import { LivePanel } from "@client/features/live/live-panel";
+import { AlertsPanel, useActivityAlerts } from "@client/features/live/alerts-panel";
 import { SkillsPanel } from "@client/features/skills/group-panel";
 import { useActivity, useActivityAction, useSaveActivity } from "@client/features/activities/api";
 import { useActivityForm } from "@client/features/activities/use-activity-form";
@@ -22,9 +23,15 @@ import { UnsavedGuard } from "@client/features/activities/unsaved-guard";
 import { activityState } from "@shared/domain/activity-state";
 import { TRASH_DAYS, type ActivityEditorData } from "@shared/contracts/activities";
 
-const TABS = ["configuracion", "compartir", "en-vivo", "fortalezas"] as const;
+const TABS = ["configuracion", "compartir", "en-vivo", "alertas", "fortalezas"] as const;
 type Tab = (typeof TABS)[number];
-const TAB_LABELS: Record<Tab, string> = { configuracion: "Configuración", compartir: "Compartir", "en-vivo": "En vivo", fortalezas: "Fortalezas" };
+const TAB_LABELS: Record<Tab, string> = {
+  configuracion: "Configuración",
+  compartir: "Compartir",
+  "en-vivo": "En vivo",
+  alertas: "Alertas",
+  fortalezas: "Fortalezas",
+};
 
 export const Route = createFileRoute("/app/actividades/$activityId")({
   validateSearch: searchParams({ tab: optionalEnum(TABS) }),
@@ -252,13 +259,17 @@ function ActivityTabs({
 }) {
   const { tab } = Route.useSearch();
   const current: Tab = tab ?? (activity.status === "published" ? "en-vivo" : "configuracion");
-  // The live view (SSE + polling) starts the first time its tab is opened, then stays mounted.
+  // The live views (SSE + polling) start the first time their tab is opened, then stay mounted.
   const [liveOpened, setLiveOpened] = useState(current === "en-vivo");
+  const [alertsOpened, setAlertsOpened] = useState(current === "alertas");
   const [aspectsOpened, setAspectsOpened] = useState(current === "fortalezas");
   useEffect(() => {
     if (current === "en-vivo") setLiveOpened(true);
+    if (current === "alertas") setAlertsOpened(true);
     if (current === "fortalezas") setAspectsOpened(true);
   }, [current]);
+  // Until a live view loads, the badge is the count that came with the activity.
+  const openAlerts = useActivityAlerts(activity.id, liveOpened || alertsOpened, () => goTab("alertas")) ?? activity.openAlerts;
   return (
     <Tabs
       value={current}
@@ -279,6 +290,18 @@ function ActivityTabs({
               <span className="rounded-full bg-sunken px-2 py-0.5 text-xs font-semibold text-text-2 tabular">{activity.participants}</span>
             ) : undefined,
           content: liveOpened ? <LivePanel activityId={activity.id} /> : null,
+        },
+        {
+          value: "alertas",
+          label: "Alertas",
+          badge:
+            openAlerts > 0 ? (
+              <span className="rounded-full bg-rose-soft px-2 py-0.5 text-xs font-semibold text-rose tabular">
+                {openAlerts}
+                <span className="sr-only">{openAlerts === 1 ? " abierta" : " abiertas"}</span>
+              </span>
+            ) : undefined,
+          content: alertsOpened ? <AlertsPanel activityId={activity.id} /> : null,
         },
         { value: "fortalezas", label: "Fortalezas", content: aspectsOpened ? <SkillsPanel activityId={activity.id} /> : null },
       ]}

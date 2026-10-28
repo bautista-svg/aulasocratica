@@ -92,6 +92,54 @@ test("docente publica, dos alumnos trabajan, el docente los ve por actividad, de
   await api(page.request, base, "DELETE", "/api/auth/workspace", { confirm: "BORRAR" });
 });
 
+test("alertas en su propia pestaña: En vivo y el aula llevan a Alertas, y se marcan como revisadas", async ({ page, browser, baseURL }) => {
+  const base = new URL(baseURL!).origin;
+  await startWorkspace(page);
+  const { classroom } = await api(page.request, base, "POST", "/api/classrooms", { name: "E2E Alertas" });
+  const { activity } = await api(page.request, base, "POST", "/api/activities", { classroomId: classroom.id, title: "Ciclo del agua" });
+  await api(page.request, base, "PATCH", `/api/activities/${activity.id}`, { instructions: "Contá cómo llega el agua de lluvia al mar." });
+  await api(page.request, base, "POST", `/api/activities/${activity.id}/publish`);
+  const token: string = (await api(page.request, base, "GET", `/api/activities/${activity.id}`)).activity.linkToken;
+
+  // No alerts yet: the tab explains what will show up there.
+  await page.goto(`/app/actividades/${activity.id}?tab=alertas`);
+  await expect(page.getByRole("heading", { name: "No hay alertas" })).toBeVisible();
+
+  // A student pastes text copied from somewhere else (the browser reports it as a signal).
+  const ctx = await browser.newContext();
+  const s = await ctx.newPage();
+  await studentJoins(s, token, "Carla Ruiz");
+  await s.getByLabel("Tu primera idea").fill("El agua se evapora y vuelve a caer.");
+  await s.getByRole("button", { name: "Guardar y empezar a conversar" }).click();
+  await expect(s.locator("#composer")).toBeVisible();
+  await api(s.request, base, "POST", `/api/s/${token}/signal`, { kind: "pasted_text", chars: 900, fromMaterial: false });
+  await ctx.close();
+
+  // En vivo only points to the Alertas tab, which shows the count and the alert.
+  await page.goto(`/app/actividades/${activity.id}?tab=en-vivo`);
+  await expect(page.getByText("Carla Ruiz").filter({ visible: true }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Revisada" })).toHaveCount(0);
+  await page.getByRole("link", { name: /1 alerta abierta/ }).click();
+  await expect(page).toHaveURL(/tab=alertas/);
+  await expect(page.getByRole("tab", { name: /Alertas\s*1 abierta/ })).toBeVisible();
+  const openList = page.getByRole("list", { name: "Alertas abiertas" });
+  await expect(openList.getByText("Carla Ruiz")).toBeVisible();
+  await openList.getByRole("button", { name: "Revisada" }).click();
+  await expect(page.getByText("No quedan alertas por revisar.")).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Alertas", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: /Ver las revisadas o descartadas \(1\)/ }).click();
+  await expect(page.getByRole("button", { name: "Reabrir" })).toBeVisible();
+
+  // Reopened, the classroom list badge leads to the same tab.
+  await page.getByRole("button", { name: "Reabrir" }).click();
+  await page.goto(`/app/aulas/${classroom.id}`);
+  await page.getByRole("link", { name: "1 alerta abierta en Ciclo del agua" }).click();
+  await expect(page).toHaveURL(new RegExp(`/app/actividades/${activity.id}\\?tab=alertas`));
+  await expect(page.getByRole("list", { name: "Alertas abiertas" }).getByText("Carla Ruiz")).toBeVisible();
+
+  await api(page.request, base, "DELETE", "/api/auth/workspace", { confirm: "BORRAR" });
+});
+
 test("entrega obligatoria: el alumno sube su archivo, envía, y el docente lo ve en Evaluación y en Alertas", async ({ page, browser, baseURL }) => {
   const base = new URL(baseURL!).origin;
   await startWorkspace(page);

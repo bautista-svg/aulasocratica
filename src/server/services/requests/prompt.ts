@@ -6,7 +6,7 @@
 export const APP_MAP = `MAPA DE LA APP (lo que ve la docente):
 - Inicio: resumen del día (actividades en curso, alertas, accesos rápidos).
 - Aulas: cada aula tiene nombre, docente, curso y división; adentro están sus alumnos y sus actividades.
-- Alertas: avisos de los alumnos durante las actividades (se atascó, pegó texto copiado, pidió muchas pistas, mensaje preocupante), con filtros y para marcar como vistas.
+- Alertas (menú lateral): avisos de los alumnos durante las actividades (se atascó, pegó texto copiado, pidió muchas pistas, mensaje preocupante), con filtros y para marcar como vistas.
 - Crear con IA: la docente describe lo que quiere y sube materiales; la IA arma una o varias actividades listas para revisar.
 - Mis tutores: 18 tutores incluidos (editables y restaurables) y tutores propios. Cada tutor tiene enfoque, nivel de ayuda, estrategias e indicaciones.
 - Mis materiales: biblioteca de archivos y enlaces (PDF, Word, fotos, audios, Google Docs/Drive) para reusar en actividades.
@@ -19,7 +19,8 @@ export const APP_MAP = `MAPA DE LA APP (lo que ve la docente):
 UNA ACTIVIDAD tiene pestañas:
 - Configuración, con secciones: Idioma (castellano o inglés), Consigna (con "+" para varias consignas en orden), Objetivos, Material (archivos y enlaces que el alumno puede consultar), Tutor (uno o hasta 3 combinados, nivel de ayuda e indicaciones de hasta 4000 palabras), Respuesta inicial (pedir o no una primera respuesta), Respuesta final (activarla o no y editar la pregunta), Voz (hablarle al tutor), Rúbrica (criterios y niveles, importable desde un archivo o sugerida por IA), Reflexión final (activarla o no y editar las preguntas; el alumno tiene que responderlas todas para enviar su trabajo), Mensaje final (un mensaje para leer al terminar, sin responder nada), Entrega (pedir un archivo o un enlace de Drive al terminar: no, opcional u obligatoria), Devolución de la IA (que cada alumno vea, al enviar su trabajo, el resumen de la IA con sus citas y los próximos pasos; apagada salvo que la docente la active).
 - Compartir: enlace y código QR para los alumnos, publicar o volver a borrador.
-- En vivo: progreso de cada alumno mientras trabaja.
+- En vivo: progreso de cada alumno mientras trabaja (si hay alertas abiertas, un aviso lleva a la pestaña Alertas).
+- Alertas: las alertas de los alumnos de esa actividad, en vivo, con «Revisada», «Descartar» y «Ver conversación»; las revisadas o descartadas se despliegan abajo y se pueden reabrir. La pestaña muestra cuántas hay abiertas. Las de atención inmediata también llegan como aviso emergente con «Ver alertas».
 - Fortalezas: las habilidades del grupo por dimensión (cognitiva, metacognitiva, del proceso, comunicación), cada una en cuatro niveles (Inicial, En desarrollo, Logrado, Avanzado) o «Sin evidencia suficiente», con sus indicadores de avance y la cita de cada alumno. La IA evalúa de forma formativa, según la edad del curso y lo que pide la actividad (reconoce avances parciales y no exige todos los indicadores para Logrado). «Elegir habilidades» activa o quita las incluidas, permite tildar o destildar los indicadores de avance de cada una (la IA busca solo los tildados y, si el alumno muestra uno con sus palabras, la habilidad queda en Logrado) y crear habilidades propias con sus indicadores; «Reevaluar habilidades» vuelve a evaluar todos los trabajos con los criterios actuales.
 Menú de la actividad: duplicar, reiniciar, archivar, eliminar.
 

@@ -11,10 +11,11 @@ export const liveKeys = {
 /** Fallback polling when the event stream is down (or blocked by a proxy). */
 export const LIVE_POLL_MS = 15_000;
 
-export function useLiveSnapshot(activityId: string, window: LiveWindow) {
+export function useLiveSnapshot(activityId: string, window: LiveWindow, enabled = true) {
   return useQuery({
     queryKey: liveKeys.snapshot(activityId, window),
     queryFn: ({ signal }) => api.get<LiveSnapshot>(`/api/live/${activityId}?window=${window}`, signal),
+    enabled,
     refetchInterval: LIVE_POLL_MS,
     placeholderData: keepPreviousData,
     staleTime: 2_000,
