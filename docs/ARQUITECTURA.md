@@ -125,7 +125,11 @@ docs/                Arquitectura, auditoría, informes
   pedidos a direcciones arbitrarias o internas),
   `aspect_analyses` (habilidades de un trabajo, `skills`: un nivel por habilidad con cita verificada del alumno, o «sin
   evidencia»; las habilidades y sus indicadores están en `shared/domain/skills.ts` y cada espacio elige cuáles evalúa y
-  suma las suyas en `teachers.skill_settings`. Un nivel sin cita real del alumno pasa a «sin evidencia». El nivel que
+  suma las suyas en `teachers.skill_settings`. Un nivel sin cita real del alumno pasa a «sin evidencia». Por defecto un
+  indicador tildado mostrado con palabras propias es «Logrado»; si la docente fija cuántos pide cada nivel
+  (`skill_settings.levels`), la IA lista los indicadores que muestra con su cita y el servidor cuenta los verificados
+  (`levelFromIndicators`). Cada evaluación guarda los indicadores mostrados (`met`), cuántos había (`of`) y las cantidades
+  usadas (`levels`): si cambian, el tablero avisa que conviene «Reevaluar habilidades». El nivel que
   corrige la docente sobrevive a un nuevo análisis. `items` guarda las antiguas «fortalezas y aspectos a reforzar»; claves fijas para
   poder contarlas por actividad y por alumno; las que marca el docente sobreviven a un nuevo análisis).
 - `teachers.news_seen`: id del último aviso de «Novedades» mostrado (`shared/domain/news.ts`). Se marca apenas se abre,

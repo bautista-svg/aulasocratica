@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import {
   BookOpen,
   ChartColumn,
+  CircleCheck,
   Compass,
   Languages,
   Lightbulb,
@@ -20,7 +21,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@client/lib/cn";
-import { SKILL_LEVELS, STATUS_LABELS, toneOf, type SkillAssessment, type SkillStatus, type StatusTone } from "@shared/domain/skills";
+import { SKILL_LEVELS, STATUS_LABELS, toneOf, type SkillAssessment, type SkillStatus, type SkillThresholds, type StatusTone } from "@shared/domain/skills";
 
 const ICONS: Record<string, LucideIcon> = {
   redaccion: PenLine,
@@ -100,21 +101,70 @@ function Part({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-/** What backs a level: the indicator, the student's words, why, what to improve and a suggestion. */
-export function EvidenceCard({ a, footer, className }: { a: Pick<SkillAssessment, "status" | "criterion" | "evidence" | "why" | "improve" | "suggestion" | "source">; footer?: ReactNode; className?: string }) {
+/** "3 de 4 indicadores" of an evaluation that kept them (null for the ones made before). */
+export function metCount(a: Pick<SkillAssessment, "met" | "of" | "status">): string | null {
+  if (!a.of || (a.status === "sin_evidencia" && a.met.length === 0)) return null;
+  return `${a.met.length} de ${a.of} ${a.of === 1 ? "indicador" : "indicadores"}`;
+}
+
+/** "En desarrollo desde 1, Logrado desde 3 y Avanzado desde 4": the numbers a work was leveled with. */
+function levelsText(t: SkillThresholds) {
+  const parts = SKILL_LEVELS.filter((l) => t[l] > 0).map((l) => `${STATUS_LABELS[l]} desde ${t[l]}`);
+  return parts.length > 1 ? `${parts.slice(0, -1).join(", ")} y ${parts.at(-1)}` : (parts[0] ?? "");
+}
+
+function QuoteBox({ children }: { children: ReactNode }) {
+  return (
+    <figure className="flex gap-2.5 rounded-[10px] bg-lilac-soft/60 px-3.5 py-3">
+      <Quote className="mt-0.5 size-4 shrink-0 text-lilac-ink" aria-hidden="true" />
+      <blockquote className="text-[15px] leading-6 text-text italic">«{children}»</blockquote>
+    </figure>
+  );
+}
+
+type Evidence = Pick<SkillAssessment, "status" | "criterion" | "evidence" | "why" | "improve" | "suggestion" | "source"> &
+  Partial<Pick<SkillAssessment, "met" | "of" | "levels">>;
+
+/**
+ * What backs a level: the ticked indicators the student showed, each with their words (or, in
+ * evaluations made before they were kept, the one indicator and quote), why, what to improve and a
+ * suggestion.
+ */
+export function EvidenceCard({ a, footer, className }: { a: Evidence; footer?: ReactNode; className?: string }) {
+  const met = a.met ?? [];
+  const of = a.of ?? 0;
+  const count = metCount({ met, of, status: a.status });
   return (
     <div className={cn("grid gap-3 rounded-[14px] border border-line bg-surface p-4 shadow-1", className)}>
       <div className="flex flex-wrap items-center gap-2">
         <LevelPill status={a.status} />
+        {count ? <span className="rounded-full bg-sunken px-2.5 py-1 text-xs font-semibold text-text tabular">{count}</span> : null}
         {a.source === "teacher" ? <span className="rounded-full bg-ink-soft px-2 py-0.5 text-[11px] font-semibold text-ink">Nivel corregido por vos</span> : null}
       </div>
-      {a.criterion ? <Part label="Indicador observado">{a.criterion}</Part> : null}
-      {a.evidence ? (
-        <figure className="flex gap-2.5 rounded-[10px] bg-lilac-soft/60 px-3.5 py-3">
-          <Quote className="mt-0.5 size-4 shrink-0 text-lilac-ink" aria-hidden="true" />
-          <blockquote className="text-[15px] leading-6 text-text italic">«{a.evidence}»</blockquote>
-        </figure>
+      {count ? (
+        <div>
+          <p className="text-xs font-semibold tracking-wide text-text-3 uppercase">{met.length === 1 ? "Indicador que mostró" : "Indicadores que mostró"}</p>
+          {met.length ? (
+            <ul className="mt-1.5 grid gap-2">
+              {met.map((m) => (
+                <li key={m.criterion} className="rounded-[10px] bg-lilac-soft/60 px-3.5 py-3">
+                  <p className="flex gap-2 text-[15px] leading-6 font-semibold text-text">
+                    <CircleCheck className="mt-1 size-4 shrink-0 text-leaf" aria-hidden="true" />
+                    {m.criterion}
+                  </p>
+                  <blockquote className="mt-1 pl-6 text-[15px] leading-6 text-text italic">«{m.evidence}»</blockquote>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-0.5 text-[15px] leading-6 text-text-2">Todavía no mostró ninguno de los indicadores tildados con sus palabras.</p>
+          )}
+          {a.levels ? <p className="mt-1.5 text-[13px] leading-5 text-text-2">Nivel según cuántos mostró: {levelsText(a.levels)}.</p> : null}
+        </div>
+      ) : a.criterion ? (
+        <Part label="Indicador observado">{a.criterion}</Part>
       ) : null}
+      {a.evidence && !met.length ? <QuoteBox>{a.evidence}</QuoteBox> : null}
       {a.why ? <Part label={a.status === "sin_evidencia" ? "Por qué no se pudo evaluar" : "Lo que muestra"}>{a.why}</Part> : null}
       {a.improve ? <Part label="Para seguir avanzando">{a.improve}</Part> : null}
       {a.suggestion ? <Part label="Sugerencia">{a.suggestion}</Part> : null}

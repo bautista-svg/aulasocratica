@@ -74,6 +74,11 @@ export interface ActivitySkills {
   pending: { sessionId: string; studentName: string }[];
   /** Evaluated works whose evaluation used older criteria (can be evaluated again). */
   outdatedWorks: number;
+  /**
+   * Other evaluated works where a skill was leveled with numbers per level the teacher has changed
+   * since (or set or removed): «Reevaluar habilidades» applies the current ones.
+   */
+  levelsOutdatedWorks: number;
   skills: SkillGroupRow[];
   /** The latest re-evaluation of the whole activity, if any. */
   run: SkillRunView | null;
@@ -103,11 +108,15 @@ const customSkillBody = z.object({
     .max(MAX_CRITERIA, `Hasta ${MAX_CRITERIA} indicadores.`),
 });
 
+const threshold = z.number({ error: "Elegí cuántos indicadores." }).int().min(0).max(MAX_CRITERIA);
+
 export const skillSettingsBody = z.object({
   enabled: z.array(z.string().max(40)).max(40),
   custom: z.array(customSkillBody).max(MAX_CUSTOM_SKILLS, `Hasta ${MAX_CUSTOM_SKILLS} habilidades propias.`),
   /** Unticked indicators by skill (unknown ones are dropped). */
   off: z.record(z.string().max(40), z.array(z.string().max(CRITERION_MAX)).max(MAX_CRITERIA)).optional(),
+  /** How many ticked indicators each level asks for, by skill (fitted to the ticked ones; see clampThresholds). */
+  levels: z.record(z.string().max(40), z.object({ inicial: threshold, en_desarrollo: threshold, logrado: threshold, avanzado: threshold })).optional(),
 });
 export type SkillSettingsInput = z.input<typeof skillSettingsBody>;
 

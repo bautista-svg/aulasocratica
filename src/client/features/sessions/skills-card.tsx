@@ -12,7 +12,7 @@ import { errorMessage } from "@client/lib/api";
 import { fmtDateTime, plural } from "@client/lib/format";
 import { DIMENSIONS, DIMENSION_KEYS, SKILL_STATUSES, STATUS_LABELS, toneOf, type SkillAssessment, type SkillDef, type SkillStatus } from "@shared/domain/skills";
 import type { SessionDetail } from "@shared/contracts/sessions";
-import { EvidenceCard, LevelPill, SkillGlyph, ToneLegend } from "@client/features/skills/ui";
+import { EvidenceCard, LevelPill, SkillGlyph, ToneLegend, metCount } from "@client/features/skills/ui";
 import { SkillSettingsDialog } from "@client/features/skills/settings-dialog";
 import { useSessionMutations } from "./api";
 
@@ -36,7 +36,7 @@ export function SkillsCard({ detail }: { detail: SessionDetail }) {
         </Badge>
       </div>
       <p className="max-w-3xl text-sm text-text-2">
-        Cada habilidad en uno de cuatro niveles, con el indicador observado y una cita real de lo que escribió el alumno. «Sin evidencia» quiere decir
+        Cada habilidad en uno de cuatro niveles, con los indicadores que mostró el alumno y una cita real de lo que escribió para cada uno. «Sin evidencia» quiere decir
         que la conversación no alcanzó para evaluarla, no que le haya ido mal. Si no coincidís con un nivel, corregilo.
       </p>
 
@@ -135,6 +135,7 @@ function SkillRow({ def, a, sessionId, onError }: { def: SkillDef; a: SkillAsses
   const m = useSessionMutations(sessionId);
   const [open, setOpen] = useState(false);
   const saving = m.setSkillLevel.isPending && m.setSkillLevel.variables?.skill === def.key;
+  const count = a ? metCount(a) : null;
   return (
     <li>
       <button
@@ -146,6 +147,7 @@ function SkillRow({ def, a, sessionId, onError }: { def: SkillDef; a: SkillAsses
       >
         <SkillGlyph skill={def.key} status={a?.status ?? null} />
         <span className="min-w-32 flex-1 font-semibold text-text">{def.label}</span>
+        {count ? <span className="text-xs font-semibold text-text-2 tabular">{count}</span> : null}
         <LevelPill status={a?.status ?? null} />
         <ChevronDown className={cn("size-4 shrink-0 text-text-3 transition-transform", open && "rotate-180")} aria-hidden="true" />
       </button>

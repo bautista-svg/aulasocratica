@@ -27,10 +27,11 @@ export type NewsKey =
   | "alertsTab"
   | "divisions"
   | "sharedClassrooms"
-  | "defense";
+  | "defense"
+  | "indicatorLevels";
 
 /** Releases in order; adding one shows its items to everyone who has not seen them. */
-export const NEWS_RELEASES = ["2026-10-22", "2026-10-22b", "2026-10-22c", "2026-10-23", "2026-10-23b", "2026-10-23c", "2026-10-23d", "2026-10-24", "2026-10-24b", "2026-10-26", "2026-10-26b", "2026-10-28", "2026-10-28b", "2026-10-28c", "2026-10-29"] as const;
+export const NEWS_RELEASES = ["2026-10-22", "2026-10-22b", "2026-10-22c", "2026-10-23", "2026-10-23b", "2026-10-23c", "2026-10-23d", "2026-10-24", "2026-10-24b", "2026-10-26", "2026-10-26b", "2026-10-28", "2026-10-28b", "2026-10-28c", "2026-10-29", "2026-10-29b"] as const;
 export type NewsRelease = (typeof NEWS_RELEASES)[number];
 
 export interface NewsItem {
@@ -179,6 +180,12 @@ export const NEWS_ITEMS: NewsItem[] = [
     release: "2026-10-29",
     title: "Tutor «Defensa de autoría»",
     text: "Para comprobar si un alumno entiende el trabajo que entregó: cargás su trabajo (por ejemplo, su HTML y CSS) y el tutor le pregunta por las partes más difíciles. Si no sabe, no le da pistas y sigue con otra; en el resumen del trabajo ves qué supo explicar.",
+  },
+  {
+    key: "indicatorLevels",
+    release: "2026-10-29b",
+    title: "Cuántos indicadores pide cada nivel",
+    text: "En «Elegir habilidades», abrí los indicadores de una habilidad y elegí cuántos de los tildados tiene que mostrar el alumno para Inicial, En desarrollo, Logrado y Avanzado. En cada trabajo ves cuáles mostró, con su cita. Reevaluá para aplicarlo a lo ya evaluado.",
   },
   {
     key: "structure",

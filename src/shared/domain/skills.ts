@@ -2,7 +2,8 @@
 // of the student as evidence (or "sin evidencia suficiente", which is never a low level). Skills
 // come in dimensions; each workspace chooses which ones to evaluate and can add its own, with
 // the observable indicators the AI must look for, and ticks which indicators count (one shown
-// with the student's own words is "logrado"). Asked for by Vanina Gerstner (23-10, 24-10).
+// with the student's own words is "logrado", unless the teacher sets how many of them each level
+// asks for). Asked for by Vanina Gerstner (23-10, 24-10, 28-10).
 
 export const DIMENSIONS = {
   cognitiva: "Dimensión cognitiva",
@@ -61,6 +62,8 @@ export interface SkillDef {
   /** Observable indicators: what the AI looks for in the conversation (the ticked ones, once enabled). */
   criteria: string[];
   custom: boolean;
+  /** Enabled skills only: how many ticked indicators each level asks for (null = one shown is "logrado"). */
+  levels?: SkillThresholds | null;
 }
 
 interface BuiltIn {
@@ -195,19 +198,115 @@ export interface SkillSettings {
   custom: CustomSkill[];
   /** Indicators the teacher unticked, by skill: they are not evaluated (never all of a skill). */
   off: Record<string, string[]>;
+  /** How many of the ticked indicators each level asks for, by skill (absent = the default rule). */
+  levels: Record<string, SkillThresholds>;
 }
 
 export const DEFAULT_SKILL_SETTINGS: SkillSettings = {
   enabled: BUILTIN_KEYS.filter((k) => (BUILTIN_SKILLS[k] as BuiltIn).on),
   custom: [],
   off: {},
+  levels: {},
 };
+
+// ── Levels by number of indicators (Vanina Gerstner, 28-10) ──
+// By default one ticked indicator shown with the student's own words is "logrado" and the AI judges
+// the rest (how deep for "avanzado", how close for "inicial" / "en desarrollo"). A teacher can ask
+// instead for a number of the ticked indicators per level: the AI only finds which ones the student
+// shows (each with a quote) and the server counts them.
+
+/** The fewest ticked indicators shown that reach each level. Never decreasing; "logrado" asks for one at least. */
+export type SkillThresholds = Record<SkillLevel, number>;
+
+/** With fewer ticked indicators there is nothing to count: the default rule applies. */
+export const MIN_INDICATORS_FOR_LEVELS = 2;
+
+/** What the teacher starts from when she asks for numbers (4 ticked: Logrado 3 de 4, Avanzado 4 de 4). */
+export function suggestedThresholds(ticked: number): SkillThresholds | null {
+  if (ticked < MIN_INDICATORS_FOR_LEVELS) return null;
+  if (ticked === 2) return { inicial: 0, en_desarrollo: 0, logrado: 1, avanzado: 2 };
+  return { inicial: 0, en_desarrollo: 1, logrado: Math.ceil((ticked * 2) / 3), avanzado: ticked };
+}
+
+/** Lowest number each level may ask for (one indicator at least for "logrado" and "avanzado"). */
+const FLOOR: SkillThresholds = { inicial: 0, en_desarrollo: 0, logrado: 1, avanzado: 1 };
+
+/**
+ * Stored or sent numbers made valid for a skill with `ticked` indicators: whole numbers between
+ * their floor and `ticked`, never decreasing from Inicial to Avanzado (a lower one that asks for
+ * more pushes the higher ones up). Null when there is nothing valid to count.
+ */
+export function clampThresholds(raw: unknown, ticked: number): SkillThresholds | null {
+  if (ticked < MIN_INDICATORS_FOR_LEVELS || !raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  if (SKILL_LEVELS.some((l) => typeof o[l] !== "number" || !Number.isFinite(o[l]))) return null;
+  const out = {} as SkillThresholds;
+  let prev = 0;
+  for (const l of SKILL_LEVELS) {
+    const v = Math.min(ticked, Math.max(FLOOR[l], Math.round(o[l] as number)));
+    out[l] = Math.max(prev, v);
+    prev = out[l];
+  }
+  return out;
+}
+
+/** The teacher changes one level: the others move only as much as needed to stay in order. */
+export function setThreshold(t: SkillThresholds, level: SkillLevel, value: number, ticked: number): SkillThresholds {
+  const v = Math.min(ticked, Math.max(FLOOR[level], Math.round(value)));
+  const at = SKILL_LEVELS.indexOf(level);
+  const out = {} as SkillThresholds;
+  SKILL_LEVELS.forEach((l, i) => {
+    out[l] = i === at ? v : i < at ? Math.min(t[l], v) : Math.max(t[l], v);
+  });
+  return clampThresholds(out, ticked) ?? out;
+}
+
+/** The highest level `count` indicators reach (null: fewer than Inicial asks for). */
+export function levelByCount(count: number, t: SkillThresholds): SkillLevel | null {
+  let reached: SkillLevel | null = null;
+  for (const l of SKILL_LEVELS) if (count >= t[l]) reached = l;
+  return reached;
+}
+
+/**
+ * The level of a skill with numbers per level, from how many ticked indicators the student showed
+ * with a real quote of their own. With one or more, the count decides (below what Inicial asks for
+ * it is "sin evidencia"). With none, the count cannot tell apart the levels that ask for none: the
+ * AI's judgement chooses among them, and never above them.
+ */
+export function levelFromIndicators(count: number, t: SkillThresholds, ai: SkillStatus): SkillStatus {
+  const top = levelByCount(count, t);
+  if (!top) return "sin_evidencia";
+  if (count > 0) return top;
+  if (ai === "sin_evidencia") return "sin_evidencia";
+  return SKILL_LEVELS.indexOf(ai) > SKILL_LEVELS.indexOf(top) ? top : ai;
+}
+
+/** Comparable form of a skill's numbers ("" = the default rule): to know if a work used other ones. */
+export const thresholdsKey = (t: SkillThresholds | null | undefined) => (t ? SKILL_LEVELS.map((l) => t[l]).join("-") : "");
+
+/**
+ * What each number of indicators shown gives, in order, for the teacher to read the rule at a
+ * glance: [{ from: 0, to: 0, levels: ["inicial", "en_desarrollo"] }, { from: 1, to: 2, levels:
+ * ["en_desarrollo"] }, …]. Several levels: the AI chooses among them. None: "sin evidencia".
+ */
+export function thresholdBands(t: SkillThresholds, ticked: number): { from: number; to: number; levels: SkillLevel[] }[] {
+  const bands: { from: number; to: number; levels: SkillLevel[] }[] = [];
+  for (let c = 0; c <= ticked; c++) {
+    const top = levelByCount(c, t);
+    const levels = !top ? [] : c === 0 ? SKILL_LEVELS.filter((l) => t[l] === 0) : [top];
+    const last = bands.at(-1);
+    if (last && last.levels.join() === levels.join()) last.to = c;
+    else bands.push({ from: c, to: c, levels });
+  }
+  return bands;
+}
 
 const clean = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "");
 
 /** Stored or sent settings, made valid (unknown keys dropped, limits applied). Null → defaults. */
 export function sanitizeSkillSettings(raw: unknown): SkillSettings {
-  if (!raw || typeof raw !== "object") return { enabled: [...DEFAULT_SKILL_SETTINGS.enabled], custom: [], off: {} };
+  if (!raw || typeof raw !== "object") return { enabled: [...DEFAULT_SKILL_SETTINGS.enabled], custom: [], off: {}, levels: {} };
   const o = raw as Record<string, unknown>;
   const custom: CustomSkill[] = [];
   for (const c of Array.isArray(o.custom) ? o.custom : []) {
@@ -224,14 +323,22 @@ export function sanitizeSkillSettings(raw: unknown): SkillSettings {
   // Only indicators the skill has; a skill with all of them unticked keeps them all.
   const off: Record<string, string[]> = {};
   const rawOff = o.off && typeof o.off === "object" && !Array.isArray(o.off) ? (o.off as Record<string, unknown>) : {};
-  for (const def of skillCatalog({ enabled, custom, off: {} })) {
+  const catalog = skillCatalog({ enabled, custom, off: {}, levels: {} });
+  for (const def of catalog) {
     const list = rawOff[def.key];
     if (!Array.isArray(list)) continue;
     const texts = new Set(list.map((x) => clean(x, CRITERION_MAX)));
     const unticked = def.criteria.filter((c) => texts.has(c));
     if (unticked.length && unticked.length < def.criteria.length) off[def.key] = unticked;
   }
-  return { enabled, custom, off };
+  // Numbers per level fit the indicators ticked now (kept while the skill is turned off).
+  const levels: Record<string, SkillThresholds> = {};
+  const rawLevels = o.levels && typeof o.levels === "object" && !Array.isArray(o.levels) ? (o.levels as Record<string, unknown>) : {};
+  for (const def of catalog) {
+    const t = clampThresholds(rawLevels[def.key], def.criteria.length - (off[def.key]?.length ?? 0));
+    if (t) levels[def.key] = t;
+  }
+  return { enabled, custom, off, levels };
 }
 
 /** Every skill the workspace can evaluate, with all its indicators, by dimension (built-in first, then its own). */
@@ -250,7 +357,8 @@ export function enabledSkills(settings: SkillSettings): SkillDef[] {
     .filter((s) => on.has(s.key))
     .map((s) => {
       const off = settings.off[s.key];
-      return off?.length ? { ...s, criteria: s.criteria.filter((c) => !off.includes(c)) } : s;
+      const criteria = off?.length ? s.criteria.filter((c) => !off.includes(c)) : s.criteria;
+      return { ...s, criteria, levels: clampThresholds(settings.levels[s.key], criteria.length) };
     });
 }
 
@@ -306,6 +414,12 @@ export interface SkillAssessment {
   suggestion: string;
   /** "teacher" when the teacher corrected the level (kept on a new analysis). */
   source: "ai" | "teacher";
+  /** Every ticked indicator the student showed, each with its quote (verified). */
+  met: { criterion: string; evidence: string }[];
+  /** How many indicators were ticked when it was evaluated (0: evaluated before this was kept). */
+  of: number;
+  /** The numbers per level it was evaluated with (null: the default rule). */
+  levels: SkillThresholds | null;
 }
 
 /** "Logrado", "en desarrollo", "Sin evidencia" … → the status, or null. */
@@ -347,9 +461,24 @@ export function sanitizeAssessments(raw: unknown): SkillAssessment[] {
       improve: clean(o.improve, LIMITS.improve),
       suggestion: clean(o.suggestion, LIMITS.suggestion),
       source: o.source === "teacher" ? "teacher" : "ai",
+      ...sanitizeMet(o),
     });
   }
   return out;
+}
+
+function sanitizeMet(o: Record<string, unknown>): Pick<SkillAssessment, "met" | "of" | "levels"> {
+  const met: SkillAssessment["met"] = [];
+  for (const m of Array.isArray(o.met) ? o.met : []) {
+    if (!m || typeof m !== "object" || met.length >= MAX_CRITERIA) continue;
+    const r = m as Record<string, unknown>;
+    const criterion = clean(r.criterion, LIMITS.criterion);
+    const evidence = clean(r.evidence, LIMITS.evidence);
+    if (criterion && evidence && !met.some((x) => x.criterion === criterion)) met.push({ criterion, evidence });
+  }
+  const said = typeof o.of === "number" && Number.isInteger(o.of) ? Math.min(MAX_CRITERIA, Math.max(0, o.of)) : 0;
+  const of = Math.max(said, met.length);
+  return { met, of, levels: clampThresholds(o.levels, of) };
 }
 
 export const sanitizeRecommendations = (raw: unknown): string[] =>

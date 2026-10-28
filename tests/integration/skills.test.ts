@@ -14,9 +14,11 @@ async function setup(over: Parameters<typeof insertActivity>[2] = {}) {
   return { t, classroomId, activity, student };
 }
 
-const entry = (skill: string, status: string, evidence = "", extra: Record<string, string | boolean> = {}) => ({
+type Shown = { indicator: string; quote: string }[];
+const entry = (skill: string, status: string, evidence = "", extra: Record<string, string | boolean | Shown> = {}) => ({
   skill,
   analysis: "Muestra el indicador central.",
+  shown: [] as Shown,
   repeatsTutor: false,
   status,
   // The AI names an indicator only when the evidence shows it (logrado or more).
@@ -380,6 +382,183 @@ describe("re-evaluating the skills of an activity", () => {
     expect(run.status).toBe("failed");
     expect(run.error).toContain("Se mantienen los resultados anteriores");
     expect((await call("GET", `/api/sessions/${ana.id}`, { cookie: t.cookie })).body.skills.skills).toEqual(before);
+  });
+});
+
+describe("how many indicators each level asks for (Vanina Gerstner, 28-10)", () => {
+  const Q1 = "Se pondría amarilla porque no puede hacer la fotosíntesis";
+  const Q2 = "la clorofila atrapa la luz como un panel solar";
+  const Q3 = "Las plantas transforman la energía de la luz en azúcares";
+  const levels = (inicial: number, en_desarrollo: number, logrado: number, avanzado: number) => ({ inicial, en_desarrollo, logrado, avanzado });
+  const one = (skills: { skill: string }[], key: string) => skills.find((s) => s.skill === key) as Record<string, unknown> | undefined;
+  const until = async (fn: () => Promise<boolean>) => {
+    for (let i = 0; i < 100; i++) {
+      if (await fn()) return;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    throw new Error("timeout");
+  };
+
+  it("saves the numbers per skill, fitted to the ticked indicators", async () => {
+    const t = await newTeacher();
+    const saved = await call("PUT", "/api/skills", {
+      cookie: t.cookie,
+      body: {
+        enabled: ["argumentacion", "comprension", "creatividad"],
+        custom: [],
+        off: { comprension: ["Corrige confusiones cuando se las señalan."], redaccion: ["Usa conectores para relacionar ideas.", "Ordena sus ideas de manera que se entienden."] },
+        levels: {
+          argumentacion: levels(0, 1, 2, 3),
+          // Three ticked: Avanzado «4 de 4» is «3 de 3».
+          comprension: levels(0, 1, 3, 4),
+          // Out of order: the higher levels go up.
+          creatividad: levels(0, 2, 1, 0),
+          // One indicator ticked: nothing to count.
+          redaccion: levels(0, 0, 1, 1),
+          magia: levels(0, 1, 2, 3),
+        },
+      },
+    });
+    expect(saved.status).toBe(200);
+    expect(saved.body.settings.levels).toEqual({ argumentacion: levels(0, 1, 2, 3), comprension: levels(0, 1, 3, 3), creatividad: levels(0, 2, 2, 2) });
+    expect((await call("GET", "/api/skills", { cookie: t.cookie })).body.settings.levels).toEqual(saved.body.settings.levels);
+    // Unticking an indicator later fits the numbers again.
+    const fewer = await call("PUT", "/api/skills", {
+      cookie: t.cookie,
+      body: { ...saved.body.settings, off: { ...saved.body.settings.off, argumentacion: ["Explica las razones de sus decisiones."] } },
+    });
+    expect(fewer.body.settings.levels.argumentacion).toEqual(levels(0, 1, 2, 2));
+
+    const bad = { enabled: ["argumentacion"], custom: [] };
+    expect((await call("PUT", "/api/skills", { cookie: t.cookie, body: { ...bad, levels: { argumentacion: levels(-1, 1, 2, 3) } } })).status).toBe(400);
+    expect((await call("PUT", "/api/skills", { cookie: t.cookie, body: { ...bad, levels: { argumentacion: { logrado: 2 } } } })).status).toBe(400);
+    expect((await call("PUT", "/api/skills", { cookie: t.cookie, body: { ...bad, levels: { argumentacion: levels(0, 1, 2.5, 3) } } })).status).toBe(400);
+  });
+
+  it("levels each skill by counting the ticked indicators shown with a real quote, not by the AI's level", async () => {
+    const { t, activity, student } = await setup();
+    await call("PUT", "/api/skills", {
+      cookie: t.cookie,
+      body: {
+        enabled: ["argumentacion", "comprension", "creatividad", "pensamiento_critico"],
+        custom: [],
+        off: { comprension: ["Corrige confusiones cuando se las señalan."] },
+        levels: { argumentacion: levels(0, 1, 2, 3), comprension: levels(0, 1, 3, 3), creatividad: levels(0, 2, 2, 2), pensamiento_critico: levels(2, 2, 3, 4) },
+      },
+    });
+    const session = await insertFullWork(activity.id, student.id);
+    aiMock.json({
+      ...AI,
+      skills: [
+        // Two of three: Logrado (2), not the Avanzado the AI said (3).
+        entry("argumentacion", "avanzado", Q1, {
+          shown: [
+            { indicator: "Justifica sus respuestas.", quote: Q1 },
+            { indicator: "explica las razones de sus decisiones", quote: Q3 },
+          ],
+        }),
+        // Three named, but one quote is not the student's and one is repeated: two count, En desarrollo.
+        entry("comprension", "logrado", Q2, {
+          criterion: "Relaciona conceptos entre sí.",
+          shown: [
+            { indicator: "Explica con sus palabras las ideas centrales del tema.", quote: Q3 },
+            { indicator: "Relaciona conceptos entre sí.", quote: Q2 },
+            { indicator: "Relaciona conceptos entre sí.", quote: Q1 },
+            { indicator: "Aplica lo que entendió a un caso o ejemplo.", quote: "Pensá en qué parte de la hoja ocurre" },
+          ],
+        }),
+        // None shown: only Inicial asks for none, so the AI's Logrado is Inicial.
+        entry("creatividad", "logrado", Q2),
+        // One shown, Inicial asks for two: not enough evidence.
+        entry("pensamiento_critico", "logrado", Q1, { shown: [{ indicator: "Fundamenta sus conclusiones.", quote: Q1 }] }),
+      ],
+    });
+    const r = await call("POST", `/api/sessions/${session.id}/skills/analyze`, { cookie: t.cookie });
+    expect(r.status).toBe(200);
+    expect(one(r.body.skills, "argumentacion")).toMatchObject({
+      status: "logrado",
+      criterion: "Justifica sus respuestas.",
+      met: [
+        { criterion: "Justifica sus respuestas.", evidence: Q1 },
+        { criterion: "Explica las razones de sus decisiones.", evidence: Q3 },
+      ],
+      of: 3,
+      levels: levels(0, 1, 2, 3),
+    });
+    expect(one(r.body.skills, "comprension")).toMatchObject({
+      status: "en_desarrollo",
+      criterion: "Relaciona conceptos entre sí.",
+      met: [
+        { criterion: "Explica con sus palabras las ideas centrales del tema.", evidence: Q3 },
+        { criterion: "Relaciona conceptos entre sí.", evidence: Q2 },
+      ],
+      of: 3,
+    });
+    expect(one(r.body.skills, "creatividad")).toMatchObject({ status: "inicial", met: [], of: 4 });
+    expect(one(r.body.skills, "pensamiento_critico")).toMatchObject({ status: "sin_evidencia", met: [{ criterion: "Fundamenta sus conclusiones.", evidence: Q1 }] });
+    expect(r.body.droppedQuotes).toBe(0);
+
+    const prompt = JSON.stringify(aiMock.lastRequest()!.body);
+    expect(prompt).toContain("Cantidad por nivel (la fijó la docente): inicial desde 0, en_desarrollo desde 1, logrado desde 2, avanzado desde 3 (de los 3 indicadores");
+    expect(prompt).toContain("Con menos de 2, sin_evidencia");
+    expect(prompt).toContain("EXCEPCIÓN");
+
+    // The student's work shows them too.
+    const detail = await call("GET", `/api/sessions/${session.id}`, { cookie: t.cookie });
+    expect(one(detail.body.skills.skills, "argumentacion")).toMatchObject({ met: [{ criterion: "Justifica sus respuestas." }, { criterion: "Explica las razones de sus decisiones." }] });
+    expect(detail.body.skills.catalog.find((c: { key: string }) => c.key === "argumentacion").levels).toEqual(levels(0, 1, 2, 3));
+  });
+
+  it("without numbers, one indicator shown is still Logrado; the indicators shown are kept", async () => {
+    const { t, activity, student } = await setup();
+    const session = await insertFullWork(activity.id, student.id);
+    aiMock.json({
+      ...AI,
+      skills: [
+        entry("argumentacion", "en_desarrollo", Q1, { criterion: "", shown: [{ indicator: "Justifica sus respuestas.", quote: Q1 }] }),
+        // The AI judges depth for Avanzado, as before.
+        entry("creatividad", "avanzado", Q2, { criterion: "Establece conexiones entre ideas diferentes." }),
+        // A level without a real quote is still no level, whatever it lists.
+        entry("comprension", "logrado", "Pensá en qué parte de la hoja ocurre", { shown: [{ indicator: "Relaciona conceptos entre sí.", quote: Q2 }] }),
+      ],
+    });
+    const r = await call("POST", `/api/sessions/${session.id}/skills/analyze`, { cookie: t.cookie });
+    expect(one(r.body.skills, "argumentacion")).toMatchObject({ status: "logrado", criterion: "Justifica sus respuestas.", met: [{ criterion: "Justifica sus respuestas.", evidence: Q1 }], of: 3, levels: null });
+    expect(one(r.body.skills, "creatividad")).toMatchObject({ status: "avanzado", met: [{ criterion: "Establece conexiones entre ideas diferentes.", evidence: Q2 }], of: 4 });
+    expect(one(r.body.skills, "comprension")).toMatchObject({ status: "sin_evidencia", met: [], evidence: "" });
+    expect(r.body.droppedQuotes).toBe(1);
+    expect(JSON.stringify(aiMock.lastRequest()!.body)).not.toContain("Cantidad por nivel (la fijó");
+  });
+
+  it("asks to re-evaluate the works leveled with other numbers, and «Reevaluar habilidades» applies the current ones", async () => {
+    const { t, activity, student } = await setup();
+    const session = await insertFullWork(activity.id, student.id);
+    const url = `/api/activities/${activity.id}/skills`;
+    const shownTwo = entry("argumentacion", "logrado", Q1, {
+      shown: [
+        { indicator: "Justifica sus respuestas.", quote: Q1 },
+        { indicator: "Explica las razones de sus decisiones.", quote: Q3 },
+      ],
+    });
+    aiMock.json({ ...AI, skills: [shownTwo] });
+    await call("POST", `/api/sessions/${session.id}/skills/analyze`, { cookie: t.cookie });
+    expect((await call("GET", url, { cookie: t.cookie })).body).toMatchObject({ outdatedWorks: 0, levelsOutdatedWorks: 0 });
+
+    const settings = (await call("GET", "/api/skills", { cookie: t.cookie })).body.settings;
+    await call("PUT", "/api/skills", { cookie: t.cookie, body: { ...settings, levels: { argumentacion: levels(0, 1, 3, 3) } } });
+    expect((await call("GET", url, { cookie: t.cookie })).body).toMatchObject({ outdatedWorks: 0, levelsOutdatedWorks: 1 });
+
+    aiMock.setFallback(() => ({ kind: "json", value: { ...AI, skills: [shownTwo] } }));
+    expect((await call("POST", `${url}/reevaluate`, { cookie: t.cookie })).status).toBe(202);
+    await until(async () => (await call("GET", url, { cookie: t.cookie })).body.run?.status !== "running");
+    const after = await call("GET", url, { cookie: t.cookie });
+    expect(after.body).toMatchObject({ outdatedWorks: 0, levelsOutdatedWorks: 0 });
+    // Two of three, Logrado now asks for three: En desarrollo.
+    expect(after.body.skills.find((s: { key: string }) => s.key === "argumentacion").counts).toMatchObject({ en_desarrollo: 1, logrado: 0 });
+
+    // Back to the default rule: those works used numbers, so they are flagged again.
+    await call("PUT", "/api/skills", { cookie: t.cookie, body: { ...settings, levels: {} } });
+    expect((await call("GET", url, { cookie: t.cookie })).body.levelsOutdatedWorks).toBe(1);
   });
 });
 
