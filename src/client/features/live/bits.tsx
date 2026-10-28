@@ -142,7 +142,8 @@ export function AlertItem({
       className={cn(
         "rounded-md border px-4 py-3.5",
         open && immediate ? "border-rose/40 border-l-4 border-l-rose bg-rose-soft/60" : "border-line bg-surface",
-        !open && "opacity-80",
+        // Reviewed or dismissed: a recessed background, not opacity (it dropped the badges below 4.5:1).
+        !open && "bg-paper",
       )}
     >
       <div className="flex flex-wrap items-center gap-1.5">
