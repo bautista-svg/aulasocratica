@@ -51,21 +51,23 @@ export const authRoutes = new Hono<AppEnv>()
   .get("/google/callback", rateLimit("google-callback", 30, 15 * 60_000), async (c) => {
     if (!googleEnabled()) return c.redirect(googleFailure("no-disponible"), 302);
     const flow = takeFlow(c, c.req.query("state"));
+    // Started from an invitation: back to it (with why), so the teacher does not lose the link.
+    const failed = (reason: string) => (flow?.next.startsWith("/invitacion/") ? `${flow.next}?google=${reason}` : googleFailure(reason));
     const denied = c.req.query("error");
-    if (denied) return c.redirect(googleFailure(denied === "access_denied" ? "cancelado" : "error"), 302);
+    if (denied) return c.redirect(failed(denied === "access_denied" ? "cancelado" : "error"), 302);
     const code = c.req.query("code");
-    if (!flow || !code) return c.redirect(googleFailure("vencido"), 302);
+    if (!flow || !code) return c.redirect(failed("vencido"), 302);
     let profile;
     try {
       profile = await profileFromCode(code, flow);
     } catch (err) {
       log.warn("google_sign_in_failed", errorFields(err));
-      return c.redirect(googleFailure(err instanceof GoogleError && err.reason === "unverified" ? "sin-verificar" : "error"), 302);
+      return c.redirect(failed(err instanceof GoogleError && err.reason === "unverified" ? "sin-verificar" : "error"), 302);
     }
     const result = await signInWithGoogle(c, profile);
-    if (result === "suspended") return c.redirect(googleFailure("suspendido"), 302);
-    if (result === "other_google") return c.redirect(googleFailure("otra-cuenta"), 302);
-    if (result === "busy") return c.redirect(googleFailure("ocupado"), 302);
+    if (result === "suspended") return c.redirect(failed("suspendido"), 302);
+    if (result === "other_google") return c.redirect(failed("otra-cuenta"), 302);
+    if (result === "busy") return c.redirect(failed("ocupado"), 302);
     return c.redirect(flow.next, 302);
   })
 

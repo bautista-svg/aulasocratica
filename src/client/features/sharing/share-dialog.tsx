@@ -1,8 +1,8 @@
 // "Compartir aula": who has access (the owner, "Titular", and each member with their role) and,
 // for who manages the classroom, one-time invitation links by role and the pending ones.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Link2, LogOut, UserMinus } from "lucide-react";
+import { Check, Link2, LogOut, Plus, Share2, UserMinus } from "lucide-react";
 import { Dialog, ConfirmDialog } from "@client/components/ui/dialog";
 import { Button } from "@client/components/ui/button";
 import { CopyButton } from "@client/components/ui/controls";
@@ -81,13 +81,13 @@ export function ShareDialog({
       ) : q.isError ? (
         <ErrorState error={q.error} onRetry={() => void q.refetch()} />
       ) : (
-        <ShareBody classroomId={classroomId} data={q.data} onLeave={onLeave} />
+        <ShareBody classroomId={classroomId} classroomName={classroomName} data={q.data} onLeave={onLeave} />
       )}
     </Dialog>
   );
 }
 
-function ShareBody({ classroomId, data, onLeave }: { classroomId: string; data: ClassroomSharing; onLeave: () => void }) {
+function ShareBody({ classroomId, classroomName, data, onLeave }: { classroomId: string; classroomName: string; data: ClassroomSharing; onLeave: () => void }) {
   const manage = can(data.myRole, "manage");
   const m = useSharingMutations(classroomId);
   const [removing, setRemoving] = useState<SharingPerson | null>(null);
@@ -95,6 +95,9 @@ function ShareBody({ classroomId, data, onLeave }: { classroomId: string; data: 
 
   return (
     <div className="grid gap-6">
+      {/* Inviting comes first: on a phone it is what the dialog is opened for. */}
+      {manage ? <InviteSection classroomId={classroomId} classroomName={classroomName} data={data} /> : null}
+
       <section aria-labelledby="share-people">
         <h3 id="share-people" className="text-sm font-semibold text-text">
           Con acceso
@@ -143,7 +146,7 @@ function ShareBody({ classroomId, data, onLeave }: { classroomId: string; data: 
         {data.members.length === 0 ? <p className="text-sm text-text-3">Todavía no la compartiste con nadie.</p> : null}
       </section>
 
-      {manage ? <InviteSection classroomId={classroomId} data={data} /> : <RolesHelp role={data.myRole} />}
+      {manage ? null : <RolesHelp role={data.myRole} />}
 
       {data.myRole !== "owner" ? (
         <div className="flex flex-col gap-2 rounded-md border border-line px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -187,13 +190,34 @@ function RolesHelp({ role }: { role: ClassroomRole }) {
   );
 }
 
-function InviteSection({ classroomId, data }: { classroomId: string; data: ClassroomSharing }) {
+function InviteSection({ classroomId, classroomName, data }: { classroomId: string; classroomName: string; data: ClassroomSharing }) {
   const m = useSharingMutations(classroomId);
   const [role, setRole] = useState<MemberRole>("editor");
   const [created, setCreated] = useState<InviteCreated | null>(null);
-  // A new role choice hides the previous link: it belongs to the role it was created with.
-  useEffect(() => setCreated(null), [role]);
   const url = created ? `${window.location.origin}/invitacion/${created.token}` : "";
+  const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+  // On a phone the link (or the error) appears below the fold of the dialog: bring it into view
+  // and give it the focus, so creating the link never looks like nothing happened.
+  const resultRef = useRef<HTMLDivElement | null>(null);
+  const failed = m.createInvite.isError;
+  useEffect(() => {
+    if (!created && !failed) return;
+    const el = resultRef.current;
+    el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    el?.focus({ preventScroll: true });
+  }, [created, failed]);
+
+  async function share() {
+    try {
+      await navigator.share({
+        title: `Aula «${classroomName}»`,
+        text: `Te invito como ${ROLE_LABEL[created!.invite.role]} al aula «${classroomName}» en Aula Socrática.`,
+        url,
+      });
+    } catch (e) {
+      if ((e as Error).name !== "AbortError") toast.error("No se pudo abrir el menú para compartir. Copiá el enlace.");
+    }
+  }
 
   return (
     <>
@@ -205,29 +229,55 @@ function InviteSection({ classroomId, data }: { classroomId: string; data: Class
         <p className="mt-0.5 mb-3 text-[13px] leading-5 text-text-2">
           Sirve una sola vez y vence a los {INVITE_DAYS} días. Quien lo abre necesita una cuenta (con Google o con su correo).
         </p>
-        <RadioCards name="invite-role" legend="Rol" value={role} onChange={setRole} options={ROLE_OPTIONS} />
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Button
-            loading={m.createInvite.isPending}
-            onClick={() => m.createInvite.mutate(role, { onSuccess: (r) => setCreated(r) })}
-            icon={<Link2 className="size-4" />}
-          >
-            Crear enlace de invitación
-          </Button>
-        </div>
-        <FormError message={m.createInvite.isError ? errorMessage(m.createInvite.error) : null} />
         {created ? (
-          <div role="status" className="mt-3 rounded-md border border-dashed border-lilac bg-surface p-3">
-            <p className="text-[13px] font-semibold text-lilac-ink">Enlace para {ROLE_LABEL[created.invite.role]}</p>
-            <div className="mt-1.5 flex flex-col gap-2 sm:flex-row sm:items-center">
-              <code className="min-w-0 flex-1 rounded-sm bg-paper px-2.5 py-2 font-mono text-[13px] break-all text-text">{url}</code>
-              <CopyButton value={url} label="Copiar enlace" variant="primary" className="shrink-0" />
-            </div>
-            <p className="mt-2 text-[13px] leading-5 text-text-2">
-              Copialo ahora y mandalo por donde quieras: por seguridad no se vuelve a mostrar. Vence el {fmtDate(created.invite.expiresAt)}.
+          <div ref={resultRef} tabIndex={-1} role="status" className="rounded-md border border-lilac/60 bg-surface p-3.5 shadow-1 outline-none">
+            <p className="flex items-center gap-1.5 text-[13px] font-semibold text-lilac-ink">
+              <Check className="size-4" aria-hidden="true" />
+              Listo: enlace para {ROLE_LABEL[created.invite.role]}
             </p>
+            <code className="mt-2 block rounded-sm bg-paper px-2.5 py-2 font-mono text-[13px] break-all text-text">{url}</code>
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              {canShare ? (
+                <Button size="sm" icon={<Share2 className="size-4" />} onClick={() => void share()}>
+                  Compartir
+                </Button>
+              ) : null}
+              <CopyButton value={url} label="Copiar enlace" variant={canShare ? "secondary" : "primary"} />
+            </div>
+            <p className="mt-2.5 text-[13px] leading-5 text-text-2">
+              Mandalo ahora (por WhatsApp, correo…): por seguridad no se vuelve a mostrar. Vence el {fmtDate(created.invite.expiresAt)}.
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-1 -ml-2 text-lilac-ink"
+              icon={<Plus className="size-4" />}
+              onClick={() => {
+                setCreated(null);
+                m.createInvite.reset();
+              }}
+            >
+              Crear otro enlace
+            </Button>
           </div>
-        ) : null}
+        ) : (
+          <>
+            <RadioCards name="invite-role" legend="Rol" value={role} onChange={setRole} options={ROLE_OPTIONS} />
+            <Button
+              className="mt-3 w-full sm:w-auto"
+              loading={m.createInvite.isPending}
+              onClick={() => m.createInvite.mutate(role, { onSuccess: (r) => setCreated(r) })}
+              icon={<Link2 className="size-4" />}
+            >
+              Crear enlace de invitación
+            </Button>
+            {failed ? (
+              <div ref={resultRef} tabIndex={-1} className="mt-3 outline-none">
+                <FormError message={errorMessage(m.createInvite.error)} />
+              </div>
+            ) : null}
+          </>
+        )}
       </section>
 
       {data.invites.length ? (

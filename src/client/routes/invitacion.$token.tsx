@@ -17,7 +17,8 @@ import { usePageTitle } from "@client/lib/page-title";
 import { useMe, useStartWorkspace } from "@client/lib/session";
 import { useLogin, useRegister } from "@client/features/account/api";
 import { PublicLayout } from "@client/features/account/public-layout";
-import { GoogleButton, OrDivider, useAuthProviders } from "@client/features/account/google-button";
+import { GOOGLE_FAILURES, GOOGLE_MESSAGES, GoogleButton, OrDivider, useAuthProviders } from "@client/features/account/google-button";
+import { optionalEnum, searchParams } from "@client/lib/search";
 import { PasswordInput, PASSWORD_MIN, StrengthMeter } from "@client/features/account/password-input";
 import { RecoveryCodePanel } from "@client/features/account/recovery-code-panel";
 import { inviteKey, useAcceptInvite, useInvite } from "@client/features/sharing/api";
@@ -25,6 +26,7 @@ import { ROLE_INFO, ROLE_LABEL, type MemberRole } from "@shared/domain/sharing";
 import type { InvitePreview } from "@shared/contracts/sharing";
 
 export const Route = createFileRoute("/invitacion/$token")({
+  validateSearch: searchParams({ google: optionalEnum(GOOGLE_FAILURES) }),
   component: InvitePage,
 });
 
@@ -92,6 +94,9 @@ function InviteCard({ invite, token }: { invite: InvitePreview; token: string })
   const { viewer } = invite;
   const ended = invite.status === "valid" ? null : ENDED[invite.status];
   const hasAccess = viewer.currentRole !== null;
+  // Kept here, not in <NeedsAccount>: creating the account refreshes the invitation (now with an
+  // account), and the recovery code must stay on screen until the teacher saved it.
+  const [recovery, setRecovery] = useState<{ code: string; email: string } | null>(null);
 
   return (
     <article className="overflow-hidden rounded-xl border border-line bg-surface shadow-2">
@@ -135,7 +140,9 @@ function InviteCard({ invite, token }: { invite: InvitePreview; token: string })
       </div>
 
       <div className="border-t border-line px-6 py-5">
-        {viewer.currentRole === "owner" ? (
+        {recovery ? (
+          <RecoveryCodePanel code={recovery.code} email={recovery.email} doneLabel="Seguir con la invitación" onDone={() => setRecovery(null)} />
+        ) : viewer.currentRole === "owner" ? (
           <Notice tone="ink" title="Esta aula es tuya" action={<OpenClassroom id={invite.classroom.id} />}>
             Mandale este enlace al docente que quieras sumar.
           </Notice>
@@ -150,7 +157,7 @@ function InviteCard({ invite, token }: { invite: InvitePreview; token: string })
               <div>
                 <h2 className="font-semibold text-text">{ended.title}</h2>
                 <p className="mt-1 text-sm leading-6 text-text-2">
-                  {ended.text} Pedile a {invite.invitedByName} que cree uno nuevo desde «Compartir aula».
+                  {ended.text} Pedile a {invite.invitedByName} que cree uno nuevo desde «Compartir», en el aula.
                 </p>
               </div>
             </div>
@@ -158,7 +165,7 @@ function InviteCard({ invite, token }: { invite: InvitePreview; token: string })
         ) : viewer.hasAccount ? (
           <Accept invite={invite} token={token} />
         ) : (
-          <NeedsAccount token={token} signedIn={viewer.signedIn} />
+          <NeedsAccount token={token} signedIn={viewer.signedIn} onRegistered={setRecovery} />
         )}
       </div>
     </article>
@@ -207,16 +214,21 @@ function Accept({ invite, token }: { invite: InvitePreview; token: string }) {
 }
 
 /** Without an account: enter with Google or email, or create the account here; then accept. */
-function NeedsAccount({ token, signedIn }: { token: string; signedIn: boolean }) {
+function NeedsAccount({
+  token,
+  signedIn,
+  onRegistered,
+}: {
+  token: string;
+  signedIn: boolean;
+  onRegistered: (r: { code: string; email: string }) => void;
+}) {
   const [mode, setMode] = useState<"login" | "register">("login");
-  const [recovery, setRecovery] = useState<{ code: string; email: string } | null>(null);
   const google = Boolean(useAuthProviders().data?.google);
+  const failure = Route.useSearch().google;
   const qc = useQueryClient();
   const back = () => void qc.invalidateQueries({ queryKey: inviteKey(token) });
 
-  if (recovery) {
-    return <RecoveryCodePanel code={recovery.code} email={recovery.email} doneLabel="Seguir con la invitación" onDone={back} />;
-  }
   return (
     <div>
       <h2 className="font-display text-xl font-semibold text-ink">Para sumarte necesitás una cuenta</h2>
@@ -224,6 +236,11 @@ function NeedsAccount({ token, signedIn }: { token: string; signedIn: boolean })
         Así el aula te sigue en cualquier dispositivo. {google ? "Entrá con Google o con tu correo" : "Entrá con tu correo"}; si no tenés cuenta, la creás acá
         mismo y volvés a esta invitación.
       </p>
+      {failure ? (
+        <Notice tone={failure === "cancelado" ? "neutral" : "amber"} className="mt-4" title="No se completó el ingreso con Google">
+          {GOOGLE_MESSAGES[failure]}
+        </Notice>
+      ) : null}
       {signedIn ? (
         <Notice tone="lilac" className="mt-4">
           Lo que hiciste en este dispositivo sin cuenta se suma a tu cuenta: no se pierde nada.
@@ -252,7 +269,7 @@ function NeedsAccount({ token, signedIn }: { token: string; signedIn: boolean })
           </button>
         ))}
       </div>
-      <EmailForm key={mode} mode={mode} signedIn={signedIn} onLoggedIn={back} onRegistered={setRecovery} />
+      <EmailForm key={mode} mode={mode} signedIn={signedIn} onLoggedIn={back} onRegistered={onRegistered} />
     </div>
   );
 }

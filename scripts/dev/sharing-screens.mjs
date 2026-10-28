@@ -80,8 +80,7 @@ try {
 
   // 1. Owner's "Compartir aula" dialog, with a fresh link.
   await shoot(owner, `/app/aulas/${classroom.id}`, "1-dialogo-compartir", async (page) => {
-    await page.getByRole("button", { name: "Más opciones del aula" }).click();
-    await page.getByRole("menuitem", { name: "Compartir aula" }).click();
+    await page.getByRole("button", { name: "Compartir", exact: true }).click();
     await page.getByRole("radio", { name: "Lector" }).check();
     await page.getByRole("button", { name: "Crear enlace de invitación" }).click();
     await page.getByText("Enlace para Lector").waitFor();

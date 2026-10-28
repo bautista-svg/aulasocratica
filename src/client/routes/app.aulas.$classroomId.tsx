@@ -180,6 +180,11 @@ function ClassroomPage() {
                 Nueva actividad
               </Button>
             ) : null}
+            {canManage ? (
+              <Button variant="secondary" icon={<UserPlus className="size-4" />} onClick={() => setSharing(true)}>
+                Compartir
+              </Button>
+            ) : null}
             <Menu
               trigger={
                 <Button
@@ -192,14 +197,15 @@ function ClassroomPage() {
                 </Button>
               }
               items={[
-                {
-                  label: canManage
-                    ? "Compartir aula"
-                    : "Ver quiénes tienen acceso",
-                  icon: <UserPlus className="size-4" />,
-                  onSelect: () => setSharing(true),
-                },
-                ...(canManage ? (["separator"] as const) : []),
+                ...(canManage
+                  ? []
+                  : [
+                      {
+                        label: "Ver quiénes tienen acceso",
+                        icon: <UserPlus className="size-4" />,
+                        onSelect: () => setSharing(true),
+                      },
+                    ]),
                 ...(!canManage
                   ? []
                   : [

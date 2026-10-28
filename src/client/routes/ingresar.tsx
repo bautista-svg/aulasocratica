@@ -13,23 +13,8 @@ import { useLogin, useRecover } from "@client/features/account/api";
 import { PasswordInput, PASSWORD_MIN, StrengthMeter } from "@client/features/account/password-input";
 import { RecoveryCodePanel } from "@client/features/account/recovery-code-panel";
 import { PublicLayout } from "@client/features/account/public-layout";
-import { GoogleButton, OrDivider, useAuthProviders } from "@client/features/account/google-button";
+import { GOOGLE_FAILURES, GOOGLE_MESSAGES, GoogleButton, OrDivider, useAuthProviders } from "@client/features/account/google-button";
 import { usePageTitle } from "@client/lib/page-title";
-
-const GOOGLE_FAILURES = ["cancelado", "vencido", "sin-verificar", "otra-cuenta", "suspendido", "ocupado", "no-disponible", "error"] as const;
-type GoogleFailure = (typeof GOOGLE_FAILURES)[number];
-
-/** Why "Continuar con Google" came back here (the server redirects with ?google=…). */
-const GOOGLE_MESSAGES: Record<GoogleFailure, string> = {
-  cancelado: "Cancelaste el ingreso con Google. Podés probar de nuevo o entrar con tu correo.",
-  vencido: "El ingreso con Google tardó demasiado o empezó en otra pestaña. Probá de nuevo.",
-  "sin-verificar": "Tu cuenta de Google no tiene el correo verificado. Verificalo en Google o entrá con tu correo y contraseña.",
-  "otra-cuenta": "Ese correo ya está vinculado a otra cuenta de Google. Entrá con esa cuenta o con tu correo y contraseña.",
-  suspendido: "Este espacio fue suspendido por el administrador del sitio.",
-  ocupado: "Se están creando muchas cuentas en este momento. Probá de nuevo en unos minutos.",
-  "no-disponible": "El ingreso con Google no está disponible por ahora. Entrá con tu correo y contraseña.",
-  error: "No pudimos completar el ingreso con Google. Probá de nuevo en un momento.",
-};
 
 export const Route = createFileRoute("/ingresar")({
   validateSearch: searchParams({ modo: optionalEnum(["recuperar"]), google: optionalEnum(GOOGLE_FAILURES) }),

@@ -5,6 +5,21 @@ import { buttonClass } from "@client/components/ui/button";
 import { api } from "@client/lib/api";
 import { cn } from "@client/lib/cn";
 
+export const GOOGLE_FAILURES = ["cancelado", "vencido", "sin-verificar", "otra-cuenta", "suspendido", "ocupado", "no-disponible", "error"] as const;
+export type GoogleFailure = (typeof GOOGLE_FAILURES)[number];
+
+/** Why "Continuar con Google" came back here (the server redirects with ?google=…). */
+export const GOOGLE_MESSAGES: Record<GoogleFailure, string> = {
+  cancelado: "Cancelaste el ingreso con Google. Podés probar de nuevo o entrar con tu correo.",
+  vencido: "El ingreso con Google tardó demasiado o empezó en otra pestaña. Probá de nuevo.",
+  "sin-verificar": "Tu cuenta de Google no tiene el correo verificado. Verificalo en Google o entrá con tu correo y contraseña.",
+  "otra-cuenta": "Ese correo ya está vinculado a otra cuenta de Google. Entrá con esa cuenta o con tu correo y contraseña.",
+  suspendido: "Este espacio fue suspendido por el administrador del sitio.",
+  ocupado: "Se están creando muchas cuentas en este momento. Probá de nuevo en unos minutos.",
+  "no-disponible": "El ingreso con Google no está disponible por ahora. Entrá con tu correo y contraseña.",
+  error: "No pudimos completar el ingreso con Google. Probá de nuevo en un momento.",
+};
+
 export function useAuthProviders() {
   return useQuery({
     queryKey: ["auth", "providers"],
