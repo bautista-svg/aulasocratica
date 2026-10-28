@@ -197,36 +197,46 @@ function LiveNow({ d }: { d: DashboardResponse }) {
       ) : (
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {d.live.map((a) => (
-            <li key={a.id}>
+            <li
+              key={a.id}
+              // The whole card opens "En vivo" (its title is the link); the alerts badge opens "Alertas".
+              className="group relative flex h-full flex-col rounded-lg border border-leaf/30 bg-surface p-5 shadow-1 transition-[border-color,box-shadow] has-[.live-open:focus-visible]:outline-2 has-[.live-open:focus-visible]:outline-offset-2 has-[.live-open:focus-visible]:outline-lilac-ink hover:border-leaf/60 hover:shadow-2"
+            >
+              <span className="inline-flex items-center gap-2 text-sm font-semibold text-leaf">
+                <span className="size-2 animate-pulse-dot rounded-full bg-leaf" aria-hidden="true" />
+                {plural(a.activeNow, "alumno trabajando", "alumnos trabajando")}
+              </span>
               <Link
                 to="/app/actividades/$activityId"
                 params={{ activityId: a.id }}
                 search={{ tab: "en-vivo" }}
-                className="group flex h-full flex-col rounded-lg border border-leaf/30 bg-surface p-5 shadow-1 transition-[border-color,box-shadow] hover:border-leaf/60 hover:shadow-2"
+                className="live-open mt-2 font-display text-lg leading-snug font-semibold break-words text-ink outline-none group-hover:underline group-hover:decoration-lilac group-hover:underline-offset-4 after:absolute after:inset-0 after:rounded-lg after:content-['']"
               >
-                <span className="inline-flex items-center gap-2 text-sm font-semibold text-leaf">
-                  <span className="size-2 animate-pulse-dot rounded-full bg-leaf" aria-hidden="true" />
-                  {plural(a.activeNow, "alumno trabajando", "alumnos trabajando")}
+                {a.title}
+              </Link>
+              <span className="mt-0.5 text-sm break-words text-text-2">{a.classroomName}</span>
+              <span className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-4 text-sm text-text-3">
+                <span className="tabular">
+                  {plural(a.participants, "participante", "participantes")} · {a.completed} terminaron
                 </span>
-                <span className="mt-2 font-display text-lg leading-snug font-semibold break-words text-ink group-hover:underline group-hover:decoration-lilac group-hover:underline-offset-4">
-                  {a.title}
-                </span>
-                <span className="mt-0.5 text-sm break-words text-text-2">{a.classroomName}</span>
-                <span className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-4 text-sm text-text-3">
-                  <span className="tabular">
-                    {plural(a.participants, "participante", "participantes")} · {a.completed} terminaron
-                  </span>
-                  {a.openAlerts > 0 ? (
-                    <Badge tone="rose">
+                {a.openAlerts > 0 ? (
+                  <Link
+                    to="/app/actividades/$activityId"
+                    params={{ activityId: a.id }}
+                    search={{ tab: "alertas" }}
+                    aria-label={`${plural(a.openAlerts, "alerta abierta", "alertas abiertas")} en ${a.title}`}
+                    className="relative z-10 -my-2.5 inline-flex min-h-11 items-center rounded-full"
+                  >
+                    <Badge tone="rose" className="transition-colors hover:bg-rose hover:text-white">
                       <Bell className="size-3" aria-hidden="true" />
                       {plural(a.openAlerts, "alerta", "alertas")}
                     </Badge>
-                  ) : null}
-                </span>
-                <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-ink">
-                  <Radio className="size-4" aria-hidden="true" /> Ver en vivo
-                </span>
-              </Link>
+                  </Link>
+                ) : null}
+              </span>
+              <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-ink">
+                <Radio className="size-4" aria-hidden="true" /> Ver en vivo
+              </span>
             </li>
           ))}
         </ul>

@@ -23,10 +23,11 @@ export type NewsKey =
   | "formative"
   | "indicators"
   | "reflection"
-  | "sharedSummary";
+  | "sharedSummary"
+  | "alertsTab";
 
 /** Releases in order; adding one shows its items to everyone who has not seen them. */
-export const NEWS_RELEASES = ["2026-10-22", "2026-10-22b", "2026-10-22c", "2026-10-23", "2026-10-23b", "2026-10-23c", "2026-10-23d", "2026-10-24", "2026-10-24b", "2026-10-26", "2026-10-26b"] as const;
+export const NEWS_RELEASES = ["2026-10-22", "2026-10-22b", "2026-10-22c", "2026-10-23", "2026-10-23b", "2026-10-23c", "2026-10-23d", "2026-10-24", "2026-10-24b", "2026-10-26", "2026-10-26b", "2026-10-28"] as const;
 export type NewsRelease = (typeof NEWS_RELEASES)[number];
 
 export interface NewsItem {
@@ -151,6 +152,12 @@ export const NEWS_ITEMS: NewsItem[] = [
     release: "2026-10-26b",
     title: "Mostrales a tus alumnos el resumen de la IA",
     text: "En Configuración de cada actividad, «Devolución de la IA» hace que cada alumno vea, al enviar su trabajo, el resumen de la IA con sus citas y los próximos pasos. Está apagada hasta que la actives.",
+  },
+  {
+    key: "alertsTab",
+    release: "2026-10-28",
+    title: "Las alertas, en su propia pestaña",
+    text: "Cada actividad tiene una pestaña Alertas, al lado de En vivo, con cuántas quedan abiertas. En vivo muestra solo el progreso del grupo.",
   },
   {
     key: "structure",

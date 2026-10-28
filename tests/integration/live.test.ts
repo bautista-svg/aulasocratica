@@ -111,6 +111,8 @@ describe("live snapshot", () => {
     expect(r.body.participants[0].openAlerts).toBe(2);
     expect(r.body.participants[0].immediateAlerts).toBe(1);
     expect(r.body.totals.openAlerts).toBe(2);
+    // The badge of the «Alertas» tab, before the live snapshot loads.
+    expect((await call("GET", `/api/activities/${activity.id}`, { cookie: t.cookie })).body.activity.openAlerts).toBe(2);
 
     const p = await call("PATCH", `/api/live/${activity.id}/alerts/${open.id}`, { cookie: t.cookie, body: { status: "reviewed" } });
     expect(p.status).toBe(200);

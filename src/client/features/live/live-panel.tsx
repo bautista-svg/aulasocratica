@@ -1,11 +1,11 @@
 // "En vivo" tab of an activity. Shows ONLY the students who joined THIS activity (its
 // learning sessions), never the whole classroom roster. Updates through Server-Sent Events
 // with polling as a fallback.
-import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useDeferredValue, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Bell, ChevronDown, CircleStop, Download, FileText, KeyRound, ListChecks, MoreHorizontal, Play, Trash2, Users } from "lucide-react";
+import { Bell, ChevronDown, ChevronRight, CircleStop, Download, FileText, KeyRound, ListChecks, MoreHorizontal, Play, Trash2, Users } from "lucide-react";
 import { cn } from "@client/lib/cn";
 import { Badge, EmptyState, ErrorState, Skeleton } from "@client/components/ui/misc";
 import { Button, buttonClass } from "@client/components/ui/button";
@@ -17,7 +17,7 @@ import { XL_QUERY, useMediaQuery } from "@client/lib/media";
 import { LIVE_STATUS_HELP, LIVE_STATUS_LABELS, formatDuration } from "@shared/domain/live-monitor";
 import type { LiveParticipant, LiveSnapshot, LiveWindow } from "@shared/contracts/live";
 import { liveKeys, useActivityStream, useLiveMutations, useLiveSnapshot, useNow, useThrottled } from "./api";
-import { AlertItem, LiveStatusLabel, StageProgress } from "./bits";
+import { LiveStatusLabel, StageProgress } from "./bits";
 import { Heatmaps } from "./heatmaps";
 import { useJourneyDownload, useSessionActions } from "@client/features/sessions/api";
 import { DeleteWorkDialog, EndWorkDialog, ResumeCodeDialog } from "@client/features/sessions/dialogs";
@@ -43,7 +43,6 @@ function LivePanelView({ activityId }: { activityId: string }) {
   const refetch = useThrottled(() => void qc.invalidateQueries({ queryKey: liveKeys.all(activityId) }), 1500);
   const { connected } = useActivityStream(activityId, () => refetch());
   const now = useNow(5_000);
-  useImmediateAlertToasts(q.data);
   // Every refresh (polling, events) re-renders the whole view: rendering the new snapshot as a
   // deferred, interruptible update keeps clicks responsive and avoids one long blocking task.
   const snap = useDeferredValue(q.data);
@@ -72,7 +71,7 @@ function LivePanelView({ activityId }: { activityId: string }) {
         />
       ) : (
         <>
-          <AlertsSection snap={snap} activityId={activityId} />
+          <AlertsLink snap={snap} activityId={activityId} />
           <ParticipantsSection snap={snap} activityId={activityId} />
           <HeatmapSection snap={snap} window={window} onWindowChange={setWindow} />
           <p className="text-xs leading-5 text-text-3">
@@ -84,6 +83,29 @@ function LivePanelView({ activityId }: { activityId: string }) {
         </>
       )}
     </div>
+  );
+}
+
+/** The alerts have their own tab: "En vivo" only says how many are open and takes you there. */
+function AlertsLink({ snap, activityId }: { snap: LiveSnapshot; activityId: string }) {
+  const open = snap.totals.openAlerts;
+  if (!open) return null;
+  return (
+    <Link
+      to="/app/actividades/$activityId"
+      params={{ activityId }}
+      search={{ tab: "alertas" }}
+      className="group flex min-h-14 items-center gap-3 rounded-lg border border-rose/30 bg-rose-soft/60 px-4 py-3 text-sm transition-colors hover:border-rose/60"
+    >
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface text-rose shadow-1">
+        <Bell className="size-[18px]" aria-hidden="true" />
+      </span>
+      <span className="min-w-0 flex-1 leading-5">
+        <span className="font-semibold text-ink">{plural(open, "alerta abierta", "alertas abiertas")}</span>
+        <span className="text-text-2"> · revisalas en la pestaña Alertas</span>
+      </span>
+      <ChevronRight className="size-5 shrink-0 text-text-3 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+    </Link>
   );
 }
 
@@ -210,87 +232,6 @@ function LiveHeader({
           )
         }
       />
-    </section>
-  );
-}
-
-/** A toast when a new immediate-attention alert arrives (not for the ones already there on load). */
-function useImmediateAlertToasts(snap: LiveSnapshot | undefined) {
-  const seen = useRef<Set<string> | null>(null);
-  useEffect(() => {
-    if (!snap) return;
-    const immediate = snap.alerts.filter((a) => a.status === "open" && a.severity === "immediate");
-    if (seen.current === null) {
-      seen.current = new Set(snap.alerts.map((a) => a.id));
-      return;
-    }
-    for (const a of immediate) {
-      if (!seen.current.has(a.id)) toast.error(`Atención inmediata: ${a.studentName} · ${a.name}`, { duration: 15_000 });
-    }
-    for (const a of snap.alerts) seen.current.add(a.id);
-  }, [snap]);
-}
-
-function AlertsSection({ snap, activityId }: { snap: LiveSnapshot; activityId: string }) {
-  const open = snap.alerts.filter((a) => a.status === "open");
-  const closed = snap.alerts.filter((a) => a.status !== "open");
-  const [showClosed, setShowClosed] = useState(false);
-  const { alertStatus } = useLiveMutations(activityId);
-  if (snap.alerts.length === 0) return null;
-  return (
-    <section aria-labelledby="alerts-title" className="rounded-lg border border-line bg-surface p-4 shadow-1 sm:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 id="alerts-title" className="flex items-center gap-2 font-display text-lg font-semibold text-ink">
-          <Bell className="size-5 text-lilac-ink" aria-hidden="true" />
-          Alertas
-          {open.length ? <Badge tone="rose">{plural(open.length, "abierta", "abiertas")}</Badge> : <Badge tone="leaf">Todas revisadas</Badge>}
-        </h3>
-      </div>
-      <p className="mt-1 text-sm text-text-2">
-        «Observada» = la registró el navegador (pegó texto, salió de la actividad). «Detectada por IA» = lectura de la IA sobre lo que escribió. Revisá la
-        conversación antes de actuar.
-      </p>
-      {open.length ? (
-        <ul className="mt-4 space-y-3" aria-live="polite">
-          {open.map((a) => (
-            <AlertItem
-              key={a.id}
-              alert={a}
-              busy={alertStatus.isPending && alertStatus.variables?.alertId === a.id}
-              onStatus={(status) =>
-                alertStatus.mutate(
-                  { alertId: a.id, status },
-                  {
-                    onSuccess: () => toast.success(status === "reviewed" ? "Alerta marcada como revisada" : "Alerta descartada"),
-                    onError: (e) => toast.error(errorMessage(e)),
-                  },
-                )
-              }
-            />
-          ))}
-        </ul>
-      ) : null}
-      {closed.length ? (
-        <div className="mt-3">
-          <Button variant="ghost" size="sm" aria-expanded={showClosed} icon={<ChevronDown className={cn("size-4 transition-transform", showClosed && "rotate-180")} />} onClick={() => setShowClosed((v) => !v)}>
-            {showClosed ? "Ocultar las revisadas" : `Ver las revisadas o descartadas (${closed.length})`}
-          </Button>
-          {showClosed ? (
-            <ul className="mt-2 space-y-3">
-              {closed.map((a) => (
-                <AlertItem
-                  key={a.id}
-                  alert={a}
-                  busy={alertStatus.isPending && alertStatus.variables?.alertId === a.id}
-                  onStatus={(status) =>
-                    alertStatus.mutate({ alertId: a.id, status }, { onSuccess: () => toast.success("Alerta reabierta"), onError: (e) => toast.error(errorMessage(e)) })
-                  }
-                />
-              ))}
-            </ul>
-          ) : null}
-        </div>
-      ) : null}
     </section>
   );
 }

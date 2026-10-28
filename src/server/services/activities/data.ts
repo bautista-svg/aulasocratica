@@ -60,6 +60,7 @@ export async function loadActivity(teacherId: string, activityId: string): Promi
       tutorName: schema.tutors.name,
       participants: sql<number>`(select count(*)::int from learning_sessions ls where ls.activity_id = activities.id)`,
       completed: sql<number>`(select count(*)::int from learning_sessions ls where ls.activity_id = activities.id and ls.status = 'completed')`,
+      openAlerts: sql<number>`(select count(*)::int from student_alerts sa where sa.activity_id = activities.id and sa.status = 'open')`,
     })
     .from(schema.activities)
     .innerJoin(schema.classrooms, eq(schema.classrooms.id, schema.activities.classroomId))
@@ -113,6 +114,7 @@ export async function loadActivity(teacherId: string, activityId: string): Promi
     updatedAt: a.updatedAt.toISOString(),
     participants: row.participants,
     completed: row.completed,
+    openAlerts: row.openAlerts,
     deletedAt: a.deletedAt?.toISOString() ?? null,
   };
 }

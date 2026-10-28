@@ -397,28 +397,41 @@ function ActivitiesPanel({
             classroomArchived: a.classroomArchived || archived,
           });
           return (
+            // The whole row opens the activity (its title is the link); the alerts badge opens its
+            // "Alertas" tab and the menu stays on top.
             <li
               key={a.id}
-              className="flex items-stretch transition-colors hover:bg-paper"
+              className="relative flex items-stretch transition-colors -outline-offset-2 has-[.row-open:focus-visible]:outline-2 has-[.row-open:focus-visible]:outline-lilac-ink hover:bg-paper"
             >
-              <Link
-                to="/app/actividades/$activityId"
-                params={{ activityId: a.id }}
-                className="flex min-w-0 flex-1 flex-col gap-2 py-4 pl-5 sm:flex-row sm:items-center sm:justify-between"
-              >
+              <div className="flex min-w-0 flex-1 flex-col gap-2 py-4 pl-5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="truncate text-[16px] font-semibold text-ink">
+                    <Link
+                      to="/app/actividades/$activityId"
+                      params={{ activityId: a.id }}
+                      className="row-open truncate text-[16px] font-semibold text-ink outline-none after:absolute after:inset-0 after:content-['']"
+                    >
                       {a.title}
-                    </span>
+                    </Link>
                     <Badge tone={st.tone} dot={st.open}>
                       {st.label}
                     </Badge>
                     {a.openAlerts > 0 ? (
-                      <Badge tone="rose">
-                        <Bell className="size-3" aria-hidden="true" />
-                        {plural(a.openAlerts, "alerta", "alertas")}
-                      </Badge>
+                      <Link
+                        to="/app/actividades/$activityId"
+                        params={{ activityId: a.id }}
+                        search={{ tab: "alertas" }}
+                        aria-label={`${plural(a.openAlerts, "alerta abierta", "alertas abiertas")} en ${a.title}`}
+                        className="relative z-10 -my-3 inline-flex min-h-11 items-center rounded-full"
+                      >
+                        <Badge
+                          tone="rose"
+                          className="transition-colors hover:bg-rose hover:text-white"
+                        >
+                          <Bell className="size-3" aria-hidden="true" />
+                          {plural(a.openAlerts, "alerta", "alertas")}
+                        </Badge>
+                      </Link>
                     ) : null}
                   </div>
                   <p className="mt-1 text-sm text-text-3">
@@ -437,9 +450,9 @@ function ActivitiesPanel({
                       : `${plural(a.participants, "alumno", "alumnos")} · ${a.completed} terminaron`}
                   </span>
                 </div>
-              </Link>
+              </div>
               {/* Edit, duplicate or delete without opening the activity. */}
-              <div className="flex shrink-0 items-start px-2 py-3 sm:items-center">
+              <div className="relative z-10 flex shrink-0 items-start px-2 py-3 sm:items-center">
                 <ActivityRowMenu
                   activity={{
                     id: a.id,

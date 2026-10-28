@@ -181,7 +181,7 @@ function AlertsPage() {
                     <Link
                       to="/app/actividades/$activityId"
                       params={{ activityId: a.activityId }}
-                      search={{ tab: "en-vivo" }}
+                      search={{ tab: "alertas" }}
                       className="font-semibold text-ink underline decoration-ink/35 underline-offset-4 hover:decoration-ink"
                     >
                       {a.activityTitle}

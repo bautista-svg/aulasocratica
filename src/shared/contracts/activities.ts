@@ -144,6 +144,8 @@ export interface ActivityEditorData extends ActivityDetail {
   /** Students who joined this activity (its learning sessions). */
   participants: number;
   completed: number;
+  /** Alerts still to review (the badge of the «Alertas» tab until the live snapshot loads). */
+  openAlerts: number;
 }
 
 /** A file attached to an activity. Its extracted text is what the tutor reads. */
