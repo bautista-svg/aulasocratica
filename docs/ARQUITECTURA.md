@@ -52,7 +52,20 @@ docs/                Arquitectura, auditoría, informes
 ## Reglas para todo el código
 
 1. **Autorización**: toda ruta de docente usa `requireTeacher` + un helper de `services/access.ts`
-   (`ownedClassroom`, `ownedActivity`, `ownedSession`, …). Un recurso de otro espacio responde 404, nunca 403.
+   (`ownedClassroom`, `ownedActivity`, `ownedSession`, `ownedStudent`, …). Un aula se abre por su dueño **o** por
+   un miembro (`classroom_members`, «Compartir aula»): el helper devuelve la fila con el `role` efectivo
+   (`owner` | `admin` | `editor` | `reader`). Un recurso sin relación con el docente responde 404, nunca 403.
+   **Toda ruta que cambia algo** de un aula o de lo que cuelga de ella llama `requireRole(fila, acción)` antes de leer el
+   cuerpo (403 con el mensaje de `deniedMessage`): `"edit"` (editor+: actividades —crear, editar, publicar, duplicar,
+   archivar—, enlace, archivos, IA de diseño y el trabajo de los alumnos: alertas, evaluación, terminar trabajos),
+   `"manage"` (admin+: datos del aula, alertas configuradas, alumnos, a quién se comparte, y lo destructivo: papelera,
+   reiniciar, eliminar actividades o trabajos) y `"own"` (solo el dueño: eliminar el aula). Las reglas viven en
+   `shared/domain/sharing.ts` (`can`) y el cliente usa las mismas (`features/sharing/role.tsx`: `RoleProvider`,
+   `useCan`) para ocultar lo que el rol no permite. Los listados entre aulas (Inicio, Alertas, Radiografía) usan
+   `visibleClassroomIds`; los informes, solo aulas propias. Las actividades de un aula compartida pertenecen siempre al
+   espacio del dueño (`activities.teacher_id` = dueño del aula, también si las crea un miembro): la IA (`teacherId`),
+   el almacenamiento y las habilidades configuradas son los del dueño. Tutores y materiales se **copian** a la actividad,
+   así que un miembro usa los suyos; `activities.tutor_id` («Basada en») apunta solo a tutores del mismo espacio.
    Las rutas de alumno resuelven el token del alumno en el servidor; el alumno nunca manda ids de otros.
 2. **Validación**: todo cuerpo se lee con `readJson(c, schemaZod)` (400 con `fields` por campo). Los esquemas
    viven en `src/shared/contracts/<modulo>.ts` y el cliente reusa los mismos tipos.
@@ -122,6 +135,12 @@ docs/                Arquitectura, auditoría, informes
   resumen, capturas en `requests/<teacher>/` y estado + nota del equipo. El mensaje se guarda y la IA responde en un
   segundo pedido (`/reply`), así un error de la IA no pierde lo que escribió. Se leen desde la terminal con
   `node scripts/dev/pedidos.mjs` (y `estado <id> done "nota"` para responder).
+- `classroom_members` (aula, docente, rol `admin`|`editor`|`reader`, quién invitó; único por par) y `classroom_invites`
+  («Compartir aula»): enlace `/invitacion/<token>` de un solo uso que vence a los 7 días; el token (256 bits) se guarda
+  como SHA-256 y solo se muestra al crearlo. Aceptar exige cuenta (correo+contraseña o Google); el dueño no puede
+  aceptar su propia invitación y un miembro que acepta otra cambia de rol. Borrar un espacio borra sus membresías (no
+  las aulas ajenas); `mergeWorkspaces` las mueve a la cuenta. Invitar, aceptar, cambiar rol, quitar y salir quedan en
+  `audit_logs`.
 - `students` pertenecen a un aula (`name_key` único por aula). Se crean solos al entrar a una actividad o los carga
   el docente. **Los participantes de una actividad son sus `learning_sessions`**, nunca "todos los del aula".
 - `tutors` (presets copiados a cada espacio con `preset_key` + tutores propios), `materials` (biblioteca),

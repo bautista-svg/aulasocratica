@@ -22,7 +22,7 @@ const STATUS: Record<string, { label: string; tone: "neutral" | "leaf" | "amber"
 /** Copies a library material into an existing activity (classroom → activity). */
 export function AttachDialog({ material, onOpenChange }: { material: MaterialSummary | null; onOpenChange: (o: boolean) => void }) {
   const open = material !== null;
-  const rooms = useClassrooms(false);
+  const rooms = useClassrooms(false, "editable");
   const [classroomId, setClassroomId] = useState("");
   const [activityId, setActivityId] = useState("");
   const acts = useActivitiesOf(classroomId);

@@ -25,7 +25,7 @@ export function StepClass({
   update: (p: Partial<WizardState>) => void;
   errors: Record<string, string>;
 }) {
-  const rooms = useClassrooms(false);
+  const rooms = useClassrooms(false, "editable");
   const [creating, setCreating] = useState(false);
   const missing = Boolean(s.classroomId && rooms.data && !rooms.data.some((r) => r.id === s.classroomId));
 

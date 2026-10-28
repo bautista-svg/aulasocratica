@@ -21,6 +21,8 @@ import { TrashActivityDialog } from "@client/features/activities/row-actions";
 import { UnsavedGuard } from "@client/features/activities/unsaved-guard";
 import { activityState } from "@shared/domain/activity-state";
 import { TRASH_DAYS, type ActivityEditorData } from "@shared/contracts/activities";
+import { can } from "@shared/domain/sharing";
+import { ReadOnlyNotice, RoleProvider } from "@client/features/sharing/role";
 
 const TABS = ["configuracion", "compartir", "en-vivo", "fortalezas"] as const;
 type Tab = (typeof TABS)[number];
@@ -70,6 +72,9 @@ function ActivityEditor({ activity }: { activity: ActivityEditorData }) {
   const bypass = useRef(false);
   const state = activityState(activity);
   const [publishing, setPublishing] = useState(false);
+  // Shared classroom: a reader only looks; an editor does not trash, reset or delete.
+  const canEdit = can(activity.role, "edit");
+  const canManage = can(activity.role, "manage");
 
   async function publish() {
     const hadChanges = form.dirty;
@@ -102,7 +107,7 @@ function ActivityEditor({ activity }: { activity: ActivityEditorData }) {
     });
 
   const primary =
-    activity.status === "archived" ? (
+    (!canEdit && activity.status !== "published") || (activity.deletedAt && !canManage) ? null : activity.status === "archived" ? (
       <Button
         icon={<ArchiveRestore className="size-4" />}
         loading={action.isPending && (action.variables === "restore" || action.variables === "untrash")}
@@ -127,7 +132,7 @@ function ActivityEditor({ activity }: { activity: ActivityEditorData }) {
     );
 
   return (
-    <>
+    <RoleProvider role={activity.role}>
       <nav aria-label="Ruta" className="mb-3 flex min-w-0 items-center text-sm text-text-3">
         <Link to="/app/aulas" className="-my-3 shrink-0 py-3 hover:text-ink">
           Aulas
@@ -145,6 +150,7 @@ function ActivityEditor({ activity }: { activity: ActivityEditorData }) {
       <header className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           <InlineTitle
+            readOnly={!canEdit}
             value={activity.title}
             saving={rename.isPending}
             onSave={async (title) => {
@@ -164,7 +170,8 @@ function ActivityEditor({ activity }: { activity: ActivityEditorData }) {
           </div>
         </div>
         <div className="flex shrink-0 gap-2">
-          <div className="flex-1 sm:flex-none [&>button]:w-full">{primary}</div>
+          {primary ? <div className="flex-1 sm:flex-none [&>button]:w-full">{primary}</div> : null}
+          {canEdit ? (
           <Menu
             trigger={
               <Button variant="secondary" size="icon" aria-label="Más acciones de la actividad" className="h-11 w-11">
@@ -175,23 +182,26 @@ function ActivityEditor({ activity }: { activity: ActivityEditorData }) {
               activity.deletedAt
                 ? [
                     { label: "Duplicar", icon: <Copy className="size-4" />, onSelect: () => setDialog("duplicate") },
-                    "separator" as const,
-                    { label: "Eliminar para siempre", icon: <Trash2 className="size-4" />, danger: true, onSelect: () => setDialog("delete") },
+                    ...(canManage
+                      ? ["separator" as const, { label: "Eliminar para siempre", icon: <Trash2 className="size-4" />, danger: true, onSelect: () => setDialog("delete") }]
+                      : []),
                   ]
                 : [
                     ...(activity.status === "published"
                       ? [{ label: "Volver a borrador", icon: <Undo2 className="size-4" />, onSelect: () => setDialog("unpublish") }]
                       : []),
                     { label: "Duplicar", icon: <Copy className="size-4" />, onSelect: () => setDialog("duplicate") },
-                    { label: "Reiniciar actividad", icon: <RotateCcw className="size-4" />, onSelect: () => setDialog("reset") },
+                    ...(canManage ? [{ label: "Reiniciar actividad", icon: <RotateCcw className="size-4" />, onSelect: () => setDialog("reset") }] : []),
                     activity.status === "archived"
                       ? { label: "Restaurar", icon: <ArchiveRestore className="size-4" />, onSelect: restore }
                       : { label: "Archivar", icon: <Archive className="size-4" />, onSelect: () => setDialog("archive") },
-                    "separator" as const,
-                    { label: "Eliminar", icon: <Trash2 className="size-4" />, danger: true, onSelect: () => setTrashing(true) },
+                    ...(canManage
+                      ? ["separator" as const, { label: "Eliminar", icon: <Trash2 className="size-4" />, danger: true, onSelect: () => setTrashing(true) }]
+                      : []),
                   ]
             }
           />
+          ) : null}
         </div>
       </header>
 
@@ -209,6 +219,7 @@ function ActivityEditor({ activity }: { activity: ActivityEditorData }) {
           No recibe alumnos. Restaurala para volver a publicarla.
         </Notice>
       ) : null}
+      <ReadOnlyNotice className="mb-5" />
 
       <ActivityTabs
         activity={activity}
@@ -229,7 +240,7 @@ function ActivityEditor({ activity }: { activity: ActivityEditorData }) {
         }}
       />
       <UnsavedGuard dirty={form.dirty} onSave={() => draftSave.run()} bypass={bypass} />
-    </>
+    </RoleProvider>
   );
 }
 

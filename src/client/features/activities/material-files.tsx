@@ -41,6 +41,7 @@ import { ACTIVITY_LIMITS, type ActivityFile, type UploadFilesResponse } from "@s
 import { activityKeys, addUploadedFiles, fetchFileText, fileDownloadUrl, useActivityFiles, useFileMutations } from "./api";
 import { ProgressBar } from "./parts";
 import { prepareImage } from "./prepare-image";
+import { useCan } from "@client/features/sharing/role";
 
 const ICON: Record<FileKind, typeof FileText> = { pdf: FileText, image: ImageIcon, docx: FileType2, text: ScrollText, audio: FileAudio };
 const STUCK_MS = 2 * 60_000;
@@ -69,6 +70,8 @@ export function MaterialFiles({ activityId, writtenChars }: { activityId: string
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [dragging, setDragging] = useState(false);
   const [announce, setAnnounce] = useState("");
+  // A reader of a shared classroom sees the files but has no place to drop new ones.
+  const canEdit = useCan("edit");
   const queue = useRef<Promise<void>>(Promise.resolve());
   const hintId = useId();
 
@@ -146,12 +149,14 @@ export function MaterialFiles({ activityId, writtenChars }: { activityId: string
         onDrop={(e) => {
           e.preventDefault();
           setDragging(false);
+          if (!canEdit) return;
           replacing.current = null;
           pick(e.dataTransfer.files);
         }}
         className={cn(
           "flex flex-col items-center gap-3 rounded-lg border-2 border-dashed px-4 py-6 text-center transition-colors",
           dragging ? "border-ink bg-ink-soft/60" : "border-line-strong bg-paper/60",
+          !canEdit && "hidden",
         )}
       >
         <Upload className="size-6 text-lilac-ink" aria-hidden="true" />

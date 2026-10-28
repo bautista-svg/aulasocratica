@@ -115,11 +115,14 @@ export function InlineTitle({
   onSave,
   saving,
   maxLength = 160,
+  readOnly = false,
 }: {
   value: string;
   onSave: (v: string) => Promise<unknown>;
   saving: boolean;
   maxLength?: number;
+  /** Without the pencil (a reader of a shared classroom). */
+  readOnly?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(value);
@@ -158,7 +161,7 @@ export function InlineTitle({
     return (
       <div className="flex min-w-0 items-start gap-1.5">
         <h1 className="min-w-0 font-display text-[26px] leading-tight font-semibold break-words text-ink sm:text-[32px]">{value}</h1>
-        <Button ref={editRef} variant="ghost" size="icon" className="mt-0.5 shrink-0" aria-label="Cambiar el título" onClick={() => setEditing(true)}>
+        <Button ref={editRef} variant="ghost" size="icon" className={cn("mt-0.5 shrink-0", readOnly && "hidden")} aria-label="Cambiar el título" onClick={() => setEditing(true)}>
           <Pencil className="size-4.5" />
         </Button>
       </div>

@@ -14,6 +14,8 @@ import { activityState } from "@shared/domain/activity-state";
 import { linkAvailability } from "@shared/domain/access-rules";
 import type { ActivityEditorData } from "@shared/contracts/activities";
 import { useActivityAction, useUpdateLink } from "./api";
+import { useCan } from "@client/features/sharing/role";
+import { cn } from "@client/lib/cn";
 
 export function activityUrl(token: string) {
   return `${window.location.origin}/clase/${token}`;
@@ -46,6 +48,8 @@ export function SharePanel({
   publishing: boolean;
 }) {
   const action = useActivityAction(activity.id);
+  // A reader of a shared classroom sees the link, but does not publish, restore or change it.
+  const canEdit = useCan("edit");
 
   if (activity.status === "archived") {
     return (
@@ -53,19 +57,21 @@ export function SharePanel({
         <ArchiveRestore className="mx-auto size-8 text-lilac" aria-hidden="true" />
         <h2 className="mt-3 font-display text-xl font-semibold text-ink">La actividad está archivada</h2>
         <p className="mx-auto mt-1.5 max-w-md text-sm leading-6 text-text-2">El enlace no recibe alumnos. Restaurala como borrador y publicala para volver a compartirla.</p>
-        <Button
-          className="mt-5"
-          icon={<ArchiveRestore className="size-4" />}
-          loading={action.isPending}
-          onClick={() =>
-            action.mutate("restore", {
-              onSuccess: () => toast.success("Actividad restaurada como borrador"),
-              onError: (e) => toast.error(errorMessage(e)),
-            })
-          }
-        >
-          Restaurar
-        </Button>
+        {canEdit ? (
+          <Button
+            className="mt-5"
+            icon={<ArchiveRestore className="size-4" />}
+            loading={action.isPending}
+            onClick={() =>
+              action.mutate("restore", {
+                onSuccess: () => toast.success("Actividad restaurada como borrador"),
+                onError: (e) => toast.error(errorMessage(e)),
+              })
+            }
+          >
+            Restaurar
+          </Button>
+        ) : null}
       </Card>
     );
   }
@@ -78,9 +84,11 @@ export function SharePanel({
         <p className="mx-auto mt-1.5 max-w-md text-sm leading-6 text-text-2">
           Mientras sea borrador, el enlace no funciona. Revisá la consigna y el tutor, y publicala para compartir el enlace y el código QR con tus alumnos.
         </p>
-        <Button className="mt-5" icon={<Send className="size-4" />} loading={publishing} onClick={onPublish}>
-          Publicar
-        </Button>
+        {canEdit ? (
+          <Button className="mt-5" icon={<Send className="size-4" />} loading={publishing} onClick={onPublish}>
+            Publicar
+          </Button>
+        ) : null}
       </Card>
     );
   }
@@ -94,6 +102,7 @@ function PublishedShare({ activity }: { activity: ActivityEditorData }) {
   const link = useUpdateLink(activity.id);
   const action = useActivityAction(activity.id);
   const [regenerating, setRegenerating] = useState(false);
+  const canEdit = useCan("edit");
   const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
   async function share() {
@@ -136,7 +145,7 @@ function PublishedShare({ activity }: { activity: ActivityEditorData }) {
         <Card className="p-4 sm:p-5 lg:col-start-1">
           <Switch
             checked={activity.linkActive}
-            disabled={link.isPending}
+            disabled={link.isPending || !canEdit}
             onCheckedChange={(v) =>
               link.mutate(
                 { linkActive: v },
@@ -175,7 +184,7 @@ function PublishedShare({ activity }: { activity: ActivityEditorData }) {
           </ol>
         </Card>
 
-        <Card className="p-4 sm:p-5 lg:col-start-1">
+        <Card className={cn("p-4 sm:p-5 lg:col-start-1", !canEdit && "hidden")}>
           <h2 className="font-display text-lg font-semibold text-ink">¿Se compartió el enlace donde no debía?</h2>
           <p className="mt-1 text-sm leading-6 text-text-2">Generá uno nuevo: el anterior deja de funcionar para entrar. El trabajo de los alumnos no se borra.</p>
           <Button className="mt-3" variant="secondary" icon={<RefreshCw className="size-4" />} onClick={() => setRegenerating(true)}>
@@ -211,6 +220,7 @@ function PublishedShare({ activity }: { activity: ActivityEditorData }) {
 
 function ScheduleCard({ activity }: { activity: ActivityEditorData }) {
   const link = useUpdateLink(activity.id);
+  const canEdit = useCan("edit");
   const [startsAt, setStartsAt] = useState(toLocalInput(activity.startsAt));
   const [expiresAt, setExpiresAt] = useState(toLocalInput(activity.expiresAt));
   const [localError, setLocalError] = useState<string | null>(null);
@@ -250,15 +260,15 @@ function ScheduleCard({ activity }: { activity: ActivityEditorData }) {
       <p className="mt-1 text-sm leading-6 text-text-2">
         Opcional. Fuera de este horario nadie puede entrar ni seguir trabajando. Hora de tu dispositivo ({zone}).
       </p>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+      <fieldset disabled={!canEdit} className="m-0 mt-4 grid min-w-0 gap-4 border-0 p-0 sm:grid-cols-2">
         <Field label="Abre" optional error={fields.startsAt}>
           {(p) => <Input id={p.id} aria-describedby={p.describedBy} invalid={p.invalid} type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />}
         </Field>
         <Field label="Cierra" optional error={localError ?? fields.expiresAt}>
           {(p) => <Input id={p.id} aria-describedby={p.describedBy} invalid={p.invalid} type="datetime-local" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />}
         </Field>
-      </div>
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+      </fieldset>
+      <div className={cn("mt-4 flex flex-col gap-2 sm:flex-row", !canEdit && "hidden")}>
         <Button disabled={!changed} loading={link.isPending} onClick={() => save({ startsAt: fromLocalInput(startsAt), expiresAt: fromLocalInput(expiresAt) })}>
           Guardar horario
         </Button>

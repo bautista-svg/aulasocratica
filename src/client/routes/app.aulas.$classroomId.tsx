@@ -13,6 +13,9 @@ import {
   LayoutList,
   ChevronRight,
   Bell,
+  LogOut,
+  UserPlus,
+  Users,
 } from "lucide-react";
 import {
   Badge,
@@ -45,6 +48,15 @@ import {
   TrashSection,
 } from "@client/features/activities/row-actions";
 import { activityState } from "@shared/domain/activity-state";
+import { can, ROLE_LABEL } from "@shared/domain/sharing";
+import {
+  ReadOnlyNotice,
+  RoleProvider,
+  useCan,
+} from "@client/features/sharing/role";
+import { ShareDialog } from "@client/features/sharing/share-dialog";
+import { useLeaveClassroom } from "@client/features/sharing/api";
+import { useMe } from "@client/lib/session";
 
 const TABS = ["actividades", "alumnos", "alertas"] as const;
 const TAB_LABELS: Record<(typeof TABS)[number], string> = {
@@ -72,6 +84,10 @@ function ClassroomPage() {
   const [newActivity, setNewActivity] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const leave = useLeaveClassroom(classroomId);
+  const me = useMe();
   const tab = Route.useSearch({ select: (s) => s.tab ?? "actividades" });
   usePageTitle(
     room.data
@@ -101,6 +117,9 @@ function ClassroomPage() {
     );
   }
   const c = room.data;
+  const shared = c.role !== "owner";
+  const canEdit = can(c.role, "edit");
+  const canManage = can(c.role, "manage");
   const meta = [
     c.teacherName ? `Docente: ${c.teacherName}` : c.subject,
     [c.grade, c.division].filter(Boolean).join(" "),
@@ -122,7 +141,7 @@ function ClassroomPage() {
     );
 
   return (
-    <>
+    <RoleProvider role={c.role}>
       <nav aria-label="Ruta" className="mb-3 text-sm text-text-3">
         <Link
           to="/app/aulas"
@@ -137,10 +156,23 @@ function ClassroomPage() {
       </nav>
       <PageHeader
         title={c.name}
+        eyebrow={
+          shared ? (
+            <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+              <Badge tone="lilac">
+                <Users className="size-3" aria-hidden="true" />
+                Compartida · {ROLE_LABEL[c.role]}
+              </Badge>
+              <span className="font-normal text-text-2">
+                Creada por {c.ownerName || "otro docente"}
+              </span>
+            </span>
+          ) : undefined
+        }
         description={meta || undefined}
         actions={
           <>
-            {!c.isArchived ? (
+            {!c.isArchived && canEdit ? (
               <Button
                 icon={<Plus className="size-4" />}
                 onClick={() => setNewActivity(true)}
@@ -161,42 +193,66 @@ function ClassroomPage() {
               }
               items={[
                 {
-                  label: "Editar datos del aula",
-                  icon: <Pencil className="size-4" />,
-                  onSelect: () => setEditing(true),
+                  label: canManage
+                    ? "Compartir aula"
+                    : "Ver quiénes tienen acceso",
+                  icon: <UserPlus className="size-4" />,
+                  onSelect: () => setSharing(true),
                 },
-                c.isArchived
-                  ? {
-                      label: "Restaurar aula",
-                      icon: <ArchiveRestore className="size-4" />,
-                      onSelect: () =>
-                        save.mutate(
-                          { id: c.id, data: { isArchived: false } },
-                          {
-                            onSuccess: () => toast.success("Aula restaurada"),
-                            onError: (e) => toast.error(errorMessage(e)),
-                          },
-                        ),
-                    }
-                  : {
-                      label: "Archivar aula",
-                      icon: <Archive className="size-4" />,
-                      onSelect: () => {
-                        // Fresh "working now" count for the confirmation.
-                        void qc.invalidateQueries({
-                          queryKey: classroomKeys.one(c.id),
-                          exact: true,
-                        });
-                        setConfirmArchive(true);
+                ...(canManage ? (["separator"] as const) : []),
+                ...(!canManage
+                  ? []
+                  : [
+                      {
+                        label: "Editar datos del aula",
+                        icon: <Pencil className="size-4" />,
+                        onSelect: () => setEditing(true),
                       },
-                    },
-                "separator",
-                {
-                  label: "Eliminar aula",
-                  icon: <Trash2 className="size-4" />,
-                  danger: true,
-                  onSelect: () => setConfirmDelete(true),
-                },
+                      c.isArchived
+                        ? {
+                            label: "Restaurar aula",
+                            icon: <ArchiveRestore className="size-4" />,
+                            onSelect: () =>
+                              save.mutate(
+                                { id: c.id, data: { isArchived: false } },
+                                {
+                                  onSuccess: () =>
+                                    toast.success("Aula restaurada"),
+                                  onError: (e) => toast.error(errorMessage(e)),
+                                },
+                              ),
+                          }
+                        : {
+                            label: "Archivar aula",
+                            icon: <Archive className="size-4" />,
+                            onSelect: () => {
+                              // Fresh "working now" count for the confirmation.
+                              void qc.invalidateQueries({
+                                queryKey: classroomKeys.one(c.id),
+                                exact: true,
+                              });
+                              setConfirmArchive(true);
+                            },
+                          },
+                    ]),
+                ...(can(c.role, "own")
+                  ? ([
+                      "separator",
+                      {
+                        label: "Eliminar aula",
+                        icon: <Trash2 className="size-4" />,
+                        danger: true,
+                        onSelect: () => setConfirmDelete(true),
+                      },
+                    ] as const)
+                  : ([
+                      "separator",
+                      {
+                        label: "Dejar de ver esta aula",
+                        icon: <LogOut className="size-4" />,
+                        onSelect: () => setConfirmLeave(true),
+                      },
+                    ] as const)),
               ]}
             />
           </>
@@ -205,9 +261,12 @@ function ClassroomPage() {
 
       {c.isArchived ? (
         <Notice tone="amber" className="mb-5" title="Esta aula está archivada">
-          Sus actividades no reciben alumnos. Restaurala para volver a abrirlas.
+          {canManage
+            ? "Sus actividades no reciben alumnos. Restaurala para volver a abrirlas."
+            : "Sus actividades no reciben alumnos. Quien creó el aula o un admin la pueden restaurar."}
         </Notice>
       ) : null}
+      <ReadOnlyNotice className="mb-5" />
 
       <ClassroomTabs
         classroomId={c.id}
@@ -231,6 +290,41 @@ function ClassroomPage() {
         classroomId={c.id}
         open={newActivity}
         onOpenChange={setNewActivity}
+      />
+      <ShareDialog
+        classroomId={c.id}
+        classroomName={c.name}
+        open={sharing}
+        onOpenChange={setSharing}
+        onLeave={() => {
+          setSharing(false);
+          setConfirmLeave(true);
+        }}
+      />
+      <ConfirmDialog
+        open={confirmLeave}
+        onOpenChange={setConfirmLeave}
+        variant="primary"
+        title="¿Dejar de ver esta aula?"
+        description={
+          <p>
+            Deja de aparecer en tus aulas, en Inicio y en Alertas. El aula y su
+            trabajo siguen igual para los demás. Para volver, te tienen que
+            invitar de nuevo.
+          </p>
+        }
+        confirmLabel="Dejar de ver el aula"
+        loading={leave.isPending}
+        onConfirm={() => {
+          if (!me.data?.teacher) return;
+          leave.mutate(me.data.teacher.id, {
+            onSuccess: () => {
+              toast.success(`Ya no ves «${c.name}»`);
+              void navigate({ to: "/app/aulas" });
+            },
+            onError: (e) => toast.error(errorMessage(e)),
+          });
+        }}
       />
       <ConfirmDialog
         open={confirmArchive}
@@ -297,7 +391,7 @@ function ClassroomPage() {
           })
         }
       />
-    </>
+    </RoleProvider>
   );
 }
 
@@ -364,6 +458,7 @@ function ActivitiesPanel({
   room: { name: string; isArchived: boolean };
 }) {
   const q = useClassroomActivities(classroomId);
+  const canEdit = useCan("edit");
   if (q.isPending) return <SkeletonList rows={2} />;
   if (q.isError)
     return <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
@@ -376,7 +471,7 @@ function ActivitiesPanel({
           title="Esta aula todavía no tiene actividades"
           description="Creá una actividad, publicala y compartí el enlace. Cada alumno aparece en la actividad que hizo."
           action={
-            archived ? undefined : (
+            archived || !canEdit ? undefined : (
               <Button icon={<Plus className="size-4" />} onClick={onNew}>
                 Nueva actividad
               </Button>

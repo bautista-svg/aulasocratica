@@ -27,6 +27,7 @@ import { RubricEditor } from "./rubric-editor";
 import { ReflectionEditor } from "./reflection-editor";
 import { errorKeyBelongsTo, type ActivityForm, type DraftKey, type FieldErrors } from "./use-activity-form";
 import { useKeepFieldVisible, useKeyboardOpen } from "./keep-field-visible";
+import { useCan } from "@client/features/sharing/role";
 
 export const SECTIONS: { id: string; title: string; keys: DraftKey[] }[] = [
   { id: "idioma", title: "Idioma", keys: ["language"] },
@@ -92,6 +93,8 @@ export function useSaveDraft(activity: ActivityEditorData, form: ActivityForm, o
 
 export function ConfigPanel({ activity, form, saving, onSave }: { activity: ActivityEditorData; form: ActivityForm; saving: boolean; onSave: () => void }) {
   const { draft, set, errors, dirtyKeys, dirty } = form;
+  // A reader of a shared classroom sees the whole configuration, with every control disabled.
+  const canEdit = useCan("edit");
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const sectionDirty = (keys: DraftKey[]) => keys.some((k) => dirtyKeys.includes(k));
   const sectionError = (keys: DraftKey[]) => Object.keys(errors).some((p) => keys.some((k) => errorKeyBelongsTo(p, k)));
@@ -126,8 +129,9 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
         {/* See it as the students do, or turn on a section that is off. */}
         <div className="flex flex-wrap items-center gap-2">
           <PreviewButton activity={activity} form={form} />
-          <AddSectionMenu form={form} onGo={(id) => requestAnimationFrame(() => scrollToSection(id))} />
+          {canEdit ? <AddSectionMenu form={form} onGo={(id) => requestAnimationFrame(() => scrollToSection(id))} /> : null}
         </div>
+        <fieldset disabled={!canEdit} className="m-0 grid min-w-0 gap-4 border-0 p-0">
         <EditorSection
           id="idioma"
           title="Idioma"
@@ -463,6 +467,8 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
             </Notice>
           ) : null}
         </EditorSection>
+
+        </fieldset>
 
         {/* Save bar: sticks above the phone tab bar while there are unsaved changes; it steps aside while the
             on-screen keyboard is open so it never covers the field being edited (D09). */}
