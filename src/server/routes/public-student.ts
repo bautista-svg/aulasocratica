@@ -62,7 +62,7 @@ export const publicStudentRoutes = new Hono<AppEnv>()
     const link = await loadLink(c.req.param("token"));
     ensureAvailable(link);
     const body = await readJson(c, joinBody);
-    const { ctx, created } = await joinWithName(c, link, body.name);
+    const { ctx, created } = await joinWithName(c, link, body.name, body.division);
     return c.json({ workspace: await buildWorkspace(ctx), created } satisfies WorkspaceResponse & { created: boolean }, created ? 201 : 200);
   })
 
@@ -70,7 +70,7 @@ export const publicStudentRoutes = new Hono<AppEnv>()
     const link = await loadLink(c.req.param("token"));
     ensureAvailable(link);
     const body = await readJson(c, resumeBody);
-    const ctx = await resumeWithCode(c, link, body.name, body.code);
+    const ctx = await resumeWithCode(c, link, body.name, body.code, body.division);
     return c.json({ workspace: await buildWorkspace(ctx) } satisfies WorkspaceResponse);
   })
 

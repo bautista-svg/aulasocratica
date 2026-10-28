@@ -1,17 +1,20 @@
 import { memo, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { MoreHorizontal, Pencil, Trash2, UserPlus, Users } from "lucide-react";
+import { Check, MoreHorizontal, Pencil, Trash2, UserPlus, Users } from "lucide-react";
 import { Badge, EmptyState, ErrorState, SkeletonList } from "@client/components/ui/misc";
 import { Button } from "@client/components/ui/button";
 import { Menu } from "@client/components/ui/controls";
 import { ConfirmDialog, Dialog } from "@client/components/ui/dialog";
 import { Field, FormError, Input, Select, Textarea } from "@client/components/ui/field";
-import { errorMessage } from "@client/lib/api";
+import { ApiError, errorMessage } from "@client/lib/api";
+import { cn } from "@client/lib/cn";
 import { fmtRelative, plural } from "@client/lib/format";
 import { parseNameList } from "@shared/domain/names";
+import { divisionCounts, inDivision } from "@shared/domain/divisions";
 import type { ClassroomStudent } from "@shared/contracts/classrooms";
-import { useClassroomActivities, useClassroomStudents, useStudentMutations } from "./api";
+import { useClassroom, useClassroomActivities, useClassroomStudents, useStudentMutations } from "./api";
+import { DivisionTag } from "./divisions";
 import { workStatusLabel } from "@client/features/live/bits";
 import { useSingleFlight } from "@client/features/activities/single-flight";
 
@@ -27,16 +30,24 @@ export const StudentsPanel = memo(function StudentsPanel({
 }) {
   const students = useClassroomStudents(classroomId);
   const activities = useClassroomActivities(classroomId);
+  const room = useClassroom(classroomId);
   const m = useStudentMutations(classroomId);
   const [adding, setAdding] = useState(false);
   const [renaming, setRenaming] = useState<ClassroomStudent | null>(null);
   const [removing, setRemoving] = useState<ClassroomStudent | null>(null);
+  const [divisionPick, setDivision] = useState<string | null>(null);
+
+  const divisionOptions = room.data?.divisionOptions ?? [];
+  const divisions = useMemo(() => divisionCounts(divisionOptions, (students.data ?? []).map((s) => s.division)), [divisionOptions, students.data]);
+  // A division nobody has anymore (and the classroom no longer lists) goes back to «Todas».
+  const division = divisionPick !== null && divisions.some((d) => d.value === divisionPick) ? divisionPick : null;
 
   const filtered = useMemo(() => {
-    const list = students.data ?? [];
-    if (!activityFilter) return list;
-    return list.filter((s) => s.sessions.some((x) => x.activityId === activityFilter));
-  }, [students.data, activityFilter]);
+    let list = students.data ?? [];
+    if (activityFilter) list = list.filter((s) => s.sessions.some((x) => x.activityId === activityFilter));
+    if (division !== null) list = list.filter((s) => inDivision(s.division, division));
+    return list;
+  }, [students.data, activityFilter, division]);
 
   if (students.isPending) return <SkeletonList rows={3} />;
   if (students.isError) return <ErrorState error={students.error} onRetry={() => void students.refetch()} />;
@@ -46,18 +57,39 @@ export const StudentsPanel = memo(function StudentsPanel({
   return (
     <div>
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="w-full sm:max-w-xs">
-          <label htmlFor="student-filter" className="mb-1.5 block text-sm font-semibold text-text">
-            Mostrar alumnos de
-          </label>
-          <Select id="student-filter" value={activityFilter ?? ""} onChange={(e) => onFilterChange(e.target.value)}>
-            <option value="">Todas las actividades</option>
-            {(activities.data ?? []).map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.title}
-              </option>
-            ))}
-          </Select>
+        <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="w-full sm:max-w-xs">
+            <label htmlFor="student-filter" className="mb-1.5 block text-sm font-semibold text-text">
+              Mostrar alumnos de
+            </label>
+            <Select id="student-filter" value={activityFilter ?? ""} onChange={(e) => onFilterChange(e.target.value)}>
+              <option value="">Todas las actividades</option>
+              {(activities.data ?? []).map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.title}
+                </option>
+              ))}
+            </Select>
+          </div>
+          {divisions.length ? (
+            <div className="w-full sm:max-w-[12rem]">
+              <label htmlFor="student-division-filter" className="mb-1.5 block text-sm font-semibold text-text">
+                División
+              </label>
+              <Select
+                id="student-division-filter"
+                value={division === null ? "*" : division}
+                onChange={(e) => setDivision(e.target.value === "*" ? null : e.target.value)}
+              >
+                <option value="*">Todas ({students.data.length})</option>
+                {divisions.map((d) => (
+                  <option key={d.value || "none"} value={d.value}>
+                    {d.value || "Sin división"} ({d.count})
+                  </option>
+                ))}
+              </Select>
+            </div>
+          ) : null}
         </div>
         <Button variant="secondary" icon={<UserPlus className="size-4" />} onClick={() => setAdding(true)}>
           Agregar alumnos
@@ -77,11 +109,20 @@ export const StudentsPanel = memo(function StudentsPanel({
           }
         />
       ) : filtered.length === 0 ? (
-        <EmptyState level={2} title="Nadie hizo esta actividad todavía" description={`Cuando un alumno entre a «${filterActivity?.title ?? "la actividad"}», va a aparecer acá.`} />
+        division !== null && !activityFilter ? (
+          <EmptyState level={2} title="Nadie en esta división" description="Elegí otra división o «Todas»." />
+        ) : (
+          <EmptyState
+            level={2}
+            title={division !== null ? "Nadie de esta división hizo esta actividad" : "Nadie hizo esta actividad todavía"}
+            description={`Cuando un alumno entre a «${filterActivity?.title ?? "la actividad"}», va a aparecer acá.`}
+          />
+        )
       ) : (
         <>
           <p className="mb-2 text-sm text-text-3">
             {activityFilter ? `${plural(filtered.length, "alumno hizo", "alumnos hicieron")} esta actividad` : plural(filtered.length, "alumno", "alumnos")}
+            {division !== null ? ` · ${division ? `división ${division}` : "sin división"}` : ""}
           </p>
           <ul className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface shadow-1">
             {filtered.map((s) => {
@@ -89,9 +130,12 @@ export const StudentsPanel = memo(function StudentsPanel({
               return (
                 <li key={s.id} className="flex items-start gap-3 px-4 py-3.5 sm:px-5">
                   <div className="min-w-0 flex-1">
-                    <Link to="/app/alumnos/$studentId" params={{ studentId: s.id }} className="font-semibold text-ink hover:underline hover:decoration-lilac hover:underline-offset-4">
-                      {s.fullName}
-                    </Link>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Link to="/app/alumnos/$studentId" params={{ studentId: s.id }} className="font-semibold text-ink hover:underline hover:decoration-lilac hover:underline-offset-4">
+                        {s.fullName}
+                      </Link>
+                      <DivisionTag division={s.division} />
+                    </div>
                     {sessions.length === 0 ? (
                       <p className="mt-0.5 text-sm text-text-3">{s.selfRegistered ? "Sin actividades" : "Cargado en la lista · todavía no hizo actividades"}</p>
                     ) : (
@@ -117,7 +161,11 @@ export const StudentsPanel = memo(function StudentsPanel({
                       </Button>
                     }
                     items={[
-                      { label: "Corregir nombre", icon: <Pencil className="size-4" />, onSelect: () => setRenaming(s) },
+                      {
+                        label: divisionOptions.length || s.division ? "Corregir nombre o división" : "Corregir nombre",
+                        icon: <Pencil className="size-4" />,
+                        onSelect: () => setRenaming(s),
+                      },
                       { label: "Eliminar alumno y sus trabajos", icon: <Trash2 className="size-4" />, danger: true, onSelect: () => setRemoving(s) },
                     ]}
                   />
@@ -129,7 +177,7 @@ export const StudentsPanel = memo(function StudentsPanel({
       )}
 
       <AddStudentsDialog open={adding} onOpenChange={setAdding} classroomId={classroomId} />
-      <RenameDialog student={renaming} onClose={() => setRenaming(null)} classroomId={classroomId} />
+      <RenameDialog student={renaming} onClose={() => setRenaming(null)} classroomId={classroomId} divisionOptions={divisionOptions} />
       <ConfirmDialog
         open={Boolean(removing)}
         onOpenChange={(o) => !o && setRemoving(null)}
@@ -208,20 +256,35 @@ function AddStudentsDialog({ open, onOpenChange, classroomId }: { open: boolean;
   );
 }
 
-function RenameDialog({ student, onClose, classroomId }: { student: ClassroomStudent | null; onClose: () => void; classroomId: string }) {
+function RenameDialog({
+  student,
+  onClose,
+  classroomId,
+  divisionOptions,
+}: {
+  student: ClassroomStudent | null;
+  onClose: () => void;
+  classroomId: string;
+  divisionOptions: string[];
+}) {
   const [name, setName] = useState("");
+  const [division, setDivision] = useState("");
   const { rename } = useStudentMutations(classroomId);
   const [lastId, setLastId] = useState<string | null>(null);
   if (student && student.id !== lastId) {
     setLastId(student.id);
     setName(student.fullName);
+    setDivision(student.division);
     rename.reset();
   }
+  // The classroom's divisions, plus the one the student has if the teacher removed it from the list.
+  const choices = student?.division && !divisionOptions.some((d) => inDivision(d, student.division)) ? [...divisionOptions, student.division] : divisionOptions;
+  const fields = rename.error instanceof ApiError ? rename.error.fields : {};
   return (
     <Dialog
       open={Boolean(student)}
       onOpenChange={(o) => !o && onClose()}
-      title="Corregir nombre"
+      title={choices.length ? "Corregir nombre o división" : "Corregir nombre"}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
@@ -233,10 +296,10 @@ function RenameDialog({ student, onClose, classroomId }: { student: ClassroomStu
             onClick={() =>
               student &&
               rename.mutate(
-                { id: student.id, fullName: name },
+                { id: student.id, fullName: name, ...(choices.length ? { division } : {}) },
                 {
                   onSuccess: () => {
-                    toast.success("Nombre corregido");
+                    toast.success(division !== student.division && name.trim() === student.fullName ? "División corregida" : "Datos corregidos");
                     onClose();
                   },
                 },
@@ -248,9 +311,36 @@ function RenameDialog({ student, onClose, classroomId }: { student: ClassroomStu
         </>
       }
     >
-      <Field label="Nombre y apellido" error={rename.isError ? errorMessage(rename.error) : undefined}>
-        {(p) => <Input id={p.id} aria-describedby={p.describedBy} invalid={p.invalid} value={name} onChange={(e) => setName(e.target.value)} maxLength={120} />}
-      </Field>
+      <div className="grid gap-4">
+        <Field label="Nombre y apellido" error={fields.fullName ?? (rename.isError && !fields.division ? errorMessage(rename.error) : undefined)}>
+          {(p) => <Input id={p.id} aria-describedby={p.describedBy} invalid={p.invalid} value={name} onChange={(e) => setName(e.target.value)} maxLength={120} />}
+        </Field>
+        {choices.length ? (
+          <fieldset>
+            <legend className="mb-1.5 text-sm font-semibold text-text">División</legend>
+            <div className="flex flex-wrap gap-2">
+              {[...choices, ""].map((d) => {
+                const on = division === d;
+                return (
+                  <label
+                    key={d || "none"}
+                    className={cn(
+                      "inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center gap-1.5 rounded-full border px-4 text-sm font-semibold transition-colors has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-lilac/35",
+                      on ? "border-ink bg-ink text-white" : "border-line-strong bg-surface text-text-2 hover:border-ink/40 hover:text-ink",
+                      !d && !on && "font-medium",
+                    )}
+                  >
+                    <input type="radio" name="student-division" value={d} checked={on} onChange={() => setDivision(d)} className="sr-only" />
+                    {on ? <Check className="size-4" aria-hidden="true" /> : null}
+                    {d || "Sin división"}
+                  </label>
+                );
+              })}
+            </div>
+            {fields.division ? <p className="mt-1.5 text-[13px] font-medium leading-5 text-rose">{fields.division}</p> : null}
+          </fieldset>
+        ) : null}
+      </div>
     </Dialog>
   );
 }

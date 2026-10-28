@@ -18,12 +18,17 @@ import { MAX_ANSWER_CHARS, MAX_CHAT_CHARS, MAX_REFLECTION_ANSWER_CHARS, MIN_ANSW
 export { MAX_ANSWER_CHARS, MAX_CHAT_CHARS, MAX_REFLECTION_ANSWER_CHARS, MIN_ANSWER_CHARS, RESUME_CODE_LENGTH, RESUME_CODE_ALPHABET, normalizeResumeCode, resumeCodeProblem, studentMetaLine } from "./student-limits";
 import { normalizeResumeCode, resumeCodeProblem } from "./student-limits";
 
+/** The division picked among the classroom's (checked on the server; ignored when it asks for none). */
+const divisionField = z.string().max(200).optional();
+
 export const joinBody = z.object({
   name: z.string().max(200, "El nombre es demasiado largo."),
+  division: divisionField,
 });
 
 export const resumeBody = z.object({
   name: z.string().max(200, "El nombre es demasiado largo."),
+  division: divisionField,
   code: z
     .string()
     .trim()
@@ -113,6 +118,8 @@ export interface StudentActivityPublic {
   /** "5.º B · Escuela N.º 12" style label (show it with studentMetaLine([subject, classroom])). */
   classroom: string;
   teacherName: string;
+  /** Divisions to pick one from when entering (empty: not asked). */
+  divisions: string[];
 }
 
 /** GET /api/s/:token — what the link page needs on load. */

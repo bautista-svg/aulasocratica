@@ -21,6 +21,7 @@ import {
 } from "@shared/contracts/classrooms";
 import { TRASH_DAYS, type ActivitySummary, type TrashedActivity } from "@shared/contracts/activities";
 import { nameKey, tidyName } from "@shared/domain/names";
+import { divisionKey, matchDivision, sanitizeDivisionOptions, tidyDivision } from "@shared/domain/divisions";
 import { BUILTIN_ALERTS, LOCKED_ALERT_KEYS, builtinEnabled } from "@shared/domain/alerts";
 
 const ACTIVE_MS = 2 * 60_000;
@@ -49,6 +50,7 @@ async function summaries(teacherId: string, where: ReturnType<typeof and>): Prom
     grade: c.grade,
     division: c.division,
     description: c.description,
+    divisionOptions: sanitizeDivisionOptions(c.divisionOptions),
     isArchived: c.isArchived,
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
@@ -230,6 +232,7 @@ export const classroomRoutes = new Hono<AppEnv>()
       id: s.id,
       fullName: s.fullName,
       selfRegistered: s.selfRegistered,
+      division: s.division,
       createdAt: s.createdAt.toISOString(),
       sessions: byStudent.get(s.id) ?? [],
     }));
@@ -256,17 +259,37 @@ export const classroomRoutes = new Hono<AppEnv>()
     const studentId = c.req.param("studentId");
     if (!isUuid(studentId)) throw notFound("El alumno");
     const body = await readJson(c, renameStudentBody);
-    const name = tidyName(body.fullName);
-    const key = nameKey(name);
-    const [clash] = await db
-      .select({ id: schema.students.id })
-      .from(schema.students)
-      .where(and(eq(schema.students.classroomId, room.id), eq(schema.students.nameKey, key), sql`${schema.students.id} <> ${studentId}`))
-      .limit(1);
-    if (clash) throw badRequest("Ya hay un alumno con ese nombre en esta aula.", { fullName: "Nombre repetido." });
+    const changes: { fullName?: string; nameKey?: string; division?: string } = {};
+    if (body.fullName !== undefined) {
+      const name = tidyName(body.fullName);
+      const key = nameKey(name);
+      const [clash] = await db
+        .select({ id: schema.students.id })
+        .from(schema.students)
+        .where(and(eq(schema.students.classroomId, room.id), eq(schema.students.nameKey, key), sql`${schema.students.id} <> ${studentId}`))
+        .limit(1);
+      if (clash) throw badRequest("Ya hay un alumno con ese nombre en esta aula.", { fullName: "Nombre repetido." });
+      Object.assign(changes, { fullName: name, nameKey: key });
+    }
+    if (body.division !== undefined) {
+      // One of the classroom's divisions, or none; the one the student already has is kept as is.
+      const [current] = await db
+        .select({ division: schema.students.division })
+        .from(schema.students)
+        .where(and(eq(schema.students.id, studentId), eq(schema.students.classroomId, room.id)))
+        .limit(1);
+      if (!current) throw notFound("El alumno");
+      const picked = tidyDivision(body.division);
+      const division = !picked
+        ? ""
+        : (matchDivision(sanitizeDivisionOptions(room.divisionOptions), picked) ??
+          (divisionKey(picked) === divisionKey(current.division) ? current.division : null));
+      if (division === null) throw badRequest("Elegí una de las divisiones del aula.", { division: "Elegí una de las divisiones del aula." });
+      changes.division = division;
+    }
     const [row] = await db
       .update(schema.students)
-      .set({ fullName: name, nameKey: key })
+      .set(changes)
       .where(and(eq(schema.students.id, studentId), eq(schema.students.classroomId, room.id)))
       .returning();
     if (!row) throw notFound("El alumno");

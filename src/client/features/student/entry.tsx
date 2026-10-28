@@ -2,11 +2,12 @@
 // (with the resume-code path for students who started on another device).
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, Lock, PencilLine, RefreshCw, WifiOff } from "lucide-react";
+import { CalendarClock, Check, Lock, PencilLine, RefreshCw, WifiOff } from "lucide-react";
 import { Logo } from "@client/components/brand/logo";
 import { Button } from "@client/components/ui/button";
 import { Field, FormError, Input } from "@client/components/ui/field";
 import { Skeleton } from "@client/components/ui/misc";
+import { cn } from "@client/lib/cn";
 import { ApiError } from "@client/lib/api";
 import { resumeCodeProblem, studentMetaLine } from "@shared/contracts/student-limits";
 import type { StudentLinkInfo } from "@shared/contracts/student";
@@ -158,6 +159,92 @@ export function ClosedScreen({ token, info, onRetry, retrying }: { token: string
   );
 }
 
+/** Columns of the division tiles: short ones (N, F, S) in one row when they fit. */
+function divisionColumns(options: string[]): number {
+  const n = options.length;
+  if (options.some((o) => Array.from(o).length > 4)) return Math.min(n, 2);
+  if (n <= 4) return n;
+  return n % 3 === 0 || n === 5 ? 3 : 4;
+}
+
+/** The classroom's divisions as big tiles; one is required (native radios: arrows move between them). */
+function DivisionPicker({
+  options,
+  value,
+  onChange,
+  error,
+  resume,
+  firstRef,
+}: {
+  options: string[];
+  value: string;
+  onChange: (d: string) => void;
+  error?: string;
+  resume: boolean;
+  firstRef: React.RefObject<HTMLInputElement | null>;
+}) {
+  const t = useT();
+  const id = useId();
+  const hintId = `${id}-hint`;
+  const errId = `${id}-err`;
+  const long = options.some((o) => Array.from(o).length > 4);
+  return (
+    <div className="flex flex-col gap-1.5">
+      <p id={`${id}-label`} className={resume ? "text-sm font-semibold text-text" : "q-hang text-[19px] font-normal"}>
+        {resume ? t.join.yourDivision : t.join.whichDivision}
+      </p>
+      <div
+        role="radiogroup"
+        aria-labelledby={`${id}-label`}
+        aria-describedby={[resume ? null : hintId, error ? errId : null].filter(Boolean).join(" ") || undefined}
+        aria-required="true"
+        aria-invalid={error ? true : undefined}
+        className="grid gap-2"
+        style={{ gridTemplateColumns: `repeat(${divisionColumns(options)}, minmax(0, 1fr))` }}
+      >
+        {options.map((d, i) => {
+          const checked = value === d;
+          return (
+            <label
+              key={d}
+              className={cn(
+                "relative flex min-h-14 cursor-pointer items-center justify-center rounded-lg border-2 px-3 py-2 text-center shadow-1 transition-[border-color,background-color,color,box-shadow] duration-150",
+                "has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-lilac/35",
+                long ? "text-[15px] leading-5 font-semibold break-words" : "font-display text-2xl font-semibold",
+                checked
+                  ? "border-ink bg-ink text-white"
+                  : cn("bg-surface text-ink hover:border-ink/45", error ? "border-rose/60" : "border-line-strong"),
+              )}
+            >
+              <input
+                ref={i === 0 ? firstRef : undefined}
+                type="radio"
+                name={`${id}-division`}
+                value={d}
+                checked={checked}
+                onChange={() => onChange(d)}
+                className="sr-only"
+              />
+              {checked ? <Check className="absolute top-1.5 right-1.5 size-4 text-lilac" strokeWidth={3} aria-hidden="true" /> : null}
+              {d}
+            </label>
+          );
+        })}
+      </div>
+      {resume ? null : (
+        <p id={hintId} className="text-[13px] leading-5 text-text-3">
+          {t.join.divisionHint}
+        </p>
+      )}
+      {error ? (
+        <p id={errId} className="text-[13px] font-medium leading-5 text-rose">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 type Mode = { kind: "join" } | { kind: "resume"; reason: "required" | "chosen" };
 
 /** Name form; on a name that already has work, asks for the resume code. */
@@ -166,12 +253,15 @@ export function JoinScreen({ token, info }: { token: string; info: StudentLinkIn
   const qc = useQueryClient();
   const [mode, setMode] = useState<Mode>({ kind: "join" });
   const [name, setName] = useState("");
+  const [division, setDivision] = useState("");
   const [code, setCode] = useState("");
+  const divisions = info.activity?.divisions ?? [];
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fields, setFields] = useState<Record<string, string>>({});
   const codeRef = useRef<HTMLInputElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
+  const divisionRef = useRef<HTMLInputElement>(null);
   const noticeId = useId();
   const resume = mode.kind === "resume";
   const nameLocked = mode.kind === "resume" && mode.reason === "required";
@@ -184,6 +274,7 @@ export function JoinScreen({ token, info }: { token: string; info: StudentLinkIn
   function showFields(next: Record<string, string>) {
     setFields(next);
     if (next.name && !nameLocked) nameRef.current?.focus();
+    else if (next.division) divisionRef.current?.focus();
     else if (next.code) codeRef.current?.focus();
   }
 
@@ -225,6 +316,7 @@ export function JoinScreen({ token, info }: { token: string; info: StudentLinkIn
     const problems: Record<string, string> = {};
     const v = validateStudentName(name);
     if (!v.ok) problems.name = name.trim() ? t.fieldError("name", v.error) : t.join.nameRequired;
+    if (divisions.length && !divisions.includes(division)) problems.division = t.join.divisionRequired;
     if (resume) {
       const p = resumeCodeProblem(code);
       if (p) problems.code = t.fieldError("code", p);
@@ -237,11 +329,11 @@ export function JoinScreen({ token, info }: { token: string; info: StudentLinkIn
     setFields({});
     try {
       if (mode.kind === "join") {
-        const r = await studentApi.join(token, name);
+        const r = await studentApi.join(token, name, division);
         if (r.created) writeFlag(`as-new:${token}:${r.workspace.resumeCode}`, true);
         setWorkspace(qc, token, r.workspace);
       } else {
-        const r = await studentApi.resume(token, name, code);
+        const r = await studentApi.resume(token, name, code, division);
         setWorkspace(qc, token, r.workspace);
       }
     } catch (err) {
@@ -303,6 +395,20 @@ export function JoinScreen({ token, info }: { token: string; info: StudentLinkIn
               />
             )}
           </Field>
+
+          {divisions.length ? (
+            <DivisionPicker
+              options={divisions}
+              value={division}
+              onChange={(d) => {
+                setDivision(d);
+                if (fields.division) setFields(({ division: _drop, ...rest }) => rest);
+              }}
+              error={fields.division}
+              resume={resume}
+              firstRef={divisionRef}
+            />
+          ) : null}
 
           {resume ? (
             <Field label={t.join.yourCode} hint={t.join.codeHint} error={fields.code}>

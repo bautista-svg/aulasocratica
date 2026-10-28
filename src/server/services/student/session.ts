@@ -28,6 +28,7 @@ import { publish } from "../../lib/events";
 import { secureCookies } from "../../env";
 import { LINK_AVAILABILITY_MESSAGE, linkAvailability, type LinkAvailability } from "@shared/domain/access-rules";
 import { validateStudentName } from "@shared/domain/names";
+import { matchDivision, sanitizeDivisionOptions } from "@shared/domain/divisions";
 import { readReflection, sanitizeReflectionQuestions, type ReflectionQuestion } from "@shared/domain/activity-design";
 import { isVoiceLanguage } from "@shared/domain/voice";
 import { isDeliverableMode, type DeliverableKind } from "@shared/domain/deliverables";
@@ -72,7 +73,7 @@ type Student = typeof schema.students.$inferSelect;
 
 export interface LinkCtx {
   activity: Activity;
-  classroom: { id: string; name: string; grade: string; division: string; school: string; isArchived: boolean };
+  classroom: { id: string; name: string; grade: string; division: string; school: string; isArchived: boolean; divisionOptions: unknown };
   teacher: { displayName: string; isSuspended: boolean };
 }
 
@@ -99,6 +100,7 @@ const linkByToken = db
       division: schema.classrooms.division,
       school: schema.classrooms.school,
       isArchived: schema.classrooms.isArchived,
+      divisionOptions: schema.classrooms.divisionOptions,
     },
     teacher: { displayName: schema.teachers.displayName, isSuspended: schema.teachers.isSuspended },
   })
@@ -233,6 +235,25 @@ function nameOrThrow(raw: string) {
   return v;
 }
 
+/**
+ * The division picked when entering: one of the classroom's (as the teacher wrote it), or ""
+ * when the classroom asks for none. Missing or unknown → 400 on the division field.
+ */
+function divisionOrThrow(link: LinkCtx, raw: string | undefined): string {
+  const options = sanitizeDivisionOptions(link.classroom.divisionOptions);
+  if (!options.length) return "";
+  const picked = matchDivision(options, raw ?? "");
+  if (!picked) throw badRequest("Elegí tu división.", { division: "Elegí tu división." });
+  return picked;
+}
+
+/** Saves the division the student picked now (it may change from one activity to the next). */
+async function saveDivision(student: Student, division: string): Promise<Student> {
+  if (!division || division === student.division) return student;
+  await db.update(schema.students).set({ division }).where(eq(schema.students.id, student.id));
+  return { ...student, division };
+}
+
 async function findStudent(classroomId: string, key: string) {
   const [s] = await db
     .select()
@@ -265,18 +286,28 @@ function resumeRequired(name: string) {
  * Name already on the roster without work → its session is created. Name with work →
  * 409 resume_required unless this device already holds that session.
  */
-export async function joinWithName(c: Context, link: LinkCtx, rawName: string): Promise<{ ctx: StudentCtx; created: boolean }> {
+export async function joinWithName(
+  c: Context,
+  link: LinkCtx,
+  rawName: string,
+  rawDivision?: string,
+): Promise<{ ctx: StudentCtx; created: boolean }> {
   ensureAvailable(link);
   if (!hit(`s_join:${link.activity.id}:${clientIp(c)}`, JOIN_LIMIT.perIp, JOIN_LIMIT.windowMs)) {
     throw new HttpError(429, "Hubo demasiados ingresos desde esta conexión. Esperá unos minutos y probá de nuevo.", "rate_limited");
   }
   const v = nameOrThrow(rawName);
+  const division = divisionOrThrow(link, rawDivision);
   let student = await findStudent(link.classroom.id, v.key);
   if (student) {
     const existing = await findSession(link.activity.id, student.id);
     if (existing) {
       const device = await deviceSession(c, link);
-      if (device && device.session.id === existing.id) return { ctx: device, created: false };
+      if (device && device.session.id === existing.id) {
+        const updated = await saveDivision(device.student, division);
+        if (updated !== device.student) publish(link.activity.id, "session", existing.id);
+        return { ctx: { ...device, student: updated }, created: false };
+      }
       throw resumeRequired(student.fullName);
     }
   }
@@ -292,11 +323,12 @@ export async function joinWithName(c: Context, link: LinkCtx, rawName: string): 
   if (!student) {
     await db
       .insert(schema.students)
-      .values({ classroomId: link.classroom.id, fullName: v.name, nameKey: v.key, selfRegistered: true })
+      .values({ classroomId: link.classroom.id, fullName: v.name, nameKey: v.key, selfRegistered: true, division })
       .onConflictDoNothing();
     student = await findStudent(link.classroom.id, v.key);
     if (!student) throw new HttpError(500, "No pudimos registrar tu nombre. Probá de nuevo.", "join_failed");
   }
+  student = await saveDivision(student, division);
 
   const [created] = await db
     .insert(schema.learningSessions)
@@ -364,7 +396,13 @@ const LOCKED_MESSAGE =
  * already started the activity. A malformed code never gets here (resumeBody rejects it
  * without counting an attempt).
  */
-export async function resumeWithCode(c: Context, link: LinkCtx, rawName: string, rawCode: string): Promise<StudentCtx> {
+export async function resumeWithCode(
+  c: Context,
+  link: LinkCtx,
+  rawName: string,
+  rawCode: string,
+  rawDivision?: string,
+): Promise<StudentCtx> {
   ensureAvailable(link);
   const ip = clientIp(c);
   if (!hit(`s_code:${ip}`, CODE_LIMIT.perIp, CODE_LIMIT.windowMs)) {
@@ -376,6 +414,7 @@ export async function resumeWithCode(c: Context, link: LinkCtx, rawName: string,
     throw new HttpError(429, "Hubo demasiados intentos desde esta conexión. Esperá unos minutos y probá de nuevo.", "rate_limited");
   }
   const v = nameOrThrow(rawName);
+  const division = divisionOrThrow(link, rawDivision);
   const found = await findWorkByName(link, v.key);
   // Names without work get counters too, so both cases behave identically.
   const target = found ? `s:${found.session.id}` : `n:${link.activity.id}:${v.key}`;
@@ -399,7 +438,8 @@ export async function resumeWithCode(c: Context, link: LinkCtx, rawName: string,
         : `Ese nombre y ese código no coinciden. ${LOCKED_MESSAGE}`;
     throw new HttpError(400, msg, "wrong_code");
   }
-  const { session, student } = found;
+  const { session } = found;
+  const student = await saveDivision(found.student, division);
   // The right code proves it is the student: start again from zero everywhere.
   wrongCodes.delete(perConnection);
   wrongCodes.delete(target);
@@ -486,6 +526,7 @@ export function publicActivity(link: LinkCtx): StudentLinkInfo["activity"] {
     // Name, grade + division and school without repeating what the name already says.
     classroom: studentMetaLine([room.name, [room.grade, room.division].filter(Boolean).join(" "), room.school]),
     teacherName: link.teacher.displayName,
+    divisions: sanitizeDivisionOptions(link.classroom.divisionOptions),
   };
 }
 

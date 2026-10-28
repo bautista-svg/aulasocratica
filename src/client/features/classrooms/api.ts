@@ -90,8 +90,8 @@ export function useStudentMutations(classroomId: string) {
       onSuccess: refresh,
     }),
     rename: useMutation({
-      mutationFn: ({ id, fullName }: { id: string; fullName: string }) =>
-        api.patch<{ ok: true }>(`/api/classrooms/${classroomId}/students/${id}`, { fullName }),
+      mutationFn: ({ id, ...changes }: { id: string; fullName?: string; division?: string }) =>
+        api.patch<{ ok: true }>(`/api/classrooms/${classroomId}/students/${id}`, changes),
       onSuccess: refresh,
     }),
     remove: useMutation({
