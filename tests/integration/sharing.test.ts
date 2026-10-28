@@ -325,7 +325,7 @@ describe("Compartir aula: permisos por rol", () => {
     const xray = await call("GET", "/api/sessions", { cookie: reader.cookie });
     expect(xray.body.items).toHaveLength(1);
     // Reports stay in each teacher's own classrooms.
-    const report = await call("POST", "/api/reports", { cookie: reader.cookie, body: { kind: "group", classroomId: s.roomId } });
+    const report = await call("POST", "/api/reports", { cookie: reader.cookie, body: { kind: "group", scope: { classroomId: s.roomId } } });
     expect(report.status).toBe(403);
     expect(report.body.error.message).toMatch(/compartida/);
   });
@@ -381,7 +381,7 @@ describe("Compartir aula: permisos por rol", () => {
     expect((await call("POST", `/api/activities/${created.body.activity.id}/archive`, { cookie: editor.cookie })).status).toBe(200);
     expect((await call("PATCH", `/api/live/${s.activity.id}/alerts/${s.alert.id}`, { cookie: editor.cookie, body: { status: "reviewed" } })).status).toBe(200);
     expect((await call("PATCH", `/api/alerts/${s.alert.id}`, { cookie: editor.cookie, body: { status: "dismissed" } })).status).toBe(200);
-    expect((await call("PUT", `/api/sessions/${s.session.id}/rubric`, { cookie: editor.cookie, body: { levels: { arg: 2 }, confirm: true } })).status).toBe(200);
+    expect((await call("PUT", `/api/sessions/${s.session.id}/rubric`, { cookie: editor.cookie, body: { levels: { arg: 2, evid: 1 }, confirm: true } })).status).toBe(200);
     const inbox = await call("GET", "/api/alerts?status=all", { cookie: editor.cookie });
     expect(inbox.body.items[0].canEdit).toBe(true);
 
