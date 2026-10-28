@@ -13,7 +13,7 @@ async function presetCount(teacherId: string) {
 }
 
 describe("tutor presets", () => {
-  it("seeds the 18 built-in tutors once, even with concurrent first visits", async () => {
+  it("seeds the 19 built-in tutors once, even with concurrent first visits", async () => {
     const a = await newTeacher();
     const [r1, r2, r3] = await Promise.all([
       call("GET", "/api/tutors", { cookie: a.cookie }),
@@ -21,10 +21,10 @@ describe("tutor presets", () => {
       call("GET", "/api/tutors", { cookie: a.cookie }),
     ]);
     for (const r of [r1, r2, r3]) expect(r.status).toBe(200);
-    expect(await presetCount(a.id)).toBe(18);
+    expect(await presetCount(a.id)).toBe(19);
     const again = await call("GET", "/api/tutors", { cookie: a.cookie });
-    expect(again.body.tutors).toHaveLength(18);
-    expect(await presetCount(a.id)).toBe(18);
+    expect(again.body.tutors).toHaveLength(19);
+    expect(await presetCount(a.id)).toBe(19);
 
     const keys = again.body.tutors.map((t: { presetKey: string }) => t.presetKey).sort();
     expect(keys).toEqual(Object.keys(TUTOR_TYPES).sort());
@@ -100,7 +100,7 @@ describe("tutor presets", () => {
     });
     expect(created.status).toBe(201);
     const after = await call("GET", "/api/tutors", { cookie: a.cookie });
-    expect(after.body.tutors).toHaveLength(20);
+    expect(after.body.tutors).toHaveLength(21);
     expect(after.body.tutors[0].id).toBe(created.body.tutor.id);
     expect(after.body.tutors[1].id).toBe(dup.body.tutor.id);
     expect(after.body.tutors.slice(2).every((x: { presetKey: string | null }) => x.presetKey)).toBe(true);
@@ -113,7 +113,7 @@ describe("tutor presets", () => {
     const preset = list.body.tutors[0];
     const delPreset = await call("DELETE", `/api/tutors/${preset.id}`, { cookie: a.cookie });
     expect(delPreset.status).toBe(400);
-    expect(await presetCount(a.id)).toBe(18);
+    expect(await presetCount(a.id)).toBe(19);
 
     const custom = await call("POST", "/api/tutors", { cookie: a.cookie, body: { name: "Mío", tutorType: "matematico", rules: "Reglas mías" } });
     const tutorId = custom.body.tutor.id as string;

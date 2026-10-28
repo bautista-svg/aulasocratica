@@ -22,7 +22,7 @@ export interface TutorPresetValues {
  * Bump when presets are added (not when texts change): workspaces seeded before this date
  * get the missing presets on their next visit. Existing rows are never overwritten.
  */
-export const PRESETS_VERSION = "2026-10-20T00:00:00.000Z";
+export const PRESETS_VERSION = "2026-10-28T22:00:00.000Z";
 
 const OBJECTIVES: Record<string, string> = {
   comprension_lectora:
@@ -49,11 +49,13 @@ const OBJECTIVES: Record<string, string> = {
   expresion_oral: "Que el estudiante pueda explicar el tema de forma clara y ordenada, como si lo expusiera frente a la clase.",
   contenido_teorico: "Que el estudiante construya los conceptos del material: los defina con sus palabras, los ejemplifique y los relacione.",
   produccion_escrita: "Que el estudiante planifique, escriba y revise un texto propio que cumpla con la consigna.",
+  defensa_autoria: "Que el estudiante explique con sus palabras las partes más complejas de su trabajo: qué hacen, por qué las eligió y qué pasaría si las cambiara.",
 };
 
 const HELP: Partial<Record<string, TutorPresetValues["helpLevel"]>> = {
   debate_socratico: "autonomous",
   contenido_teorico: "intensive",
+  defensa_autoria: "autonomous",
 };
 
 /** Keys in display order: focus types first, then formats. */

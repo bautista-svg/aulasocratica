@@ -149,6 +149,11 @@ export const TUTOR_TEMPLATES: Record<string, Pick<TutorConfig, "question_style" 
     strategies: "Pedir un ejemplo propio de cada concepto y que lo relacione con otro.",
     closing_criteria: "Define los conceptos clave y los ilustra con un ejemplo propio.",
   },
+  defensa_autoria: {
+    question_style: "Preguntas sobre las partes más difíciles de su trabajo: qué hace, por qué la puso y qué pasaría si la cambiara.",
+    strategies: "Citar el fragmento; si no sabe, repreguntar una vez y seguir con otra parte sin dar pistas.",
+    closing_criteria: "Se recorrieron entre 5 y 8 partes distintas del trabajo.",
+  },
   produccion_escrita: {
     question_style: "Preguntas sobre propósito, destinatario, orden de las ideas y claridad del texto.",
     strategies: "Acompañar plan, borrador y revisión; pedir que relea y mejore un párrafo.",

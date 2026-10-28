@@ -58,6 +58,7 @@ export const TUTOR_FORMAT_TYPES: Record<string, string> = {
   expresion_oral: "Expresión oral",
   contenido_teorico: "Contenido teórico",
   produccion_escrita: "Producción escrita",
+  defensa_autoria: "Defensa de autoría",
 };
 
 export const TUTOR_TYPES: Record<string, string> = { ...TUTOR_FOCUS_TYPES, ...TUTOR_FORMAT_TYPES };
@@ -88,6 +89,11 @@ export function tutorTypesLabel(main: string, extra: readonly string[]): string 
  * voice on for the activity). It never sees paper, runs code, browses the web or grades.
  */
 export const TUTOR_TYPE_INFO: Record<string, { description: string; whenToUse: string }> = {
+  defensa_autoria: {
+    description:
+      "Cargá el trabajo del alumno como material (por ejemplo, su HTML y CSS). El tutor busca las partes más difíciles y le pregunta qué hacen, por qué las puso y qué pasaría si las cambiara. Si no sabe, no le enseña ni le da pistas: repregunta una vez y sigue con otra parte. En el resumen del trabajo ves qué partes supo explicar y cuáles no.",
+    whenToUse: "Elegila para comprobar si un alumno entiende un trabajo que entregó, por ejemplo si lo hizo con IA. Hacé una actividad por alumno con su trabajo.",
+  },
   conversacion_guiada: {
     description:
       "Conversación por pasos cortos y en orden: el tutor anuncia en qué paso están y avanza solo cuando el estudiante resolvió el anterior.",
@@ -179,6 +185,13 @@ export const TUTOR_TYPE_INFO: Record<string, { description: string; whenToUse: s
   },
 };
 
+/** "Defensa de autoría": an interview to check the student understands the work they handed in. */
+export const DEFENSE_GUIDANCE =
+  "DEFENSA DE AUTORÍA. El material es el trabajo del propio estudiante (por ejemplo, su código HTML y CSS). Tu tarea es comprobar con preguntas si lo entiende y lo hizo él, no enseñarle. " +
+  "Elegí las partes más difíciles o particulares: la línea, regla o fragmento más complejo, o una decisión poco común. Preguntá de a una parte: qué hace, por qué la puso, para qué sirve o qué pasaría si la cambiara o la sacara. Citá el fragmento (una o dos líneas) para que sepa de qué hablás. " +
+  "Si responde bien, pasá a otra parte difícil, de otro archivo o sección. Si no sabe o responde vago, repreguntá una sola vez de otra manera; si tampoco, decí con calma que siguen con otra parte y pasá a la siguiente, sin dar pistas ni explicar la respuesta (en esta modalidad no hay pistas ni ejemplos sobre su propio trabajo). " +
+  "No acuses ni hables de IA o de copiar: tono tranquilo de entrevista. Recorré entre 5 y 8 partes distintas; después agradecé y pedile que toque «Terminar».";
+
 /** How the tutor behaves for each type. Always inside the global Socratic rules. */
 export const TUTOR_TYPE_GUIDANCE: Record<string, string> = {
   comprension_lectora: "Ayudá a entender el texto: qué dice, qué quiere decir y en qué parte se apoya cada idea.",
@@ -206,6 +219,7 @@ export const TUTOR_TYPE_GUIDANCE: Record<string, string> = {
     "Ayudá a construir los conceptos del material con preguntas: definiciones con sus palabras, ejemplos propios y relaciones entre ideas. Podés explicar brevemente un concepto del material si está bloqueado, pero nunca resolver la consigna.",
   produccion_escrita:
     "Acompañá la escritura de un texto propio: planificación, borrador y revisión. Hacé preguntas sobre propósito, destinatario, orden de las ideas y claridad; no escribas el texto por el estudiante.",
+  defensa_autoria: DEFENSE_GUIDANCE,
 };
 
 export const HELP_LEVELS: Record<string, { label: string; description: string }> = {

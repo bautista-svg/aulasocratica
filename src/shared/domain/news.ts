@@ -26,10 +26,11 @@ export type NewsKey =
   | "sharedSummary"
   | "alertsTab"
   | "divisions"
-  | "sharedClassrooms";
+  | "sharedClassrooms"
+  | "defense";
 
 /** Releases in order; adding one shows its items to everyone who has not seen them. */
-export const NEWS_RELEASES = ["2026-10-22", "2026-10-22b", "2026-10-22c", "2026-10-23", "2026-10-23b", "2026-10-23c", "2026-10-23d", "2026-10-24", "2026-10-24b", "2026-10-26", "2026-10-26b", "2026-10-28", "2026-10-28b", "2026-10-28c"] as const;
+export const NEWS_RELEASES = ["2026-10-22", "2026-10-22b", "2026-10-22c", "2026-10-23", "2026-10-23b", "2026-10-23c", "2026-10-23d", "2026-10-24", "2026-10-24b", "2026-10-26", "2026-10-26b", "2026-10-28", "2026-10-28b", "2026-10-28c", "2026-10-29"] as const;
 export type NewsRelease = (typeof NEWS_RELEASES)[number];
 
 export interface NewsItem {
@@ -171,7 +172,13 @@ export const NEWS_ITEMS: NewsItem[] = [
     key: "sharedClassrooms",
     release: "2026-10-28c",
     title: "Compartí un aula con otros docentes",
-    text: "En «···» de cada aula, «Compartir aula» crea un enlace para sumar a otro docente como Admin, Editor o Lector. Las aulas que te comparten aparecen en Aulas, con tu rol.",
+    text: "En cada aula, el botón «Compartir» crea un enlace para sumar a otro docente como Admin, Editor o Lector. Las aulas que te comparten aparecen en Aulas, con tu rol.",
+  },
+  {
+    key: "defense",
+    release: "2026-10-29",
+    title: "Tutor «Defensa de autoría»",
+    text: "Para comprobar si un alumno entiende el trabajo que entregó: cargás su trabajo (por ejemplo, su HTML y CSS) y el tutor le pregunta por las partes más difíciles. Si no sabe, no le da pistas y sigue con otra; en el resumen del trabajo ves qué supo explicar.",
   },
   {
     key: "structure",

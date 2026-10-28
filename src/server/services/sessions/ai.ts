@@ -2,6 +2,7 @@
 // "Radiografía del pensamiento". They run when the teacher asks (the summary also when the
 // student sends work the activity shares it with them), quote only what the student wrote
 // (verified) and are stored as suggestions the teacher reviews.
+import { sanitizeExtraTutorTypes } from "@shared/domain/pedagogy";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -104,7 +105,7 @@ export function courseLabel(room: { name: string; grade: string; division: strin
   return stage ? `${label} (${stage})` : label;
 }
 
-export async function courseOf(a: OwnedSessionRow["activity"]): Promise<string> {
+export async function courseOf(a: Pick<OwnedSessionRow["activity"], "classroomId">): Promise<string> {
   const [room] = await db
     .select({ name: schema.classrooms.name, grade: schema.classrooms.grade, division: schema.classrooms.division })
     .from(schema.classrooms)
@@ -432,6 +433,12 @@ const summarySchema = z.object({
 const countEvidence = (v: { criteria: { evidence: string[] }[]; objectives: { evidence: string[] }[] }) =>
   [...v.criteria, ...v.objectives].reduce((n, p) => n + p.evidence.filter((e) => e.trim()).length, 0);
 
+/** "Defensa de autoría": the summary says which parts of their own work the student could explain. */
+const isDefense = (a: OwnedSessionRow["activity"]) =>
+  a.tutorType === "defensa_autoria" || sanitizeExtraTutorTypes(a.extraTutorTypes, a.tutorType).includes("defensa_autoria");
+const DEFENSE_SUMMARY = `
+  Es una DEFENSA DE AUTORÍA: el tutor le preguntó por partes de su propio trabajo. En el overview decí qué partes supo explicar bien (qué hacen y por qué las puso) y cuáles no pudo explicar o respondió vago, nombrando cada parte (por ejemplo, la regla o línea de código). Cerrá con una frase prudente sobre si la explicación muestra que conoce su trabajo. No afirmes que usó IA ni que copió: describí lo que se vio en la conversación.`;
+
 export async function summarize(row: OwnedSessionRow, teacherId: string, requested: SummaryBasis[]) {
   const rubric = sanitizeRubric(row.activity.rubric);
   const objectives = splitObjectives(row.activity.objectives);
@@ -440,6 +447,7 @@ export async function summarize(row: OwnedSessionRow, teacherId: string, request
     throw badRequest("Esta actividad no tiene cargada la rúbrica ni los objetivos que elegiste. Cargalos en la actividad o elegí otra base.");
   }
   const { texts, work, transcript } = await workOf(row);
+  const defense = isDefense(row.activity);
   const rubricText = rubric
     .map((c) => `- ${c.name}${c.description ? `: ${c.description}` : ""}\n  Niveles: ${c.levels.map((l) => `${l.label}${l.description ? ` (${l.description})` : ""}`).join(" | ")}`)
     .join("\n");
@@ -466,7 +474,7 @@ ${basis.includes("objectives") ? `Objetivos:\n${objectives.map((o) => `- ${o}`).
 ${work}
 
 Armá un resumen del trabajo del alumno:
-- overview: 3 a 5 oraciones sobre el recorrido: de qué idea partió, cómo cambió durante la charla con el tutor y a qué llegó.
+- overview: 3 a 5 oraciones sobre el recorrido: de qué idea partió, cómo cambió durante la charla con el tutor y a qué llegó.${defense ? DEFENSE_SUMMARY : ""}
 ${tasks}
 - evidence (en cada elemento): 0 a 3 citas TEXTUALES y exactas de lo que escribió el ALUMNO (no del tutor ni de los botones), de 4 a 25 palabras. Si no hay evidencia, dejá la lista vacía y decilo en observation.
 - nextSteps: 2 a 4 sugerencias concretas para la docente.`,

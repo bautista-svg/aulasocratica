@@ -30,6 +30,7 @@ import { detectAlerts } from "./alerts";
 import { runInBackground } from "./background";
 import { sanitizeMoreInstructions } from "@shared/domain/consignas";
 import { intentMessages, languageOf } from "@shared/domain/language";
+import { courseOf } from "../sessions/ai";
 
 export const CHAT_LIMIT = { perSession: 20, windowMs: 5 * 60_000 };
 export const HISTORY_LIMIT = 40;
@@ -133,7 +134,7 @@ export async function tutorChat(c: Context, ctx: StudentCtx, body: ChatBody): Pr
     // Interrupted replies from a crashed process never reach the model or the teacher view.
     await db.delete(schema.messages).where(and(eq(schema.messages.sessionId, session.id), eq(schema.messages.isPartial, true)));
 
-    const [rows, files, fresh] = await Promise.all([
+    const [rows, files, fresh, course] = await Promise.all([
       db
         .select({ role: schema.messages.role, content: schema.messages.content })
         .from(schema.messages)
@@ -150,6 +151,7 @@ export async function tutorChat(c: Context, ctx: StudentCtx, body: ChatBody): Pr
         .from(schema.learningSessions)
         .where(eq(schema.learningSessions.id, session.id))
         .limit(1),
+      courseOf(activity),
     ]);
     const history = buildHistory(rows.reverse());
     if (history.length === 0 || history[history.length - 1]!.role !== "user") {
@@ -162,6 +164,7 @@ export async function tutorChat(c: Context, ctx: StudentCtx, body: ChatBody): Pr
     const prompt = buildTutorPrompt({
       title: activity.title,
       subject: activity.subject,
+      course,
       objectives: activity.objectives,
       instructions: activity.instructions,
       moreInstructions: sanitizeMoreInstructions(activity.moreInstructions, ACTIVITY_LIMITS.instructions),

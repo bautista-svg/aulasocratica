@@ -4,6 +4,7 @@ import {
   Brain,
   Calculator,
   Code,
+  FileSearch,
   FileText,
   Lightbulb,
   ListChecks,
@@ -41,6 +42,7 @@ export const TUTOR_TYPE_ICONS: Record<string, LucideIcon> = {
   expresion_oral: Mic,
   contenido_teorico: BookText,
   produccion_escrita: FileText,
+  defensa_autoria: FileSearch,
 };
 
 const TONES = {
@@ -70,6 +72,7 @@ const TYPE_TONE: Record<string, keyof typeof TONES> = {
   expresion_oral: "ink",
   contenido_teorico: "lilac",
   produccion_escrita: "lilac",
+  defensa_autoria: "rose",
 };
 
 export function TutorTypeTile({ type, className, size = "md" }: { type: string; className?: string; size?: "sm" | "md" }) {

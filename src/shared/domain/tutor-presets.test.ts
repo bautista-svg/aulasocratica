@@ -5,7 +5,7 @@ import { tutorBody } from "../contracts/tutors";
 
 describe("tutor presets", () => {
   it("has one valid preset per tutor type (18)", () => {
-    expect(PRESET_KEYS).toHaveLength(18);
+    expect(PRESET_KEYS).toHaveLength(19);
     expect([...PRESET_KEYS].sort()).toEqual(Object.keys(TUTOR_TYPES).sort());
     for (const { key, values } of TUTOR_PRESETS) {
       expect(values.name).toBe(TUTOR_TYPES[key]);
