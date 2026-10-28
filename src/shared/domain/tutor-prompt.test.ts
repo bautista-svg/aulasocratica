@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GLOBAL_RULES, TURN_CONTEXT_HEADING, buildHistory, buildTutorPrompt, conversationQuery, stripFences, tutorRequest, type TutorPromptInput } from "./tutor-prompt";
+import { GLOBAL_RULES, TURN_CONTEXT_END, TURN_CONTEXT_HEADING, buildHistory, buildTutorPrompt, conversationQuery, stripFences, tutorRequest, type TutorPromptInput } from "./tutor-prompt";
 import { TUTOR_TYPE_GUIDANCE, HELP_LEVELS, sanitizeExtraTutorTypes, tutorTypesLabel } from "./pedagogy";
 import { MAX_TUTOR_RULES } from "./tutors";
 
@@ -238,6 +238,7 @@ describe("tutorRequest (prompt cache layout)", () => {
     expect(last.role).toBe("user");
     const blocks = last.content as { text: string }[];
     expect(blocks[0]!.text.startsWith(TURN_CONTEXT_HEADING)).toBe(true);
+    expect(blocks[0]!.text.endsWith(TURN_CONTEXT_END)).toBe(true);
     expect(blocks[0]!.text).toContain("Pistas solicitadas hasta ahora: 2.");
     expect(blocks[1]!.text).toBe("turno 3");
     // The tutor's previous reply ends the cached part.

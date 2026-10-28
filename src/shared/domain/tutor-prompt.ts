@@ -293,6 +293,8 @@ export interface TutorRequestMessage {
 
 /** Heading of the per-turn context inside the student's newest message. */
 export const TURN_CONTEXT_HEADING = "[Contexto de la plataforma para este turno: no lo escribió el estudiante]";
+/** Closes it, so the model never mistakes the student's message for the platform's. */
+export const TURN_CONTEXT_END = "[Fin del contexto de la plataforma. El mensaje que sigue lo escribió el estudiante.]";
 
 /**
  * The request for one tutor turn, laid out so the API reads as much as possible from its cache:
@@ -311,7 +313,7 @@ export function tutorRequest(prompt: TutorPrompt, history: HistoryTurn[]): { sys
       return {
         role: t.role,
         content: [
-          { type: "text", text: `${TURN_CONTEXT_HEADING}\n${prompt.volatile}` },
+          { type: "text", text: `${TURN_CONTEXT_HEADING}\n${prompt.volatile}\n${TURN_CONTEXT_END}` },
           { type: "text", text: t.content },
         ],
       };
