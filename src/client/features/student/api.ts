@@ -33,7 +33,7 @@ export function useStudentLink(token: string) {
       const err = query.state.error;
       if (query.state.status === "error" && err instanceof ApiError && err.status === 404) return false;
       const w = query.state.data?.workspace;
-      const soon = w?.replyPending ? 2000 : w?.feedback?.status === "pending" ? 4000 : 0;
+      const soon = w?.replyPending ? 2000 : w?.feedback?.status === "pending" ? 4000 : w?.filesPending ? 10_000 : 0;
       return soon && query.state.status !== "error" ? soon : 60_000;
     },
     refetchIntervalInBackground: false,

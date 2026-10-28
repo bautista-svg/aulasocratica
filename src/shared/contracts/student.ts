@@ -228,6 +228,8 @@ export interface StudentWorkspace {
     deliverablePrompt: string;
   };
   files: StudentFile[];
+  /** Files the teacher uploaded that are still being read (they show up when ready). */
+  filesPending: number;
   deliverable: StudentDeliverable | null;
   messages: StudentMessage[];
   /** The tutor is still writing a reply on the server (e.g. after a reload mid-reply). */

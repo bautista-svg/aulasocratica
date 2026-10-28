@@ -196,31 +196,65 @@ export function linkWasSeen(token: string): boolean {
   }
 }
 
+/** The element the student screens scroll in (see `useStudentViewport`). */
+export const STUDENT_SCROLLER_ID = "student-scroll";
+export const studentScroller = () => document.getElementById(STUDENT_SCROLLER_ID);
+
+const TEXT_INPUTS = new Set(["text", "search", "email", "url", "tel", "number", "password"]);
+
 /**
- * Keeps `--kb` on <html> equal to the part of the layout viewport hidden by the on-screen
- * keyboard, so `bottom: var(--kb)` keeps the composer above it (iOS / Android).
+ * The student screens scroll inside a box exactly the size of what is visible: on a phone,
+ * what the on-screen keyboard leaves. `--vvh`/`--vvt` on <html> are the visible height and
+ * where it starts, so the box never hides behind the keyboard and the composer, sticky at its
+ * bottom, sits right above it without any extra math (iOS pans the page, Android may resize it;
+ * both end up as the same two numbers). While pinch-zoomed it falls back to the layout height.
+ *
+ * On touch devices `data-typing` on <html> says the keyboard is up: "chat" when the student
+ * writes to the tutor, "other" in any other field, so the page can make room (CSS variants
+ * `typing:` and `typing-other:`).
  */
-export function useKeyboardInset() {
+export function useStudentViewport() {
   useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
     const root = document.documentElement;
+    const vv = window.visualViewport;
     let frame = 0;
-    const update = () => {
+    const measure = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
-        const inset = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-        root.style.setProperty("--kb", `${inset > 60 ? inset : 0}px`);
+        const zoomed = vv ? Math.abs(vv.scale - 1) > 0.01 : true;
+        const height = vv && !zoomed ? vv.height : window.innerHeight;
+        const top = vv && !zoomed ? Math.max(0, vv.offsetTop) : 0;
+        root.style.setProperty("--vvh", `${Math.round(height)}px`);
+        root.style.setProperty("--vvt", `${Math.round(top)}px`);
       });
     };
-    update();
-    vv.addEventListener("resize", update);
-    vv.addEventListener("scroll", update);
+    const coarse = window.matchMedia("(pointer: coarse)").matches;
+    const typing = () => {
+      const el = document.activeElement;
+      const editable =
+        el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && TEXT_INPUTS.has(el.type)) || (el instanceof HTMLElement && el.isContentEditable);
+      if (coarse && editable) root.dataset.typing = el.closest("[data-composer]") ? "chat" : "other";
+      else delete root.dataset.typing;
+    };
+    // After focusout the next element is not focused yet: read it on the next frame.
+    const typingLater = () => requestAnimationFrame(typing);
+    measure();
+    typing();
+    vv?.addEventListener("resize", measure);
+    vv?.addEventListener("scroll", measure);
+    window.addEventListener("resize", measure);
+    document.addEventListener("focusin", typing);
+    document.addEventListener("focusout", typingLater);
     return () => {
       cancelAnimationFrame(frame);
-      vv.removeEventListener("resize", update);
-      vv.removeEventListener("scroll", update);
-      root.style.removeProperty("--kb");
+      vv?.removeEventListener("resize", measure);
+      vv?.removeEventListener("scroll", measure);
+      window.removeEventListener("resize", measure);
+      document.removeEventListener("focusin", typing);
+      document.removeEventListener("focusout", typingLater);
+      root.style.removeProperty("--vvh");
+      root.style.removeProperty("--vvt");
+      delete root.dataset.typing;
     };
   }, []);
 }

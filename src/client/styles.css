@@ -47,6 +47,11 @@
   descent-override: 25%;
 }
 
+/* The on-screen keyboard is up on a touch device (student screens, see useStudentViewport):
+   in the chat composer, or in any other field. */
+@custom-variant typing (:root[data-typing] &);
+@custom-variant typing-other (:root[data-typing="other"] &);
+
 @theme {
   --font-sans: "Figtree", "Figtree Fallback", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Fraunces", "Fraunces Fallback", Georgia, serif;

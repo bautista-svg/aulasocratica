@@ -6,10 +6,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronDown, Download, ExternalLink, FileText, Image as ImageIcon, KeyRound, Lock, Music, X } from "lucide-react";
 import { LogoMark } from "@client/components/brand/logo";
 import { Button } from "@client/components/ui/button";
+import { Spinner } from "@client/components/ui/spinner";
 import { cn } from "@client/lib/cn";
 import type { StudentFile, StudentLinkInfo, StudentWorkspace } from "@shared/contracts/student";
 import { studentApi, studentKey } from "./api";
-import { clearDrafts, readFlag, unsentDrafts, useKeyboardInset, writeFlag } from "./hooks";
+import { clearDrafts, readFlag, STUDENT_SCROLLER_ID, unsentDrafts, useStudentViewport, writeFlag } from "./hooks";
 import { useIntegritySignals } from "./integrity";
 import { ChatStep } from "./chat";
 import { ClosingStep, DoneStep, InitialAnswerStep } from "./steps";
@@ -25,7 +26,7 @@ export function Workspace({ token, info }: { token: string; info: StudentLinkInf
   const t = useT();
   const w = info.workspace;
   const qc = useQueryClient();
-  useKeyboardInset();
+  useStudentViewport();
 
   const closingKey = `as-closing:${token}:${w.resumeCode}`;
   const [closing, setClosingState] = useState(() => readFlag(closingKey));
@@ -100,11 +101,17 @@ export function Workspace({ token, info }: { token: string; info: StudentLinkInf
   };
 
   return (
-    <div className="flex min-h-dvh flex-col bg-paper">
+    // The page scrolls inside this box, sized to what is visible (above the keyboard on a phone).
+    <div
+      id={STUDENT_SCROLLER_ID}
+      className="fixed inset-x-0 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-paper"
+      style={{ top: "var(--vvt, 0px)", height: "var(--vvh, 100dvh)" }}
+    >
+     <div className="flex min-h-full flex-col">
       <Header token={token} workspace={w} onLeft={() => qc.setQueryData(studentKey(token), { ...info, workspace: null })} />
       <div className="mx-auto w-full max-w-6xl flex-1 px-4 pt-4 pb-2 lg:grid lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:gap-10 lg:pt-8">
         {/* On a phone the presentation comes first: the side card waits until the activity starts. */}
-        <aside className={cn("space-y-4 lg:sticky lg:top-22 lg:max-h-[calc(100dvh-7rem)] lg:self-start lg:overflow-y-auto lg:pb-4", view === "intro" && "max-lg:hidden")}>
+        <aside className={cn("space-y-4 lg:sticky lg:top-22 lg:max-h-[calc(var(--vvh,100dvh)-7rem)] lg:self-start lg:overflow-y-auto lg:pb-4", view === "intro" && "max-lg:hidden")}>
           <Progress workspace={w} view={view} />
           <InstructionsCard
             key={view === "initial" ? "initial" : "rest"}
@@ -122,7 +129,7 @@ export function Workspace({ token, info }: { token: string; info: StudentLinkInf
               ) : null
             }
           />
-          {w.files.length ? <FilesCard files={w.files} /> : null}
+          {w.files.length || w.filesPending ? <FilesCard files={w.files} pending={w.filesPending} /> : null}
           {working && !showNewCode ? <CodeCard code={w.resumeCode} className="hidden lg:flex" /> : null}
         </aside>
 
@@ -166,6 +173,7 @@ export function Workspace({ token, info }: { token: string; info: StudentLinkInf
           {view === "done" ? <DoneStep workspace={w} focusHeading={transitioned} linkOpen={!closedMessage} unsent={unsent} /> : null}
         </main>
       </div>
+     </div>
     </div>
   );
 }
@@ -209,7 +217,7 @@ function Header({ token, workspace, onLeft }: { token: string; workspace: Studen
   }
 
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur-sm max-lg:typing:static">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4">
         <LogoMark className="size-8 shrink-0 max-[359px]:hidden" />
         <div className="min-w-0 flex-1 leading-tight">
@@ -393,10 +401,10 @@ function InstructionsCard({
 }
 
 /** Files of the activity. On phones they start folded (one row) so the answer comes first. */
-function FilesCard({ files }: { files: StudentFile[] }) {
+function FilesCard({ files, pending }: { files: StudentFile[]; pending: number }) {
   const t = useT();
   const [open, setOpen] = useState(false);
-  const title = t.ws.filesTitleCount(files.length);
+  const title = t.ws.filesTitleCount(files.length + pending);
   return (
     <section aria-labelledby="files-title" className="rounded-lg border border-line bg-surface shadow-1" data-activity-material>
       <h2 id="files-title" className="hidden px-4 pt-4 text-xs font-bold tracking-wide text-lilac-ink uppercase lg:block">
@@ -452,6 +460,12 @@ function FilesCard({ files }: { files: StudentFile[] }) {
             </li>
           );
         })}
+        {pending ? (
+          <li className="flex items-start gap-2.5 py-3 text-[13px] leading-5 text-text-2" aria-live="polite">
+            <Spinner className="mt-0.5 size-4 shrink-0 text-lilac-ink" />
+            {t.ws.filesPending(pending)}
+          </li>
+        ) : null}
       </ul>
     </section>
   );

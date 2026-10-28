@@ -15,7 +15,7 @@ import type { StudentIntent } from "@shared/domain/pedagogy";
 import { intentText } from "@shared/domain/language";
 import { MAX_VOICE_SECONDS, speakableText } from "@shared/domain/voice";
 import { appendMessages, streamChat, studentKey } from "./api";
-import { draftKey, useDraft } from "./hooks";
+import { draftKey, studentScroller, useDraft } from "./hooks";
 import { StudentMessageBubble, TutorMessage } from "./thread";
 import { canDictate, canSpeak, speechLang, stopSpeaking } from "./voice-support";
 import type { DictationStatus } from "./voice";
@@ -70,8 +70,11 @@ export function ChatStep({
   const [stopKey, setStopKey] = useState(0);
   const [dictation, setDictation] = useState<DictationStatus>({ listening: false, seconds: 0, error: null });
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const nearBottom = useRef(true);
+  // Starts false: a student who just entered stays at the top, where the consigna is; following
+  // the conversation starts with their first message (or, returning, at the latest one).
+  const nearBottom = useRef(false);
   const headingRef = useRef<HTMLHeadingElement | null>(null);
+  const composerRef = useRef<HTMLDivElement | null>(null);
   // Guards against a double Enter/tap before React re-renders.
   const inFlight = useRef(false);
   const busy = overlay !== null;
@@ -83,18 +86,33 @@ export function ChatStep({
   const awaiting = !overlay && last?.role === "user";
   const lastAssistantId = [...serverMessages].reverse().find((m) => m.role === "assistant")?.id;
 
-  // Follow the conversation while the student is at the bottom of the page.
+  // Follow the conversation while the student is at the bottom: on every new message and
+  // streamed piece of the reply, and when the visible area changes size (the keyboard opens or
+  // closes, the composer grows). The page scrolls inside the workspace box, not the window.
   useEffect(() => {
+    const el = studentScroller();
+    if (!el) return;
     const onScroll = () => {
-      nearBottom.current = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 220;
+      nearBottom.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 160;
     };
     onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    el.addEventListener("scroll", onScroll, { passive: true });
+    const resized = new ResizeObserver(() => {
+      if (nearBottom.current) toBottom();
+    });
+    resized.observe(el);
+    if (composerRef.current) resized.observe(composerRef.current);
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      resized.disconnect();
+    };
   }, []);
   // Scrolling to the very end keeps the sticky composer at its natural place (never over the
   // latest message or the "Terminar" row).
-  const toBottom = () => window.scrollTo({ top: document.documentElement.scrollHeight });
+  const toBottom = () => {
+    const el = studentScroller();
+    if (el) el.scrollTop = el.scrollHeight;
+  };
   useLayoutEffect(() => {
     if (nearBottom.current) toBottom();
   }, [serverMessages.length, overlay?.reply, overlay?.phase, awaiting]);
@@ -102,7 +120,10 @@ export function ChatStep({
   // heading gets the focus so screen readers announce where they are.
   useEffect(() => {
     if (focusHeading) headingRef.current?.focus();
-    else if (workspace.messages.length) toBottom();
+    else if (workspace.messages.length) {
+      nearBottom.current = true;
+      toBottom();
+    }
   }, []);
 
   const run = useCallback(
@@ -199,6 +220,8 @@ export function ChatStep({
       clearDraft();
       setPendingIntent(null);
       setInputMode("text");
+      // On a phone the keyboard goes down after sending, so the reply has the whole screen.
+      if (window.matchMedia("(pointer: coarse)").matches) textareaRef.current?.blur();
     }
   }
 
@@ -307,11 +330,18 @@ export function ChatStep({
         {announce}
       </p>
 
+      {/* Sticky at the bottom of the workspace box, which ends right above the keyboard. While the
+          keyboard is up for another field (the consigna's answer) it stays in place, out of the way. */}
       <div
-        className="sticky z-20 -mx-4 mt-4 bg-gradient-to-t from-paper from-75% to-paper/0 px-4 pt-5 pb-[max(env(safe-area-inset-bottom),12px)] lg:mx-0 lg:px-0"
-        style={{ bottom: "var(--kb, 0px)" }}
+        ref={composerRef}
+        data-composer
+        className="sticky bottom-0 z-20 -mx-4 mt-4 bg-gradient-to-t from-paper from-75% to-paper/0 px-4 pt-5 pb-[max(env(safe-area-inset-bottom),12px)] max-lg:typing:pt-3 max-lg:typing:pb-2 max-lg:typing-other:static lg:mx-0 lg:px-0"
       >
-        <div role="group" aria-label={t.chat.helpLabel} className="relative -mx-4 mb-2 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:px-0">
+        <div
+          role="group"
+          aria-label={t.chat.helpLabel}
+          className="relative -mx-4 mb-2 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] max-lg:typing:hidden lg:mx-0 lg:flex-wrap lg:px-0"
+        >
           {INTENT_ORDER.map((k) => (
             <button
               key={k}
@@ -377,6 +407,8 @@ export function ChatStep({
           ) : null}
           <button
             type="submit"
+            // Keeps the focus in the composer while it sends (a phone then closes the keyboard itself).
+            onMouseDown={(e) => e.preventDefault()}
             disabled={busy || !draft.trim()}
             aria-label={busy ? t.chat.sendWait : t.chat.send}
             className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg bg-ink text-white shadow-1 transition-colors hover:bg-ink-hover disabled:bg-line-strong disabled:text-white"
@@ -385,7 +417,7 @@ export function ChatStep({
           </button>
         </form>
 
-        <div id="composer-help" className="mt-1.5 min-h-5 px-1 text-[13px] leading-5" aria-live="polite">
+        <div id="composer-help" className="mt-1.5 min-h-5 px-1 text-[13px] leading-5 max-sm:min-h-0" aria-live="polite">
           {sendError ? (
             <p className="font-medium text-rose" role="alert">
               {sendError}

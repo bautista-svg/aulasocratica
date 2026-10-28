@@ -18,7 +18,7 @@ import {
 } from "@shared/domain/structure";
 import type { Context } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
-import { and, asc, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 import { db, schema } from "../../db/client";
 import { HttpError, badRequest } from "../../lib/errors";
 import { humanCode, normalizeCode, randomToken, safeEqual, sha256 } from "../../lib/crypto";
@@ -584,9 +584,10 @@ export async function buildWorkspace(ctx: StudentCtx, opts: { files?: boolean } 
             kind: schema.activityFiles.kind,
             mimeType: schema.activityFiles.mimeType,
             sizeBytes: schema.activityFiles.sizeBytes,
+            status: schema.activityFiles.processingStatus,
           })
           .from(schema.activityFiles)
-          .where(and(eq(schema.activityFiles.activityId, activity.id), eq(schema.activityFiles.processingStatus, "ready")))
+          .where(and(eq(schema.activityFiles.activityId, activity.id), inArray(schema.activityFiles.processingStatus, ["ready", "pending", "processing"])))
           .orderBy(asc(schema.activityFiles.createdAt))
       : Promise.resolve([]),
     db
@@ -653,7 +654,9 @@ export async function buildWorkspace(ctx: StudentCtx, opts: { files?: boolean } 
               : `/api/s/${encodeURIComponent(activity.linkToken)}/deliverable/file`,
         }
       : null,
-    files: files.map(
+    // Still being read: the student does not see them yet, and is told they are on their way.
+    filesPending: files.filter((f) => f.status !== "ready").length,
+    files: files.filter((f) => f.status === "ready").map(
       (f): StudentFile => ({
         id: f.id,
         name: f.fileName,
