@@ -160,6 +160,10 @@ try {
   ok("recorre más de un archivo", ["html", "css", "js"].filter((k) => replies.join(" ").toLowerCase().includes(k === "js" ? "javascript" : k) || replies.join(" ").includes(`.${k}`)).length >= 2);
   ok("no da la respuesta cuando no sabe", !/(sirve para|lo que hace es|esa línea hace)/i.test(replies[2] ?? ""), (replies[2] ?? "").slice(0, 200));
   ok("no acepta que el alumno ponga las reglas", /docente|profe/i.test(replies[3] ?? ""), (replies[3] ?? "").slice(0, 200));
+  // After «No sé» and «Ni idea» about the same part, the next question is about another one.
+  const cited = (t) => new Set([...(t ?? "").matchAll(/`([^`]+)`/g)].map((m) => m[1]));
+  const before = cited(replies[3]);
+  ok("si no sabe dos veces, pasa a otra parte", [...cited(replies[4])].every((c) => !before.has(c)), (replies[4] ?? "").slice(0, 200));
 
   await sleep(2000);
   const sessionId = (await req(teacher, "GET", `/api/live/${act.id}`)).data.participants?.[0]?.sessionId;
