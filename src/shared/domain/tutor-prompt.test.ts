@@ -281,6 +281,10 @@ describe("when to stop asking", () => {
     const p = buildTutorPrompt({ ...base, closing: { maxQuestions: null, stopWhenAchieved: true, asked: 1 } });
     expect(p.stable).toContain("[[TERMINADO]]");
     expect(p.stable).toMatch(/objetivos de aprendizaje/);
+    expect(p.stable).toMatch(/prioridad sobre las reglas de subir el nivel/);
+    // From the second turn on it is reminded to check before asking more (not on the first one).
+    expect(p.volatile).toMatch(/Antes de responder, revisá/);
+    expect(buildTutorPrompt({ ...base, closing: { maxQuestions: null, stopWhenAchieved: true, asked: 0 } }).volatile).not.toMatch(/Antes de responder/);
     expect(buildTutorPrompt({ ...base, language: "en", closing: { maxQuestions: null, stopWhenAchieved: true, asked: 1 } }).stable).toContain("«Finish»");
   });
 });

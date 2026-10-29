@@ -13,7 +13,7 @@ import { HELP_LEVELS, TUTOR_TYPES, TUTOR_TYPE_GUIDANCE } from "./pedagogy";
 import { voiceTutorRules, type VoiceLanguage } from "./voice";
 import { assembleMaterial, selectMaterial, type MaterialSource } from "./material-select";
 import { MAX_TUTOR_RULES } from "./tutors";
-import { DONE_MARKER } from "./tutor-closing";
+import { DONE_MARKER, MIN_STUDENT_TURNS_TO_CLOSE } from "./tutor-closing";
 
 export interface TutorPromptInput {
   title: string;
@@ -222,10 +222,11 @@ function closingRules(input: TutorPromptInput): string {
   }
   if (c.stopWhenAchieved) {
     lines.push(
-      "- Dejá de preguntar en cuanto el estudiante haya mostrado, con sus palabras y sin que le hayas dado la respuesta, lo que piden los objetivos de aprendizaje y la consigna. " +
-        "No sigas preguntando por las dudas. En ese mensaje no hagas ninguna pregunta (esto tiene prioridad sobre terminar con una pregunta): " +
-        `hacé una devolución breve de lo que mostró bien, en una o dos oraciones, y decile que ya puede tocar ${finishLabel(input)}. ` +
-        `Escribí ${DONE_MARKER} sola en la última línea de ese mensaje (el estudiante no la ve). Usá esa marca solo en ese caso.`,
+      "- TERMINAR AL LOGRARLO: en cuanto el estudiante haya explicado bien, con sus palabras y sin que le hayas dado la respuesta, lo que piden los objetivos de aprendizaje y la consigna, terminá. " +
+        "Alcanza con que lo haya explicado bien una vez: no hace falta que lo aplique a otros casos, que lo profundice ni que lo diga de otra forma. " +
+        "Esto tiene prioridad sobre las reglas de subir el nivel, proponer un caso nuevo y terminar con una pregunta: si ya lo logró, no pidas nada más. " +
+        `Ese mensaje de cierre no tiene preguntas: una devolución breve de lo que mostró bien (una o dos oraciones) y que ya puede tocar ${finishLabel(input)}. ` +
+        `Escribí ${DONE_MARKER} sola en la última línea de ese mensaje (el estudiante no la ve). Usá esa marca solo para cerrar.`,
     );
   }
   return lines.join("\n");
@@ -234,7 +235,13 @@ function closingRules(input: TutorPromptInput): string {
 /** Per turn: which message this is, and the closing one when it is the last. */
 function closingState(input: TutorPromptInput): string {
   const c = input.closing;
-  if (!c || c.maxQuestions === null) return "";
+  if (!c) return "";
+  // Re-read each turn: from the student's second message on, the tutor checks before asking more.
+  const achieved =
+    c.stopWhenAchieved && c.asked >= MIN_STUDENT_TURNS_TO_CLOSE - 1
+      ? `Antes de responder, revisá: ¿ya explicó bien, con sus palabras, lo que piden los objetivos? Si es así, este mensaje es el cierre (sin preguntas y con ${DONE_MARKER} al final). Si todavía no, seguí con una sola pregunta.`
+      : "";
+  if (c.maxQuestions === null) return achieved;
   const n = c.asked + 1;
   if (n >= c.maxQuestions) {
     return (
@@ -242,7 +249,7 @@ function closingState(input: TutorPromptInput): string {
       `Cerrá con una devolución breve: qué mostró bien y qué le conviene repasar, sin dar respuestas. Después decile que toque ${finishLabel(input)} para terminar la actividad.`
     );
   }
-  return `Este es tu mensaje ${n} de ${c.maxQuestions} (máximo que fijó el docente).`;
+  return [`Este es tu mensaje ${n} de ${c.maxQuestions} (máximo que fijó el docente).`, achieved].filter(Boolean).join(" ");
 }
 
 /** One consigna as before; several numbered, with how to go through them. */
