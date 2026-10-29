@@ -217,16 +217,45 @@ export function useStudentViewport() {
   useEffect(() => {
     const root = document.documentElement;
     const vv = window.visualViewport;
-    let frame = 0;
+
+    // Applied right away (not on the next frame): a frame late, the box visibly jumps.
     const measure = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const zoomed = vv ? Math.abs(vv.scale - 1) > 0.01 : true;
-        const height = vv && !zoomed ? vv.height : window.innerHeight;
-        const top = vv && !zoomed ? Math.max(0, vv.offsetTop) : 0;
-        root.style.setProperty("--vvh", `${Math.round(height)}px`);
-        root.style.setProperty("--vvt", `${Math.round(top)}px`);
-      });
+      const zoomed = vv ? Math.abs(vv.scale - 1) > 0.01 : true;
+      const height = vv && !zoomed ? vv.height : window.innerHeight;
+      const top = vv && !zoomed ? Math.max(0, vv.offsetTop) : 0;
+      root.style.setProperty("--vvh", `${Math.round(height)}px`);
+      root.style.setProperty("--vvt", `${Math.round(top)}px`);
+    };
+
+    // iOS: tapping a field near the bottom makes Safari pan the whole page up to keep it above
+    // the keyboard, and the box comes back down a moment later ("se va para arriba y baja").
+    // Safari only pans when the field would end up under the keyboard, so the tap is taken over:
+    // the field is focused while it sits out of view above, and moved back once the box has
+    // shrunk to what the keyboard leaves.
+    const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.userAgent.includes("Macintosh") && navigator.maxTouchPoints > 1);
+    let start: { x: number; y: number } | null = null;
+    let restore = 0;
+    const onTouchStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      start = t && e.touches.length === 1 ? { x: t.clientX, y: t.clientY } : null;
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      const el = e.target;
+      const t = e.changedTouches[0];
+      if (!start || !t || Math.hypot(t.clientX - start.x, t.clientY - start.y) > 10) return;
+      if (!(el instanceof HTMLTextAreaElement) || el.disabled || el.readOnly || document.activeElement === el) return;
+      e.preventDefault();
+      el.style.transform = "translateY(-200vh)";
+      el.focus({ preventScroll: true });
+      const end = el.value.length;
+      el.setSelectionRange(end, end);
+      const back = () => {
+        clearTimeout(restore);
+        vv?.removeEventListener("resize", back);
+        el.style.transform = "";
+      };
+      vv?.addEventListener("resize", back);
+      restore = window.setTimeout(back, 600);
     };
     const coarse = window.matchMedia("(pointer: coarse)").matches;
     const typing = () => {
@@ -245,8 +274,14 @@ export function useStudentViewport() {
     window.addEventListener("resize", measure);
     document.addEventListener("focusin", typing);
     document.addEventListener("focusout", typingLater);
+    if (ios) {
+      document.addEventListener("touchstart", onTouchStart, { passive: true });
+      document.addEventListener("touchend", onTouchEnd, { passive: false });
+    }
     return () => {
-      cancelAnimationFrame(frame);
+      clearTimeout(restore);
+      document.removeEventListener("touchstart", onTouchStart);
+      document.removeEventListener("touchend", onTouchEnd);
       vv?.removeEventListener("resize", measure);
       vv?.removeEventListener("scroll", measure);
       window.removeEventListener("resize", measure);
