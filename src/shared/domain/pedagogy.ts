@@ -32,6 +32,7 @@ export const EVENT_LABELS: Record<string, string> = {
   pasted_text: "Pegó texto copiado fuera de la actividad",
   left_app: "Salió de la actividad (otra pestaña o aplicación)",
   voice_message: "Habló con el tutor por audio",
+  tutor_closed: "El tutor dejó de preguntar",
 };
 
 /** Tutor focus (what kind of thinking it trains). */

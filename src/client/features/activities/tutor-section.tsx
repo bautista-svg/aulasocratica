@@ -1,10 +1,12 @@
 // Tutor configuration of an activity: start from a saved tutor ("Mis tutores") or set the
 // type (up to three combined), help level and teacher indications by hand.
-import { useState } from "react";
+import { useState, type KeyboardEvent } from "react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Bot, Check, ChevronRight } from "lucide-react";
+import { Bot, Check, ChevronRight, Minus, Plus } from "lucide-react";
 import { Button } from "@client/components/ui/button";
+import { Switch } from "@client/components/ui/controls";
+import { MAX_QUESTIONS_RANGE, clampMaxQuestions } from "@shared/domain/tutor-closing";
 import { ConfirmDialog, Dialog } from "@client/components/ui/dialog";
 import { Field, Select, Textarea } from "@client/components/ui/field";
 import { cn } from "@client/lib/cn";
@@ -158,6 +160,8 @@ export function TutorSection({ activity, form }: { activity: ActivityEditorData;
         )}
       </Field>
 
+      <ClosingSettings form={form} />
+
       <TutorTypeDialog
         open={picking}
         onOpenChange={setPicking}
@@ -194,6 +198,92 @@ export function TutorSection({ activity, form }: { activity: ActivityEditorData;
           })
         }
       />
+    </div>
+  );
+}
+
+/** When the tutor stops asking: a cap on its messages and/or closing once the objectives are shown. */
+function ClosingSettings({ form }: { form: ActivityForm }) {
+  const { draft, set, errors } = form;
+  const max = draft.tutorMaxQuestions;
+  return (
+    <section aria-labelledby="closing-title" className="grid gap-4 rounded-md bg-paper px-4 py-4">
+      <div>
+        <h3 id="closing-title" className="text-sm font-semibold text-text">
+          Cuándo deja de preguntar
+        </h3>
+        <p className="mt-0.5 text-[13px] leading-5 text-text-3">
+          Cuando el tutor termina, cierra con una devolución breve y el alumno ve un aviso para tocar «Terminar». Ya no puede seguir escribiéndole.
+        </p>
+      </div>
+      <div className="grid gap-3">
+        <Switch
+          checked={max !== null}
+          onCheckedChange={(v) => set("tutorMaxQuestions", v ? MAX_QUESTIONS_RANGE.suggested : null)}
+          label="Ponerle un máximo de preguntas"
+          description={
+            max !== null
+              ? `Cada mensaje del tutor cuenta como una. En el mensaje ${max} no pregunta más: cierra.`
+              : "Sin máximo: sigue hasta que el alumno toque «Terminar»."
+          }
+        />
+        {max !== null ? <QuestionCount value={max} onChange={(v) => set("tutorMaxQuestions", v)} /> : null}
+        {errors.tutorMaxQuestions ? <p className="text-[13px] font-medium text-rose">{errors.tutorMaxQuestions}</p> : null}
+      </div>
+      <Switch
+        checked={draft.tutorStopWhenAchieved}
+        onCheckedChange={(v) => set("tutorStopWhenAchieved", v)}
+        label="Terminar antes si ya logró los objetivos"
+        description={
+          draft.objectives.trim()
+            ? "El tutor cierra en cuanto el alumno muestra, con sus palabras y sin ayuda, lo que piden los objetivos. No sigue preguntando por las dudas."
+            : "El tutor cierra en cuanto el alumno resuelve la consigna con sus palabras. Si escribís objetivos, se fija en ellos."
+        }
+      />
+    </section>
+  );
+}
+
+function QuestionCount({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const { min, max } = MAX_QUESTIONS_RANGE;
+  const go = (v: number) => onChange(clampMaxQuestions(v));
+  const onKey = (e: KeyboardEvent) => {
+    const to = {
+      ArrowUp: value + 1,
+      ArrowRight: value + 1,
+      ArrowDown: value - 1,
+      ArrowLeft: value - 1,
+      Home: min,
+      End: max,
+    }[e.key];
+    if (to === undefined) return;
+    e.preventDefault();
+    go(to);
+  };
+  const button =
+    "relative inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-surface text-ink shadow-1 transition-colors before:absolute before:-inset-0.5 before:content-[''] hover:bg-sunken disabled:cursor-not-allowed disabled:opacity-40";
+  return (
+    <div className="flex items-center gap-3 rounded-[12px] border border-line bg-surface/60 px-2 py-2 sm:w-fit">
+      <button type="button" tabIndex={-1} className={button} disabled={value <= min} aria-label="Una pregunta menos" onClick={() => go(value - 1)}>
+        <Minus className="size-4" aria-hidden="true" />
+      </button>
+      <div
+        role="spinbutton"
+        tabIndex={0}
+        aria-label="Máximo de preguntas del tutor"
+        aria-valuenow={value}
+        aria-valuemin={min}
+        aria-valuemax={max}
+        aria-valuetext={`${value} preguntas`}
+        onKeyDown={onKey}
+        className="min-w-24 flex-1 rounded-md px-1 text-center focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lilac-ink sm:flex-none"
+      >
+        <span className="font-display text-2xl leading-7 font-semibold text-ink tabular">{value}</span>
+        <span className="ml-1.5 text-sm text-text-2">preguntas</span>
+      </div>
+      <button type="button" tabIndex={-1} className={button} disabled={value >= max} aria-label="Una pregunta más" onClick={() => go(value + 1)}>
+        <Plus className="size-4" aria-hidden="true" />
+      </button>
     </div>
   );
 }

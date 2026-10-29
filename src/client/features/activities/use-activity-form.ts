@@ -25,6 +25,8 @@ export interface ActivityDraft {
   extraTutorTypes: string[];
   helpLevel: HelpLevel;
   tutorRules: string;
+  tutorMaxQuestions: number | null;
+  tutorStopWhenAchieved: boolean;
   requireInitialAnswer: boolean;
   askFinalAnswer: boolean;
   finalQuestion: string;
@@ -53,6 +55,8 @@ export const DRAFT_KEYS = [
   "extraTutorTypes",
   "helpLevel",
   "tutorRules",
+  "tutorMaxQuestions",
+  "tutorStopWhenAchieved",
   "requireInitialAnswer",
   "askFinalAnswer",
   "finalQuestion",
@@ -87,6 +91,8 @@ export function draftFrom(a: ActivityEditorData): ActivityDraft {
     extraTutorTypes: a.extraTutorTypes,
     helpLevel: a.helpLevel,
     tutorRules: a.tutorRules,
+    tutorMaxQuestions: a.tutorMaxQuestions,
+    tutorStopWhenAchieved: a.tutorStopWhenAchieved,
     requireInitialAnswer: a.requireInitialAnswer,
     askFinalAnswer: a.askFinalAnswer,
     finalQuestion: a.finalQuestion,

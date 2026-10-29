@@ -1,6 +1,7 @@
 // Request bodies (zod) and response types of the student API (/api/s/:token/...).
 // Students have no account: identity is their name inside the classroom plus an httpOnly
 // device cookie. The client never sends ids to pick a session.
+import type { TutorDone } from "../domain/tutor-closing";
 import { z } from "zod";
 import { STUDENT_INTENTS, type StudentIntent } from "../domain/pedagogy";
 import type { LinkAvailability } from "../domain/access-rules";
@@ -234,6 +235,8 @@ export interface StudentWorkspace {
   messages: StudentMessage[];
   /** The tutor is still writing a reply on the server (e.g. after a reload mid-reply). */
   replyPending: boolean;
+  /** The tutor stopped asking: it reached the teacher's limit, or the student showed the objectives. */
+  tutorDone: TutorDone | null;
   /** The AI summary of their work, when the activity shares it (null: not shared, or none). */
   feedback: StudentFeedback | null;
 }

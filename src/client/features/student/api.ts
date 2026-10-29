@@ -1,5 +1,6 @@
 // Data access for the student page. The device session lives in an httpOnly cookie; the
 // client only ever sends the link token in the URL.
+import type { TutorDone } from "@shared/domain/tutor-closing";
 import { useQuery, type QueryClient } from "@tanstack/react-query";
 import { api, ApiError, uploadWithProgress } from "@client/lib/api";
 import { rememberLink } from "./hooks";
@@ -82,7 +83,7 @@ export function sendSignal(token: string, body: SignalInput) {
 export interface ChatHandlers {
   onStart: (userMessageId: string | null) => void;
   onDelta: (text: string) => void;
-  onDone: (data: { messageId: string; text: string }) => void;
+  onDone: (data: { messageId: string; text: string; tutorDone: TutorDone | null }) => void;
   onError: (data: { message: string; code: string }) => void;
 }
 
@@ -135,7 +136,8 @@ export async function streamChat(token: string, body: ChatInput, h: ChatHandlers
     else if (event === "delta") h.onDelta(String(p.text ?? ""));
     else if (event === "done") {
       finished = true;
-      h.onDone({ messageId: String(p.messageId), text: String(p.text ?? "") });
+      const done = p.tutorDone === "limit" || p.tutorDone === "achieved" ? p.tutorDone : null;
+      h.onDone({ messageId: String(p.messageId), text: String(p.text ?? ""), tutorDone: done });
     } else if (event === "error") {
       finished = true;
       h.onError({ message: String(p.message ?? "El tutor no pudo responder."), code: String(p.code ?? "error") });

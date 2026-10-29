@@ -25,6 +25,7 @@ import { MAX_TUTOR_TYPES, TUTOR_TYPES } from "../domain/pedagogy";
 import { CLOSING_MESSAGE_MAX, FINAL_QUESTION_MAX, MAX_CONSIGNAS } from "../domain/consignas";
 import type { ActivityLanguage } from "../domain/language";
 import { MAX_TUTOR_RULES, MAX_TUTOR_RULES_WORDS, countWords } from "../domain/tutors";
+import { MAX_QUESTIONS_RANGE } from "../domain/tutor-closing";
 
 export type ActivityStatus = "draft" | "published" | "archived";
 export type HelpLevel = "autonomous" | "moderate" | "intensive";
@@ -104,6 +105,10 @@ export interface ActivityDetail {
   extraTutorTypes: string[];
   helpLevel: HelpLevel;
   tutorRules: string;
+  /** Most messages the tutor writes in each work (null: no limit). */
+  tutorMaxQuestions: number | null;
+  /** The tutor stops as soon as the student shows what the objectives ask. */
+  tutorStopWhenAchieved: boolean;
   tutorId: string | null;
   tutorName: string | null;
   requireInitialAnswer: boolean;
@@ -251,6 +256,13 @@ export const activityPatch = z
     extraTutorTypes: z.array(tutorTypeSchema).max(MAX_TUTOR_TYPES - 1, `Podés combinar hasta ${MAX_TUTOR_TYPES} tipos de tutor.`),
     helpLevel: helpLevelSchema,
     tutorRules: text(ACTIVITY_LIMITS.tutorRules).refine((v) => countWords(v) <= MAX_TUTOR_RULES_WORDS, `Usá hasta ${MAX_TUTOR_RULES_WORDS} palabras.`),
+    tutorMaxQuestions: z
+      .number()
+      .int()
+      .min(MAX_QUESTIONS_RANGE.min, `Poné al menos ${MAX_QUESTIONS_RANGE.min} preguntas.`)
+      .max(MAX_QUESTIONS_RANGE.max, `Poné hasta ${MAX_QUESTIONS_RANGE.max} preguntas.`)
+      .nullable(),
+    tutorStopWhenAchieved: z.boolean(),
     /** Only `null` is accepted here (unlink the saved tutor); to apply one use POST /:id/tutor. */
     tutorId: z.null(),
     requireInitialAnswer: z.boolean(),

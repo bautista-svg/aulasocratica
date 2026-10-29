@@ -676,6 +676,63 @@ describe("tutor chat", () => {
   });
 });
 
+describe("when the tutor stops asking", () => {
+  const lastPrompt = () => textOf((recorded.filter((x) => x.body.stream === true).at(-1)!.body as any).messages.at(-1));
+
+  it("with a limit, the last message closes without a question and later messages are refused", async () => {
+    const s = await joined({ requireInitialAnswer: false, tutorMaxQuestions: 2 });
+    expect(s.workspace.tutorDone).toBeNull();
+    aiMock.text("¿Qué pensás de 2/4?");
+    const first = await chat(s.token, s.cookie, { text: "Hola" });
+    await settleStudentJobs();
+    expect(first.events.at(-1)!.data.tutorDone).toBeNull();
+    expect(lastPrompt()).toMatch(/mensaje 1 de 2/);
+    aiMock.text("Muy bien. Tocá «Terminar».");
+    const second = await chat(s.token, s.cookie, { text: "Son iguales porque es la mitad" });
+    await settleStudentJobs();
+    expect(lastPrompt()).toMatch(/ÚLTIMO MENSAJE/);
+    expect(second.events.at(-1)!.data.tutorDone).toBe("limit");
+    const third = await chat(s.token, s.cookie, { text: "¿Y ahora?" });
+    expect(third.status).toBe(409);
+    expect(third.body.error.code).toBe("tutor_done");
+    expect(await messagesOf(s.session.id)).toHaveLength(4);
+    expect((await call("GET", `/api/s/${s.token}`, { cookie: s.cookie })).body.workspace.tutorDone).toBe("limit");
+    expect((await eventsOf(s.session.id)).find((e) => e.eventType === "tutor_closed")!.details).toEqual({ achieved: false });
+  });
+
+  it("closes early when the tutor marks the objectives as shown, hiding the mark", async () => {
+    const s = await joined({ requireInitialAnswer: false, tutorStopWhenAchieved: true });
+    // On the first turn the mark does not count: the student has barely started.
+    aiMock.text("¿Por qué?\n[[TERMINADO]]");
+    const early = await chat(s.token, s.cookie, { text: "Son iguales" });
+    await settleStudentJobs();
+    expect(early.events.at(-1)!.data).toMatchObject({ text: "¿Por qué?", tutorDone: null });
+    expect((recorded.filter((x) => x.body.stream === true).at(-1)!.body as any).system[0].text).toMatch(/\[\[TERMINADO\]\]/);
+    aiMock.text("¡Excelente! Ya podés tocar «Terminar».\n[[TERMINADO]]");
+    const done = await chat(s.token, s.cookie, { text: "Si partís en 4 y tomás 2 es lo mismo que partir en 2 y tomar 1" });
+    const deltas = done.events.filter((e) => e.event === "delta").map((e) => e.data.text).join("");
+    expect(deltas).not.toMatch(/TERMINADO/);
+    expect(done.events.at(-1)!.data).toMatchObject({ text: "¡Excelente! Ya podés tocar «Terminar».", tutorDone: "achieved" });
+    const saved = (await messagesOf(s.session.id)).at(-1)!;
+    expect(saved.content).toBe("¡Excelente! Ya podés tocar «Terminar».");
+    await settleStudentJobs();
+    expect((await chat(s.token, s.cookie, { text: "Hola" })).body.error.code).toBe("tutor_done");
+    // Turning the setting off lets the student keep talking.
+    await db.update(schema.activities).set({ tutorStopWhenAchieved: false }).where(eq(schema.activities.id, s.activity.id));
+    aiMock.text("¿Qué más querés pensar?");
+    expect((await chat(s.token, s.cookie, { text: "Hola" })).events.at(-1)!.event).toBe("done");
+  });
+
+  it("the teacher sets both in the activity", async () => {
+    const s = await setup();
+    const patch = await call("PATCH", `/api/activities/${s.activity.id}`, { cookie: s.teacher.cookie, body: { tutorMaxQuestions: 8, tutorStopWhenAchieved: true } });
+    expect(patch.status).toBe(200);
+    expect(patch.body.activity).toMatchObject({ tutorMaxQuestions: 8, tutorStopWhenAchieved: true });
+    const bad = await call("PATCH", `/api/activities/${s.activity.id}`, { cookie: s.teacher.cookie, body: { tutorMaxQuestions: 1 } });
+    expect(bad.status).toBe(400);
+  });
+});
+
 describe("closing and completion", () => {
   it("closing + final answer + reflection completes the session with a question snapshot", async () => {
     const questions = [

@@ -21,6 +21,7 @@ const TIMELINE_EVENTS = new Set([
   "ended_by_teacher",
   "pasted_text",
   "left_app",
+  "tutor_closed",
 ]);
 
 export function eventText(e: SessionEvent): string {
@@ -30,6 +31,7 @@ export function eventText(e: SessionEvent): string {
   if (e.eventType === "session_entered" && e.details.fromRoster === true) return "Entró con un nombre de la lista del aula";
   if (e.eventType === "pasted_text" && typeof e.details.chars === "number") return `${base} (${e.details.chars} caracteres)`;
   if (e.eventType === "deliverable_uploaded" && e.details.replaced === true) return "Cambió su archivo de entrega";
+  if (e.eventType === "tutor_closed") return e.details.achieved === true ? "El tutor cerró: mostró lo que pedían los objetivos" : "El tutor cerró: llegó al máximo de preguntas";
   if (e.eventType === "left_app" && typeof e.details.away_ms === "number") return `${base} durante ${formatAway(e.details.away_ms)}`;
   return base;
 }

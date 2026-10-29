@@ -260,3 +260,27 @@ describe("tutorRequest (prompt cache layout)", () => {
     expect(JSON.stringify(r.messages)).not.toContain("cache_control");
   });
 });
+
+describe("when to stop asking", () => {
+  it("says nothing when the teacher set no limit", () => {
+    const p = buildTutorPrompt({ ...base, closing: { maxQuestions: null, stopWhenAchieved: false, asked: 3 } });
+    expect(p.stable).not.toContain("CUÁNDO DEJAR DE PREGUNTAR");
+    expect(p.volatile).not.toMatch(/mensaje \d+ de/);
+  });
+
+  it("counts the tutor's messages per turn and closes on the last one, keeping the cached part stable", () => {
+    const at = (asked: number) => buildTutorPrompt({ ...base, closing: { maxQuestions: 5, stopWhenAchieved: false, asked } });
+    expect(at(0).stable).toContain("como máximo 5 mensajes");
+    expect(at(0).stable).toEqual(at(3).stable);
+    expect(at(2).volatile).toContain("Este es tu mensaje 3 de 5");
+    expect(at(4).volatile).toMatch(/ÚLTIMO MENSAJE.*No hagas ninguna pregunta/);
+    expect(at(4).volatile).toContain("«Terminar»");
+  });
+
+  it("explains the closing mark when the tutor may stop once the objectives are shown", () => {
+    const p = buildTutorPrompt({ ...base, closing: { maxQuestions: null, stopWhenAchieved: true, asked: 1 } });
+    expect(p.stable).toContain("[[TERMINADO]]");
+    expect(p.stable).toMatch(/objetivos de aprendizaje/);
+    expect(buildTutorPrompt({ ...base, language: "en", closing: { maxQuestions: null, stopWhenAchieved: true, asked: 1 } }).stable).toContain("«Finish»");
+  });
+});

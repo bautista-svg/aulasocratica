@@ -223,6 +223,10 @@ export const activities = pgTable(
     extraTutorTypes: jsonb("extra_tutor_types").notNull().default(sql`'[]'::jsonb`),
     helpLevel: text("help_level").notNull().default("moderate"),
     tutorRules: text("tutor_rules").notNull().default(""),
+    /** Most messages the tutor writes in each work (null: no limit). See domain/tutor-closing.ts. */
+    tutorMaxQuestions: integer("tutor_max_questions"),
+    /** The tutor stops as soon as the student shows what the objectives ask. */
+    tutorStopWhenAchieved: boolean("tutor_stop_when_achieved").notNull().default(false),
     tutorId: uuid("tutor_id").references(() => tutors.id, { onDelete: "set null" }),
     requireInitialAnswer: boolean("require_initial_answer").notNull().default(true),
     /** Whether the closing step asks for a final answer, and with which question ("" = the default one). */
@@ -352,6 +356,8 @@ export const learningSessions = pgTable(
     /** Short code the student uses to continue on another device. */
     resumeCode: text("resume_code").notNull(),
     endedByTeacher: boolean("ended_by_teacher").notNull().default(false),
+    /** The tutor judged the objectives achieved and closed (counts only with `tutorStopWhenAchieved`). */
+    tutorAchievedAt: timestamp("tutor_achieved_at", { withTimezone: true }),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
     lastActivityAt: timestamp("last_activity_at", { withTimezone: true }).notNull().defaultNow(),
     completedAt: timestamp("completed_at", { withTimezone: true }),

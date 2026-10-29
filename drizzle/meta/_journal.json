@@ -155,6 +155,13 @@
       "when": 1793210783560,
       "tag": "0021_divisions",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1793275049778,
+      "tag": "0022_white_baron_strucker",
+      "breakpoints": true
     }
   ]
 }

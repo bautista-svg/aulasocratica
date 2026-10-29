@@ -3,7 +3,7 @@
 // typing continues but sending waits; on any error the text stays).
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowUp, Flag, RotateCcw } from "lucide-react";
+import { ArrowUp, Flag, MessageCircleCheck, RotateCcw, Sparkles } from "lucide-react";
 import { Button } from "@client/components/ui/button";
 import { Textarea } from "@client/components/ui/field";
 import { Spinner } from "@client/components/ui/spinner";
@@ -14,7 +14,7 @@ import { MAX_CHAT_CHARS } from "@shared/contracts/student-limits";
 import type { StudentIntent } from "@shared/domain/pedagogy";
 import { intentText } from "@shared/domain/language";
 import { MAX_VOICE_SECONDS, speakableText } from "@shared/domain/voice";
-import { appendMessages, streamChat, studentKey } from "./api";
+import { appendMessages, streamChat, studentKey, updateWorkspace } from "./api";
 import { draftKey, studentScroller, useDraft } from "./hooks";
 import { StudentMessageBubble, TutorMessage } from "./thread";
 import { canDictate, canSpeak, speechLang, stopSpeaking } from "./voice-support";
@@ -78,6 +78,7 @@ export function ChatStep({
   // Guards against a double Enter/tap before React re-renders.
   const inFlight = useRef(false);
   const busy = overlay !== null;
+  const done = overlay ? null : workspace.tutorDone;
 
   const serverMessages = overlay?.userMessageId
     ? workspace.messages.filter((m) => m.id !== overlay.userMessageId)
@@ -152,11 +153,12 @@ export function ChatStep({
             setOverlay((o) => (o ? { ...o, userMessageId: id, phase: "thinking" } : o));
           },
           onDelta: (d) => setOverlay((o) => (o ? { ...o, reply: o.reply + d, phase: "streaming" } : o)),
-          onDone: ({ messageId, text }) => {
+          onDone: ({ messageId, text, tutorDone }) => {
             appendMessages(qc, token, [
               ...userMessage(),
               { id: messageId, role: "assistant", content: text, intent: null, inputMode: "text", createdAt: new Date().toISOString() },
             ]);
+            if (tutorDone) updateWorkspace(qc, token, (w) => ({ ...w, tutorDone }));
             setOverlay(null);
             setAnnounce(t.chat.tutorReplied(speakableText(text)));
           },
@@ -175,7 +177,7 @@ export function ChatStep({
             if (restore.intent) setPendingIntent(restore.intent);
             setInputMode(restore.mode);
           }
-          if (err instanceof ApiError && ["unavailable", "no_session", "read_only", "initial_required"].includes(err.code)) {
+          if (err instanceof ApiError && ["unavailable", "no_session", "read_only", "initial_required", "tutor_done"].includes(err.code)) {
             void qc.invalidateQueries({ queryKey: studentKey(token) });
           }
           setSendError(
@@ -317,14 +319,16 @@ export function ChatStep({
         ) : null}
       </ol>
 
-      <div className="mt-8 flex flex-col items-start gap-2 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-text-2">
-          {!workspace.activity.askFinalAnswer ? t.chat.finishHintNoAnswer : nothingYet ? t.chat.finishHintEmpty : t.chat.finishHint}
-        </p>
-        <Button variant="secondary" className="h-11 shrink-0" icon={<Flag className="size-4" />} disabled={busy} onClick={onFinish}>
-          {t.chat.finish}
-        </Button>
-      </div>
+      {done ? null : (
+        <div className="mt-8 flex flex-col items-start gap-2 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-text-2">
+            {!workspace.activity.askFinalAnswer ? t.chat.finishHintNoAnswer : nothingYet ? t.chat.finishHintEmpty : t.chat.finishHint}
+          </p>
+          <Button variant="secondary" className="h-11 shrink-0" icon={<Flag className="size-4" />} disabled={busy} onClick={onFinish}>
+            {t.chat.finish}
+          </Button>
+        </div>
+      )}
 
       <p className="sr-only" aria-live="polite" aria-atomic="true">
         {announce}
@@ -337,103 +341,129 @@ export function ChatStep({
         data-composer
         className="sticky bottom-0 z-20 -mx-4 mt-4 bg-gradient-to-t from-paper from-75% to-paper/0 px-4 pt-5 pb-[max(env(safe-area-inset-bottom),12px)] max-lg:typing:pt-3 max-lg:typing:pb-2 max-lg:typing-other:static lg:mx-0 lg:px-0"
       >
-        <div
-          role="group"
-          aria-label={t.chat.helpLabel}
-          className="relative -mx-4 mb-2 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] max-lg:typing:hidden lg:mx-0 lg:flex-wrap lg:px-0"
-        >
-          {INTENT_ORDER.map((k) => (
-            <button
-              key={k}
-              type="button"
-              disabled={busy}
-              onClick={() => pickIntent(k)}
-              className="inline-flex h-11 shrink-0 items-center rounded-full border border-line-strong bg-surface px-4 text-sm font-medium whitespace-nowrap text-ink shadow-1 transition-colors hover:border-lilac-ink/50 hover:bg-lilac-soft disabled:opacity-50"
-            >
-              {intentText(k, uiLang).label}
-            </button>
-          ))}
-        </div>
-
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            submitComposer();
-          }}
-          className="flex items-end gap-1.5 rounded-xl border border-line-strong bg-surface p-1.5 shadow-2 transition-[border-color,box-shadow] focus-within:border-lilac-ink focus-within:ring-4 focus-within:ring-lilac/20"
-        >
-          <label htmlFor="composer" className="sr-only">
-            {t.chat.composerLabel}
-          </label>
-          <Textarea
-            id="composer"
-            ref={textareaRef}
-            value={draft}
-            minRows={1}
-            maxRows={6}
-            enterKeyHint="send"
-            placeholder={busy ? t.chat.placeholderBusy : t.chat.placeholder}
-            aria-describedby="composer-help"
-            onChange={(e) => {
-              const v = e.target.value;
-              setDraft(v);
-              if (dictation.listening) setStopKey((k) => k + 1);
-              if (pendingIntent && !v.trim().startsWith(intentText(pendingIntent, uiLang).message)) setPendingIntent(null);
-              if (!v.trim()) setInputMode("text");
-              if (sendError) setSendError(null);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-                e.preventDefault();
-                submitComposer();
-              }
-            }}
-            className="min-w-0 flex-1 border-0 bg-transparent px-2.5 shadow-none hover:border-0 focus:ring-0"
-          />
-          {dictationOk ? (
-            <Suspense fallback={<span className="size-11 shrink-0" />}>
-              <DictationButton
-                lang={lang}
-                disabled={busy}
-                stopKey={stopKey}
-                getBase={() => textareaRef.current?.value ?? draft}
-                onTranscript={(text) => {
-                  setDraft(text);
-                  setInputMode("voice");
-                }}
-                onStatus={setDictation}
-              />
-            </Suspense>
-          ) : null}
-          <button
-            type="submit"
-            // Keeps the focus in the composer while it sends (a phone then closes the keyboard itself).
-            onMouseDown={(e) => e.preventDefault()}
-            disabled={busy || !draft.trim()}
-            aria-label={busy ? t.chat.sendWait : t.chat.send}
-            className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg bg-ink text-white shadow-1 transition-colors hover:bg-ink-hover disabled:bg-line-strong disabled:text-white"
+        {done ? (
+          // The tutor stopped asking (the teacher's limit, or the objectives shown): no composer, only the way out.
+          <div role="status" className="flex flex-col gap-3 rounded-xl border border-line-strong bg-surface p-4 shadow-2 sm:flex-row sm:items-center sm:gap-4">
+            <div className="flex min-w-0 flex-1 items-start gap-3">
+              <span
+                className={cn(
+                  "inline-flex size-10 shrink-0 items-center justify-center rounded-full",
+                  done === "achieved" ? "bg-leaf-soft text-leaf" : "bg-lilac-soft text-lilac-ink",
+                )}
+                aria-hidden="true"
+              >
+                {done === "achieved" ? <Sparkles className="size-5" /> : <MessageCircleCheck className="size-5" />}
+              </span>
+              <div className="min-w-0">
+                <p className="font-display text-[17px] leading-6 font-semibold text-ink">{done === "achieved" ? t.chat.doneAchieved : t.chat.doneLimit}</p>
+                <p className="mt-0.5 text-sm leading-5 text-text-2">{t.chat.doneNext(workspace.activity.askFinalAnswer)}</p>
+              </div>
+            </div>
+            <Button className="h-11 w-full shrink-0 sm:w-auto" icon={<Flag className="size-4" />} onClick={onFinish}>
+              {t.chat.finish}
+            </Button>
+          </div>
+        ) : (
+          <>
+          <div
+            role="group"
+            aria-label={t.chat.helpLabel}
+            className="relative -mx-4 mb-2 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] max-lg:typing:hidden lg:mx-0 lg:flex-wrap lg:px-0"
           >
-            {busy ? <Spinner className="size-4" /> : <ArrowUp className="size-5" aria-hidden="true" />}
-          </button>
-        </form>
+            {INTENT_ORDER.map((k) => (
+              <button
+                key={k}
+                type="button"
+                disabled={busy}
+                onClick={() => pickIntent(k)}
+                className="inline-flex h-11 shrink-0 items-center rounded-full border border-line-strong bg-surface px-4 text-sm font-medium whitespace-nowrap text-ink shadow-1 transition-colors hover:border-lilac-ink/50 hover:bg-lilac-soft disabled:opacity-50"
+              >
+                {intentText(k, uiLang).label}
+              </button>
+            ))}
+          </div>
 
-        <div id="composer-help" className="mt-1.5 min-h-5 px-1 text-[13px] leading-5 max-sm:min-h-0" aria-live="polite">
-          {sendError ? (
-            <p className="font-medium text-rose" role="alert">
-              {sendError}
-            </p>
-          ) : dictation.listening ? (
-            <p className="text-rose">{t.chat.listening(fmtSec(dictation.seconds), fmtSec(MAX_VOICE_SECONDS))}</p>
-          ) : dictation.error ? (
-            <p className="text-rose">{dictation.error}</p>
-          ) : draft.length > MAX_CHAT_CHARS - 300 ? (
-            <p className={cn("tabular", draft.trim().length > MAX_CHAT_CHARS ? "font-medium text-rose" : "text-text-3")}>
-              {t.chat.charCount(draft.trim().length, MAX_CHAT_CHARS)}
-            </p>
-          ) : (
-            <p className="hidden text-text-3 sm:block">{t.chat.enterHint}</p>
-          )}
-        </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              submitComposer();
+            }}
+            className="flex items-end gap-1.5 rounded-xl border border-line-strong bg-surface p-1.5 shadow-2 transition-[border-color,box-shadow] focus-within:border-lilac-ink focus-within:ring-4 focus-within:ring-lilac/20"
+          >
+            <label htmlFor="composer" className="sr-only">
+              {t.chat.composerLabel}
+            </label>
+            <Textarea
+              id="composer"
+              ref={textareaRef}
+              value={draft}
+              minRows={1}
+              maxRows={6}
+              enterKeyHint="send"
+              placeholder={busy ? t.chat.placeholderBusy : t.chat.placeholder}
+              aria-describedby="composer-help"
+              onChange={(e) => {
+                const v = e.target.value;
+                setDraft(v);
+                if (dictation.listening) setStopKey((k) => k + 1);
+                if (pendingIntent && !v.trim().startsWith(intentText(pendingIntent, uiLang).message)) setPendingIntent(null);
+                if (!v.trim()) setInputMode("text");
+                if (sendError) setSendError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  submitComposer();
+                }
+              }}
+              className="min-w-0 flex-1 border-0 bg-transparent px-2.5 shadow-none hover:border-0 focus:ring-0"
+            />
+            {dictationOk ? (
+              <Suspense fallback={<span className="size-11 shrink-0" />}>
+                <DictationButton
+                  lang={lang}
+                  disabled={busy}
+                  stopKey={stopKey}
+                  getBase={() => textareaRef.current?.value ?? draft}
+                  onTranscript={(text) => {
+                    setDraft(text);
+                    setInputMode("voice");
+                  }}
+                  onStatus={setDictation}
+                />
+              </Suspense>
+            ) : null}
+            <button
+              type="submit"
+              // Keeps the focus in the composer while it sends (a phone then closes the keyboard itself).
+              onMouseDown={(e) => e.preventDefault()}
+              disabled={busy || !draft.trim()}
+              aria-label={busy ? t.chat.sendWait : t.chat.send}
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg bg-ink text-white shadow-1 transition-colors hover:bg-ink-hover disabled:bg-line-strong disabled:text-white"
+            >
+              {busy ? <Spinner className="size-4" /> : <ArrowUp className="size-5" aria-hidden="true" />}
+            </button>
+          </form>
+
+          <div id="composer-help" className="mt-1.5 min-h-5 px-1 text-[13px] leading-5 max-sm:min-h-0" aria-live="polite">
+            {sendError ? (
+              <p className="font-medium text-rose" role="alert">
+                {sendError}
+              </p>
+            ) : dictation.listening ? (
+              <p className="text-rose">{t.chat.listening(fmtSec(dictation.seconds), fmtSec(MAX_VOICE_SECONDS))}</p>
+            ) : dictation.error ? (
+              <p className="text-rose">{dictation.error}</p>
+            ) : draft.length > MAX_CHAT_CHARS - 300 ? (
+              <p className={cn("tabular", draft.trim().length > MAX_CHAT_CHARS ? "font-medium text-rose" : "text-text-3")}>
+                {t.chat.charCount(draft.trim().length, MAX_CHAT_CHARS)}
+              </p>
+            ) : (
+              <p className="hidden text-text-3 sm:block">{t.chat.enterHint}</p>
+            )}
+          </div>
+          </>
+        )}
       </div>
     </section>
   );

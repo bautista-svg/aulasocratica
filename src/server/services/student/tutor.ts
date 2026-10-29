@@ -31,6 +31,7 @@ import { runInBackground } from "./background";
 import { sanitizeMoreInstructions } from "@shared/domain/consignas";
 import { intentMessages, languageOf } from "@shared/domain/language";
 import { courseOf } from "../sessions/ai";
+import { MIN_STUDENT_TURNS_TO_CLOSE, markerFilter, stripDoneMarker, tutorDoneReason, type TutorDone } from "@shared/domain/tutor-closing";
 
 export const CHAT_LIMIT = { perSession: 20, windowMs: 5 * 60_000 };
 export const HISTORY_LIMIT = 40;
@@ -99,6 +100,11 @@ export async function tutorChat(c: Context, ctx: StudentCtx, body: ChatBody): Pr
       throw new HttpError(429, "Llegaste al máximo de mensajes con el tutor por hoy en esta actividad. Avisale a tu docente.", "student_quota");
     }
     anthropic(); // 503 before storing anything when the AI is not configured
+    const turns = await turnCounts(session.id);
+    const closing = { maxQuestions: activity.tutorMaxQuestions, stopWhenAchieved: activity.tutorStopWhenAchieved, asked: turns.tutor };
+    if (tutorDoneReason({ ...closing, achieved: session.tutorAchievedAt !== null })) {
+      throw new HttpError(409, "El tutor ya terminó sus preguntas. Tocá «Terminar» para cerrar la actividad.", "tutor_done");
+    }
 
     let userMessageId: string | null = null;
     let userText = "";
@@ -186,6 +192,7 @@ export async function tutorChat(c: Context, ctx: StudentCtx, body: ChatBody): Pr
       requireInitialAnswer: activity.requireInitialAnswer,
       initialAnswer: state.initialAnswer,
       hintCount: state.hintCount,
+      closing,
       recentConversation: conversationQuery(history, state.initialAnswer, activity.instructions),
     });
     const { system, messages } = tutorRequest(prompt, history);
@@ -205,7 +212,7 @@ export async function tutorChat(c: Context, ctx: StudentCtx, body: ChatBody): Pr
         : null;
 
     handedOff = true;
-    return streamReply(c, ctx, { system, messages, userMessageId, detectAfter });
+    return streamReply(c, ctx, { system, messages, userMessageId, detectAfter, closing, studentTurns: turns.student + (userMessageId ? 1 : 0) });
   } finally {
     if (!handedOff) releaseStream(session.id);
   }
@@ -219,6 +226,8 @@ function streamReply(
     messages: Anthropic.MessageParam[];
     userMessageId: string | null;
     detectAfter: Parameters<typeof detectAlerts>[0] | null;
+    closing: { maxQuestions: number | null; stopWhenAchieved: boolean; asked: number };
+    studentTurns: number;
   },
 ): Response {
   const { activity, session } = ctx;
@@ -258,6 +267,8 @@ function streamReply(
     try {
       await send("start", { userMessageId: opts.userMessageId });
       let final: Anthropic.Message;
+      // The closing marker never reaches the student, not even for a moment.
+      const visible = markerFilter();
       try {
         const stream = anthropic().messages.stream({
           model: MODEL,
@@ -269,8 +280,10 @@ function streamReply(
         });
         for await (const event of stream) {
           if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-            draft.text += event.delta.text;
-            await send("delta", { text: event.delta.text });
+            const shown = visible.push(event.delta.text);
+            if (!shown) continue;
+            draft.text += shown;
+            await send("delta", { text: shown });
             if (Date.now() - draft.lastFlush >= FLUSH_EVERY_MS) {
               draft.lastFlush = Date.now();
               flush();
@@ -289,7 +302,8 @@ function streamReply(
       }
 
       await recordUsage(usageCtx, final.usage, true);
-      let text = draft.text.trim();
+      const marked = stripDoneMarker(draft.text + visible.end());
+      let text = marked.text.trim();
       if (final.stop_reason === "refusal") {
         log.info("tutor_refusal", { sessionId: session.id, category: final.stop_details?.category ?? null });
         text = languageOf(activity.language) === "en" ? REPLIES_EN.refusal : REFUSAL_REPLY;
@@ -308,8 +322,9 @@ function streamReply(
           .returning({ id: schema.messages.id });
         messageId = row!.id;
       }
+      const tutorDone = await afterReply(session.id, opts.closing, opts.studentTurns, marked.found || visible.found);
       publish(activity.id, "message", session.id);
-      await send("done", { messageId, text });
+      await send("done", { messageId, text, tutorDone });
     } catch (err) {
       // Database trouble mid-reply: tell the student honestly; their message is saved.
       log.error("tutor_chat_failed", { sessionId: session.id, ...errorFields(err) });
@@ -324,4 +339,35 @@ function streamReply(
       }
     }
   });
+}
+
+/** Messages already in the conversation: the tutor's (for the limit) and the student's. */
+async function turnCounts(sessionId: string): Promise<{ tutor: number; student: number }> {
+  const [row] = await db
+    .select({
+      tutor: sql<number>`count(*) filter (where messages.role = 'assistant')::int`,
+      student: sql<number>`count(*) filter (where messages.role = 'user')::int`,
+    })
+    .from(schema.messages)
+    .where(and(eq(schema.messages.sessionId, sessionId), eq(schema.messages.isPartial, false)));
+  return { tutor: row?.tutor ?? 0, student: row?.student ?? 0 };
+}
+
+/**
+ * After a saved reply: whether the tutor is done in this work. A closing marker counts only when
+ * the teacher asked for it and the student already wrote a few messages (never on the first turn).
+ */
+async function afterReply(
+  sessionId: string,
+  closing: { maxQuestions: number | null; stopWhenAchieved: boolean; asked: number },
+  studentTurns: number,
+  marked: boolean,
+): Promise<TutorDone | null> {
+  const achieved = marked && closing.stopWhenAchieved && studentTurns >= MIN_STUDENT_TURNS_TO_CLOSE;
+  if (achieved) {
+    await db.update(schema.learningSessions).set({ tutorAchievedAt: new Date() }).where(eq(schema.learningSessions.id, sessionId));
+  }
+  const done = tutorDoneReason({ ...closing, asked: closing.asked + 1, achieved });
+  if (done) await recordEvent(sessionId, "tutor_closed", { achieved: done === "achieved" });
+  return done;
 }

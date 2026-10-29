@@ -13,6 +13,7 @@ import { HELP_LEVELS, TUTOR_TYPES, TUTOR_TYPE_GUIDANCE } from "./pedagogy";
 import { voiceTutorRules, type VoiceLanguage } from "./voice";
 import { assembleMaterial, selectMaterial, type MaterialSource } from "./material-select";
 import { MAX_TUTOR_RULES } from "./tutors";
+import { DONE_MARKER } from "./tutor-closing";
 
 export interface TutorPromptInput {
   title: string;
@@ -46,6 +47,8 @@ export interface TutorPromptInput {
   requireInitialAnswer: boolean;
   initialAnswer: string | null;
   hintCount: number;
+  /** When the tutor stops asking (the teacher's settings and how many messages it already wrote). */
+  closing?: { maxQuestions: number | null; stopWhenAchieved: boolean; asked: number };
   /** Recent conversation text: the query used to pick excerpts of long material. */
   recentConversation: string;
   /** Overrides for tests (defaults: FULL_MATERIAL_CHARS / EXCERPT_BUDGET_CHARS). */
@@ -130,6 +133,7 @@ export function buildTutorPrompt(input: TutorPromptInput): TutorPrompt {
         fence("DOCENTE", teacherRules),
     );
   }
+  stable.push(closingRules(input));
   stable.push(
     "\n## ACTIVIDAD",
     section("Título", input.title),
@@ -193,12 +197,52 @@ export function buildTutorPrompt(input: TutorPromptInput): TutorPrompt {
     }
   }
   volatile.push(`Pistas solicitadas hasta ahora: ${Math.max(0, input.hintCount)}.`);
+  const state = closingState(input);
+  if (state) volatile.push(state);
 
   return {
     stable: stable.filter(Boolean).join("\n"),
     volatile: volatile.join("\n"),
     materialMode: selection.mode,
   };
+}
+
+const finishLabel = (input: TutorPromptInput) => (input.language === "en" ? "«Finish»" : "«Terminar»");
+
+/** The teacher's limits on how long the tutor keeps asking (stable part: no counters here). */
+function closingRules(input: TutorPromptInput): string {
+  const c = input.closing;
+  if (!c || (c.maxQuestions === null && !c.stopWhenAchieved)) return "";
+  const lines = ["\n## CUÁNDO DEJAR DE PREGUNTAR (lo decidió el docente)"];
+  if (c.maxQuestions !== null) {
+    lines.push(
+      `- Tenés como máximo ${c.maxQuestions} mensajes en toda la conversación. Repartilos para cubrir lo más importante de los objetivos y la consigna: ` +
+        "no gastes mensajes en lo secundario ni repreguntes de más. En cada turno, ESTADO DEL ESTUDIANTE dice cuántos llevás.",
+    );
+  }
+  if (c.stopWhenAchieved) {
+    lines.push(
+      "- Dejá de preguntar en cuanto el estudiante haya mostrado, con sus palabras y sin que le hayas dado la respuesta, lo que piden los objetivos de aprendizaje y la consigna. " +
+        "No sigas preguntando por las dudas. En ese mensaje no hagas ninguna pregunta (esto tiene prioridad sobre terminar con una pregunta): " +
+        `hacé una devolución breve de lo que mostró bien, en una o dos oraciones, y decile que ya puede tocar ${finishLabel(input)}. ` +
+        `Escribí ${DONE_MARKER} sola en la última línea de ese mensaje (el estudiante no la ve). Usá esa marca solo en ese caso.`,
+    );
+  }
+  return lines.join("\n");
+}
+
+/** Per turn: which message this is, and the closing one when it is the last. */
+function closingState(input: TutorPromptInput): string {
+  const c = input.closing;
+  if (!c || c.maxQuestions === null) return "";
+  const n = c.asked + 1;
+  if (n >= c.maxQuestions) {
+    return (
+      `ÚLTIMO MENSAJE: es tu mensaje ${c.maxQuestions} de ${c.maxQuestions}, el máximo que fijó el docente. No hagas ninguna pregunta (esto tiene prioridad sobre terminar con una pregunta). ` +
+      `Cerrá con una devolución breve: qué mostró bien y qué le conviene repasar, sin dar respuestas. Después decile que toque ${finishLabel(input)} para terminar la actividad.`
+    );
+  }
+  return `Este es tu mensaje ${n} de ${c.maxQuestions} (máximo que fijó el docente).`;
 }
 
 /** One consigna as before; several numbered, with how to go through them. */

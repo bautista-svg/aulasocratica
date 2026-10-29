@@ -6,6 +6,7 @@
 // checked on EVERY request through loadStudentContext / ensureAvailable. The one exception is
 // reading: a device whose work is already finished keeps seeing it (read-only) after the
 // teacher closes the link.
+import { tutorDoneReason } from "@shared/domain/tutor-closing";
 import {
   SECTION_KEYS,
   asksFinalProduction,
@@ -677,6 +678,12 @@ export async function buildWorkspace(ctx: StudentCtx, opts: { files?: boolean } 
       }),
     ),
     replyPending: isStreaming(session.id),
+    tutorDone: tutorDoneReason({
+      maxQuestions: activity.tutorMaxQuestions,
+      stopWhenAchieved: activity.tutorStopWhenAchieved,
+      asked: messages.filter((m) => m.role === "assistant").length,
+      achieved: session.tutorAchievedAt !== null,
+    }),
     feedback,
   };
 }
