@@ -106,11 +106,11 @@ function MaterialsPage() {
                 onClick={() => setFilters((f) => ({ ...f, tag: on ? null : t.name }))}
                 className={cn(
                   "inline-flex h-11 items-center gap-1.5 rounded-full border px-3.5 text-sm font-semibold transition-colors",
-                  on ? "border-ink bg-ink text-white" : "border-line-strong bg-surface text-text-2 hover:border-ink/40 hover:text-ink",
+                  on ? "border-primary bg-primary text-on-primary" : "border-line-strong bg-surface text-text-2 hover:border-ink/40 hover:text-ink",
                 )}
               >
                 #{t.name}
-                <span className={cn("tabular text-xs", on ? "text-white/80" : "text-text-3")}>{t.count}</span>
+                <span className={cn("tabular text-xs", on ? "text-on-primary/80" : "text-text-3")}>{t.count}</span>
               </button>
             );
           })}

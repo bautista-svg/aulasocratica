@@ -463,7 +463,7 @@ function Students({ entries, notEvaluated }: { entries: SkillStudentEntry[]; not
                     onClick={() => setShown((x) => (x === e.sessionId ? null : e.sessionId))}
                     className={cn(
                       "min-h-9 rounded-full border px-3 text-sm font-semibold transition-colors max-sm:min-h-11",
-                      shown === e.sessionId ? "border-ink bg-ink text-white" : "border-line-strong bg-surface text-text hover:border-ink/40",
+                      shown === e.sessionId ? "border-primary bg-primary text-on-primary" : "border-line-strong bg-surface text-text hover:border-ink/40",
                     )}
                   >
                     {e.studentName}

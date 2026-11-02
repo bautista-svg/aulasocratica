@@ -56,9 +56,9 @@ export function PageHeader({
   return (
     <header className={cn("mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between", className)}>
       <div className="min-w-0">
-        {eyebrow ? <div className="mb-1.5 text-sm font-semibold text-lilac-ink">{eyebrow}</div> : null}
-        <h1 className="font-display text-[28px] leading-tight font-semibold text-ink sm:text-[34px]">{title}</h1>
-        {description ? <p className="mt-2 max-w-2xl text-[15px] leading-6 text-text-2">{description}</p> : null}
+        {eyebrow ? <div className="mb-1 text-[13px] font-medium text-lilac-ink">{eyebrow}</div> : null}
+        <h1 className="font-display text-[24px] leading-tight font-semibold tracking-[-0.035em] text-ink sm:text-[26px]">{title}</h1>
+        {description ? <p className="mt-1.5 max-w-2xl text-[14.5px] leading-6 text-text-2">{description}</p> : null}
       </div>
       {actions ? <div className="flex shrink-0 flex-wrap gap-2">{actions}</div> : null}
     </header>
@@ -177,8 +177,8 @@ export function Notice({ tone = "ink", title, children, action, className }: { t
 export function Stat({ label, value, hint }: { label: ReactNode; value: ReactNode; hint?: ReactNode }) {
   return (
     <div className="rounded-md border border-line bg-surface px-4 py-3">
-      <div className="text-xs font-semibold text-text-3">{label}</div>
-      <div className="tabular mt-1 font-display text-2xl font-semibold text-ink">{value}</div>
+      <div className="text-xs font-medium text-text-3">{label}</div>
+      <div className="tabular mt-1 text-[22px] font-semibold tracking-[-0.03em] text-ink">{value}</div>
       {hint ? <div className="mt-0.5 text-xs text-text-3">{hint}</div> : null}
     </div>
   );

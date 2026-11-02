@@ -107,6 +107,7 @@ function SessionPage() {
           {
             value: "evaluacion",
             label: "Evaluación",
+            tour: "trabajo-evaluacion",
             badge: d.rubric.status === "confirmed" ? <Badge tone="leaf">Confirmada</Badge> : undefined,
             content: (
               <EditGuard>

@@ -112,7 +112,26 @@ docs/                Arquitectura, auditoría, informes
 - Textos: castellano rioplatense (voseo), frases cortas, verbos concretos, sin marketing ni afirmaciones que el
   producto no cumpla.
 - Firma visual: las preguntas del tutor se muestran con la clase `.q-hang` (signo "?" lila colgando en el margen),
-  y los recorridos con `.thread`. Fraunces (`font-display`) solo para títulos y preguntas del tutor.
+  y los recorridos con `.thread`. Tipografía: Inter para todo (títulos con tracking negativo) y JetBrains Mono para
+  códigos y números de paso.
+- Temas: claro por defecto y oscuro completo (`lib/theme.ts` pone `data-theme="dark"` en `<html>`; `styles.css`
+  redefine los mismos tokens). `ink` es el color de los títulos y `primary`/`on-primary` el del botón principal y lo
+  elegido: en oscuro se separan (títulos claros, botón lila). Nunca `bg-ink` ni `text-white` para un botón: usar
+  `bg-primary text-on-primary`; sobre fondos fuertes de color (`bg-rose`, `bg-leaf`), `text-surface`.
+- Color de acento: uno para toda la app (`shared/domain/accents.ts`: azul —el predeterminado—, cielo, turquesa, coral,
+  frambuesa, lila, grafito), guardado en `app_settings` (clave `accent`). Lo leen todos (`GET /api/settings/appearance`,
+  también alumnos y la página pública; `lib/theme.ts` lo pone en `<html data-accent>`) y solo lo cambia un docente con
+  `teachers.can_request_changes` (`PUT`, «Elegí el color» al entrar mientras no hay uno elegido, y en Mi espacio). Los
+  tokens siguen llamándose `lilac*`: son «el acento», sea cual sea el color.
+- Navegación (`components/app/shell.tsx`): Inicio · Aulas · Preparar (Actividades, Tutores, Materiales) · En clase
+  (En vivo) · Revisar (Para revisar, Radiografía, Informes). Buscar con Ctrl K (`command-palette.tsx`). Una actividad
+  se trabaja en 4 pasos (`Tabs variant="steps"`: Preparar, Compartir, En vivo, Revisar) más «Avisos».
+- Recorridos guiados (`components/app/tour.tsx`): cada pantalla define el suyo en `features/help/tours.ts` y lo
+  arranca con `useAutoTour(clave, pasos, listo)`; aparece una vez por dispositivo. Los pasos apuntan a elementos
+  marcados con `data-tour="…"`: si movés o renombrás uno de esos elementos, mantené su marca.
+- Ayuda «¿Dónde está…?» (`features/help/assistant.tsx`, `POST /api/help/ask`): la IA responde dónde está algo y elige
+  un lugar de `shared/domain/help-places.ts`; «Llevame» navega y marca el elemento con la misma capa del recorrido.
+  Al agregar o mover una sección, actualizá `help-places.ts` y el `APP_MAP` de `services/requests/prompt.ts`.
 
 ## Modelo de datos (resumen)
 

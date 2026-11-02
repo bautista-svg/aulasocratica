@@ -244,7 +244,7 @@ function Recommendations({ sessionId, list, onError }: { sessionId: string; list
         <ul className="mt-2 space-y-1.5">
           {list.map((r) => (
             <li key={r} className="flex gap-2 text-[15px] leading-6 text-text">
-              <span className="mt-2.5 size-1.5 shrink-0 rounded-full bg-ink" aria-hidden="true" />
+              <span className="mt-2.5 size-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
               {r}
             </li>
           ))}

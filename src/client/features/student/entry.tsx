@@ -212,7 +212,7 @@ function DivisionPicker({
                 "has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-lilac/35",
                 long ? "text-[15px] leading-5 font-semibold break-words" : "font-display text-2xl font-semibold",
                 checked
-                  ? "border-ink bg-ink text-white"
+                  ? "border-primary bg-primary text-on-primary"
                   : cn("bg-surface text-ink hover:border-ink/45", error ? "border-rose/60" : "border-line-strong"),
               )}
             >

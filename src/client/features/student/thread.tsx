@@ -78,12 +78,12 @@ export const StudentMessageBubble = memo(function StudentMessageBubble({
   const t = useT();
   return (
     <div className={cn("flex justify-end", className)}>
-      <div className="max-w-[88%] rounded-2xl rounded-br-md bg-ink-soft px-4 py-2.5 text-[16px] leading-7 text-ink sm:max-w-[80%]">
+      <div className="max-w-[88%] rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-[16px] leading-7 text-on-primary sm:max-w-[80%]">
         <p className="sr-only">{t.thread.you}</p>
-        {label ? <p className="mb-0.5 text-xs font-semibold text-lilac-ink">{label}</p> : null}
+        {label ? <p className="mb-0.5 text-xs font-semibold text-on-primary/80">{label}</p> : null}
         <p className="break-words whitespace-pre-wrap">{text}</p>
         {voice ? (
-          <p className="mt-1 flex items-center gap-1 text-xs text-text-3">
+          <p className="mt-1 flex items-center gap-1 text-xs text-on-primary/75">
             <Mic className="size-3" aria-hidden="true" /> {t.thread.dictated}
           </p>
         ) : null}

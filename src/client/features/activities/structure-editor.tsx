@@ -367,7 +367,7 @@ function PreviewDialog({ open, onOpenChange, activity, form }: { open: boolean; 
                   </div>
                 ) : null}
                 <div className="flex justify-end">
-                  <span className="inline-flex h-11 items-center gap-2 rounded-md bg-ink px-4 text-[15px] font-semibold text-white">
+                  <span className="inline-flex h-11 items-center gap-2 rounded-md bg-primary px-4 text-[15px] font-semibold text-on-primary">
                     {lang === "en" ? "Start the activity" : "Comenzar actividad"} <ArrowRight className="size-4" aria-hidden="true" />
                   </span>
                 </div>
@@ -450,7 +450,7 @@ function ScreenTab({ active, onClick, label }: { active: boolean; onClick: () =>
       onClick={onClick}
       className={cn(
         "min-h-9 rounded-full px-3.5 text-sm font-semibold transition-colors max-sm:min-h-11 lg:text-left",
-        active ? "bg-ink text-white" : "bg-sunken text-text-2 hover:text-ink",
+        active ? "bg-primary text-on-primary" : "bg-sunken text-text-2 hover:text-ink",
       )}
     >
       {label}

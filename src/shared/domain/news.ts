@@ -29,10 +29,13 @@ export type NewsKey =
   | "sharedClassrooms"
   | "defense"
   | "indicatorLevels"
-  | "tutorStop";
+  | "tutorStop"
+  | "redesign"
+  | "helpAssistant"
+  | "darkMode";
 
 /** Releases in order; adding one shows its items to everyone who has not seen them. */
-export const NEWS_RELEASES = ["2026-10-22", "2026-10-22b", "2026-10-22c", "2026-10-23", "2026-10-23b", "2026-10-23c", "2026-10-23d", "2026-10-24", "2026-10-24b", "2026-10-26", "2026-10-26b", "2026-10-28", "2026-10-28b", "2026-10-28c", "2026-10-29", "2026-10-29b", "2026-10-29c"] as const;
+export const NEWS_RELEASES = ["2026-10-22", "2026-10-22b", "2026-10-22c", "2026-10-23", "2026-10-23b", "2026-10-23c", "2026-10-23d", "2026-10-24", "2026-10-24b", "2026-10-26", "2026-10-26b", "2026-10-28", "2026-10-28b", "2026-10-28c", "2026-10-29", "2026-10-29b", "2026-10-29c", "2026-11-02"] as const;
 export type NewsRelease = (typeof NEWS_RELEASES)[number];
 
 export interface NewsItem {
@@ -47,6 +50,24 @@ export interface NewsItem {
 }
 
 export const NEWS_ITEMS: NewsItem[] = [
+  {
+    key: "redesign",
+    release: "2026-11-02",
+    title: "Todo más fácil de encontrar",
+    text: "El menú sigue el orden de una clase: Preparar, En clase y Revisar. Cada actividad se trabaja en 4 pasos (Preparar, Compartir, En vivo y Revisar) y cada pantalla trae un recorrido guiado que te muestra dónde está cada cosa.",
+  },
+  {
+    key: "helpAssistant",
+    release: "2026-11-02",
+    title: "¿Dónde está…? Preguntale a la ayuda",
+    text: "Abajo en el menú (en el celular, el ícono de arriba): escribí qué querés hacer y te lleva hasta el botón. También podés buscar cualquier aula o actividad con Ctrl K.",
+  },
+  {
+    key: "darkMode",
+    release: "2026-11-02",
+    title: "Modo oscuro",
+    text: "Con la luna, abajo en el menú, pasás a modo oscuro. Queda guardado en ese dispositivo.",
+  },
   {
     key: "alerts",
     release: "2026-10-22",
@@ -217,7 +238,7 @@ export const NEWS_ITEMS: NewsItem[] = [
 export const NEWS = {
   /** The latest release: what a teacher has seen after the notice opens. */
   id: NEWS_RELEASES[NEWS_RELEASES.length - 1]!,
-  when: "Octubre 2026",
+  when: "Noviembre 2026",
   title: "Nuevos cambios en la aplicación",
   intro: "Sumamos lo que nos pidieron las docentes que usan Aula Socrática. Esto es lo nuevo:",
 } as const;

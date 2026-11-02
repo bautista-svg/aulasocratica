@@ -20,7 +20,7 @@ function Root() {
     <>
       <a
         href="#contenido"
-        className="sr-only z-[60] rounded-md bg-ink px-4 py-2 font-semibold text-white focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:inline-flex focus:min-h-11 focus:items-center"
+        className="sr-only z-[60] rounded-md bg-primary px-4 py-2 font-semibold text-on-primary focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:inline-flex focus:min-h-11 focus:items-center"
       >
         Saltar al contenido
       </a>

@@ -32,6 +32,8 @@ import { PageSpinner } from "@client/components/ui/spinner";
 import { ApiError, errorMessage } from "@client/lib/api";
 import { fmtRelative, plural } from "@client/lib/format";
 import { usePageTitle } from "@client/lib/page-title";
+import { useAutoTour } from "@client/components/app/tour";
+import { CLASSROOM_TOUR } from "@client/features/help/tours";
 import {
   classroomKeys,
   useClassroom,
@@ -62,7 +64,7 @@ const TABS = ["actividades", "alumnos", "alertas"] as const;
 const TAB_LABELS: Record<(typeof TABS)[number], string> = {
   actividades: "Actividades",
   alumnos: "Alumnos",
-  alertas: "Alertas",
+  alertas: "Qué te avisa el tutor",
 };
 
 export const Route = createFileRoute("/app/aulas/$classroomId")({
@@ -89,6 +91,7 @@ function ClassroomPage() {
   const leave = useLeaveClassroom(classroomId);
   const me = useMe();
   const tab = Route.useSearch({ select: (s) => s.tab ?? "actividades" });
+  useAutoTour("aula", CLASSROOM_TOUR, room.isSuccess);
   usePageTitle(
     room.data
       ? [room.data.name, TAB_LABELS[tab]]
@@ -176,12 +179,13 @@ function ClassroomPage() {
               <Button
                 icon={<Plus className="size-4" />}
                 onClick={() => setNewActivity(true)}
+                data-tour="nueva-actividad"
               >
                 Nueva actividad
               </Button>
             ) : null}
             {canManage ? (
-              <Button variant="secondary" icon={<UserPlus className="size-4" />} onClick={() => setSharing(true)}>
+              <Button variant="secondary" icon={<UserPlus className="size-4" />} onClick={() => setSharing(true)} data-tour="compartir-aula">
                 Compartir
               </Button>
             ) : null}
@@ -434,10 +438,11 @@ function ClassroomTabs({
         })
       }
       items={[
-        { value: "actividades", label: "Actividades", content: activities },
+        { value: "actividades", label: "Actividades", tour: "aula-actividades", content: activities },
         {
           value: "alumnos",
           label: "Alumnos",
+          tour: "aula-alumnos",
           content: (
             <StudentsPanel
               classroomId={classroomId}
@@ -446,7 +451,7 @@ function ClassroomTabs({
             />
           ),
         },
-        { value: "alertas", label: "Alertas", content: alerts },
+        { value: "alertas", label: "Qué te avisa el tutor", tour: "aula-alertas", content: alerts },
       ]}
     />
   );
@@ -527,7 +532,7 @@ function ActivitiesPanel({
                       >
                         <Badge
                           tone="rose"
-                          className="transition-colors hover:bg-rose hover:text-white"
+                          className="transition-colors hover:bg-rose hover:text-surface"
                         >
                           <Bell className="size-3" aria-hidden="true" />
                           {plural(a.openAlerts, "alerta", "alertas")}

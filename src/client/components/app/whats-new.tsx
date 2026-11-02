@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as RD from "@radix-ui/react-dialog";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Bell, BellRing, Bot, ChartNoAxesColumnIncreasing, Copy, FileSearch, FileUp, KeyRound, Languages, Layers, Link2, ListChecks, ListOrdered, LogIn, MessageCircleCheck, MessageCircleQuestion, MessageSquareQuote, MessageSquareText, NotebookPen, PenLine, Scale, ScanText, Sprout, TrendingUp, UsersRound, X, type LucideIcon } from "lucide-react";
+import { ArrowRight, Bell, BellRing, Bot, ChartNoAxesColumnIncreasing, Compass, Copy, FileSearch, FileUp, KeyRound, Languages, Layers, Link2, ListChecks, ListOrdered, LogIn, MessageCircleCheck, MessageCircleQuestion, MessageSquareQuote, MessageSquareText, Moon, NotebookPen, PenLine, Scale, ScanText, Sparkles, Sprout, TrendingUp, UsersRound, X, type LucideIcon } from "lucide-react";
 import { cn } from "@client/lib/cn";
 import { api } from "@client/lib/api";
 import { meKey } from "@client/lib/session";
@@ -43,6 +43,9 @@ const ICONS: Record<NewsKey, { icon: LucideIcon; tile: string }> = {
   defense: { icon: FileSearch, tile: "bg-rose-soft text-rose" },
   indicatorLevels: { icon: ChartNoAxesColumnIncreasing, tile: "bg-leaf-soft text-leaf" },
   tutorStop: { icon: MessageCircleCheck, tile: "bg-lilac-soft text-lilac-ink" },
+  redesign: { icon: Compass, tile: "bg-leaf-soft text-leaf" },
+  helpAssistant: { icon: Sparkles, tile: "bg-lilac-soft text-lilac-ink" },
+  darkMode: { icon: Moon, tile: "bg-ink-soft text-ink" },
 };
 
 export function WhatsNew({ me }: { me: Me }) {
@@ -66,7 +69,7 @@ export function WhatsNew({ me }: { me: Me }) {
   return (
     <RD.Root open={open} onOpenChange={setOpen}>
       <RD.Portal>
-        <RD.Overlay className="fixed inset-0 z-50 bg-ink/40 backdrop-blur-[3px] data-[state=open]:animate-[rise_200ms_ease-out]" />
+        <RD.Overlay className="fixed inset-0 z-50 bg-scrim backdrop-blur-[3px] data-[state=open]:animate-[rise_200ms_ease-out]" />
         <RD.Content
           className={cn(
             "fixed z-50 flex max-h-[94dvh] w-full flex-col overflow-hidden bg-surface shadow-pop outline-none",
@@ -79,7 +82,7 @@ export function WhatsNew({ me }: { me: Me }) {
             (e.currentTarget as HTMLElement).focus();
           }}
         >
-          <header className="relative shrink-0 overflow-hidden bg-ink px-6 pt-5 pb-6 text-white sm:px-7 sm:pt-6 sm:pb-7">
+          <header className="relative shrink-0 overflow-hidden bg-primary px-6 pt-5 pb-6 text-on-primary sm:px-7 sm:pt-6 sm:pb-7">
             {/* The logo's "?" and leaf, cropped at the corner: its navy bubble disappears into the header. */}
             <div
               className="pointer-events-none absolute -top-10 -right-12 size-60 rounded-full bg-[radial-gradient(circle,rgb(155_135_232/0.38),transparent_68%)]"
@@ -94,7 +97,7 @@ export function WhatsNew({ me }: { me: Me }) {
               <button
                 type="button"
                 aria-label="Cerrar"
-                className="absolute top-3.5 right-3.5 z-10 inline-flex size-10 items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lilac max-sm:size-11"
+                className="absolute top-3.5 right-3.5 z-10 inline-flex size-10 items-center justify-center rounded-full text-on-primary/80 transition-colors hover:bg-on-primary/10 hover:text-on-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lilac max-sm:size-11"
               >
                 <X className="size-5" aria-hidden="true" />
               </button>
@@ -108,7 +111,7 @@ export function WhatsNew({ me }: { me: Me }) {
               {NEWS.title}
             </RD.Title>
             {/* Clear of the "?" in the corner on phones. */}
-            <RD.Description className="relative mt-2.5 max-w-[34ch] pr-24 text-[15px] leading-6 text-white/80 sm:mt-3 sm:pr-0">{NEWS.intro}</RD.Description>
+            <RD.Description className="relative mt-2.5 max-w-[34ch] pr-24 text-[15px] leading-6 text-on-primary/80 sm:mt-3 sm:pr-0">{NEWS.intro}</RD.Description>
           </header>
 
           {/* On short phones the list scrolls: the fading edge says there is more below. */}

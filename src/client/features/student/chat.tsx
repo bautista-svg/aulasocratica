@@ -36,6 +36,13 @@ const INTENT_ORDER: StudentIntent[] = ["hint", "not_understood", "example", "rev
 const PREFILL: StudentIntent[] = ["other_idea", "explain"];
 const fmtSec = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
+/** Top of the readable area: below the sticky header when it is on screen. */
+function viewTop(scroller: HTMLElement): number {
+  const top = scroller.getBoundingClientRect().top;
+  const header = document.querySelector<HTMLElement>("[data-student-header]");
+  return Math.max(top, header && getComputedStyle(header).position === "sticky" ? header.getBoundingClientRect().bottom : top);
+}
+
 export function ChatStep({
   token,
   workspace,
@@ -87,9 +94,33 @@ export function ChatStep({
   const awaiting = !overlay && last?.role === "user";
   const lastAssistantId = [...serverMessages].reverse().find((m) => m.role === "assistant")?.id;
 
-  // Follow the conversation while the student is at the bottom: on every new message and
-  // streamed piece of the reply, and when the visible area changes size (the keyboard opens or
-  // closes, the composer grows). The page scrolls inside the workspace box, not the window.
+  // After sending, the turn is anchored: the student's message moves up to the top of the view and
+  // the tutor's reply grows below it, read from its start. Following every streamed piece to the
+  // bottom pushed the beginning of a long question out of sight. The reply's slot reserves the
+  // rest of the visible height, so the anchor holds even while the reply is still short.
+  const anchored = useRef(false);
+  const anchorPending = useRef(false);
+  const [reserve, setReserve] = useState(0);
+  useLayoutEffect(() => {
+    if (!anchorPending.current || !overlay) return;
+    const sc = studentScroller();
+    const el = document.querySelector<HTMLElement>("[data-turn-anchor]");
+    if (!sc || !el) return;
+    const top = viewTop(sc);
+    const composerH = composerRef.current?.offsetHeight ?? 0;
+    const visible = sc.getBoundingClientRect().bottom - top - composerH - 24;
+    const min = Math.max(0, Math.round(visible - el.offsetHeight - 24));
+    if (min !== reserve) {
+      setReserve(min);
+      return; // runs again once the reserved space is on the page
+    }
+    anchorPending.current = false;
+    sc.scrollTop += el.getBoundingClientRect().top - top - 16;
+  }, [overlay, reserve]);
+
+  // Follow the conversation while the student is at the bottom, outside an anchored turn: when a
+  // message arrives and when the visible area changes size (the keyboard opens or closes, the
+  // composer grows). The page scrolls inside the workspace box, not the window.
   useEffect(() => {
     const el = studentScroller();
     if (!el) return;
@@ -99,7 +130,7 @@ export function ChatStep({
     onScroll();
     el.addEventListener("scroll", onScroll, { passive: true });
     const resized = new ResizeObserver(() => {
-      if (nearBottom.current) toBottom();
+      if (nearBottom.current && !anchored.current) toBottom();
     });
     resized.observe(el);
     if (composerRef.current) resized.observe(composerRef.current);
@@ -115,8 +146,8 @@ export function ChatStep({
     if (el) el.scrollTop = el.scrollHeight;
   };
   useLayoutEffect(() => {
-    if (nearBottom.current) toBottom();
-  }, [serverMessages.length, overlay?.reply, overlay?.phase, awaiting]);
+    if (nearBottom.current && !anchored.current) toBottom();
+  }, [serverMessages.length, awaiting]);
   // On first mount returning students land on the latest message; after a step change the
   // heading gets the focus so screen readers announce where they are.
   useEffect(() => {
@@ -207,7 +238,8 @@ export function ChatStep({
     setStopKey((k) => k + 1);
     setSendError(null);
     setChatError(null);
-    nearBottom.current = true;
+    anchored.current = true;
+    anchorPending.current = true;
     inFlight.current = true;
     setOverlay({ userText: clean, userMessageId: null, inputMode: mode, intent, reply: "", phase: "sending" });
     void run({ text: clean, intent, inputMode: mode }, fromComposer ? { text, intent, mode } : null);
@@ -233,7 +265,8 @@ export function ChatStep({
     stopSpeaking();
     setChatError(null);
     setSendError(null);
-    nearBottom.current = true;
+    anchored.current = true;
+    anchorPending.current = true;
     setOverlay({ userText: null, userMessageId: null, inputMode: "text", intent: null, reply: "", phase: "sending" });
     void run({ retry: true }, null);
   }
@@ -279,7 +312,8 @@ export function ChatStep({
           </li>
         ) : null}
         {serverMessages.map((m) => (
-          <li key={m.id}>
+          // The anchored turn keeps its reserved height once the reply is saved, so nothing jumps.
+          <li key={m.id} style={anchored.current && !overlay && m.id === lastAssistantId && reserve ? { minHeight: reserve } : undefined}>
             {m.role === "assistant" ? (
               <TutorMessage
                 text={m.content}
@@ -292,12 +326,12 @@ export function ChatStep({
           </li>
         ))}
         {overlay?.userText ? (
-          <li>
+          <li data-turn-anchor>
             <StudentMessageBubble text={overlay.userText} voice={overlay.inputMode === "voice"} />
           </li>
         ) : null}
         {overlay ? (
-          <li>
+          <li data-turn-anchor={overlay.userText ? undefined : true} style={reserve ? { minHeight: reserve } : undefined}>
             <TutorMessage text={overlay.reply} thinking={!overlay.reply} streaming={Boolean(overlay.reply)} />
           </li>
         ) : null}
@@ -439,7 +473,7 @@ export function ChatStep({
               onMouseDown={(e) => e.preventDefault()}
               disabled={busy || !draft.trim()}
               aria-label={busy ? t.chat.sendWait : t.chat.send}
-              className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg bg-ink text-white shadow-1 transition-colors hover:bg-ink-hover disabled:bg-line-strong disabled:text-white"
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary text-on-primary shadow-1 transition-colors hover:bg-primary-hover disabled:bg-line-strong disabled:text-surface"
             >
               {busy ? <Spinner className="size-4" /> : <ArrowUp className="size-5" aria-hidden="true" />}
             </button>

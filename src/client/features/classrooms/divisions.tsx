@@ -79,14 +79,14 @@ export function DivisionChips({
             {value.map((d, i) => (
               <li
                 key={divisionKey(d)}
-                className="inline-flex h-8 max-w-full items-center gap-0.5 rounded-full bg-ink pl-3 text-sm font-semibold text-white"
+                className="inline-flex h-8 max-w-full items-center gap-0.5 rounded-full bg-primary pl-3 text-sm font-semibold text-on-primary"
               >
                 <span className="truncate">{d}</span>
                 <button
                   type="button"
                   onClick={() => remove(i)}
                   aria-label={`Quitar la división ${d}`}
-                  className="relative grid size-8 shrink-0 place-items-center rounded-full text-white/80 transition-colors after:absolute after:-inset-1.5 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-white"
+                  className="relative grid size-8 shrink-0 place-items-center rounded-full text-on-primary/80 transition-colors after:absolute after:-inset-1.5 hover:text-on-primary focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-on-primary"
                 >
                   <X className="size-3.5" aria-hidden="true" />
                 </button>

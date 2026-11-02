@@ -24,15 +24,17 @@ import { activityState } from "@shared/domain/activity-state";
 import { TRASH_DAYS, type ActivityEditorData } from "@shared/contracts/activities";
 import { can } from "@shared/domain/sharing";
 import { ReadOnlyNotice, RoleProvider } from "@client/features/sharing/role";
+import { useAutoTour } from "@client/components/app/tour";
+import { ACTIVITY_TOUR } from "@client/features/help/tours";
 
 const TABS = ["configuracion", "compartir", "en-vivo", "alertas", "fortalezas"] as const;
 type Tab = (typeof TABS)[number];
 const TAB_LABELS: Record<Tab, string> = {
-  configuracion: "Configuración",
+  configuracion: "Preparar",
   compartir: "Compartir",
   "en-vivo": "En vivo",
-  alertas: "Alertas",
-  fortalezas: "Fortalezas",
+  alertas: "Avisos",
+  fortalezas: "Revisar",
 };
 
 export const Route = createFileRoute("/app/actividades/$activityId")({
@@ -71,6 +73,7 @@ function ActivityEditor({ activity }: { activity: ActivityEditorData }) {
   const goTab = useCallback((t: Tab) => void navigate({ search: (s) => ({ ...s, tab: t }), replace: true }), [navigate]);
 
   const form = useActivityForm(activity);
+  useAutoTour("actividad", ACTIVITY_TOUR, true);
   const draftSave = useSaveDraft(activity, form, () => goTab("configuracion"));
   const action = useActivityAction(activity.id);
   const rename = useSaveActivity(activity.id);
@@ -177,11 +180,15 @@ function ActivityEditor({ activity }: { activity: ActivityEditorData }) {
           </div>
         </div>
         <div className="flex shrink-0 gap-2">
-          {primary ? <div className="flex-1 sm:flex-none [&>button]:w-full">{primary}</div> : null}
+          {primary ? (
+            <div className="flex-1 sm:flex-none [&>button]:w-full" data-tour="accion-principal">
+              {primary}
+            </div>
+          ) : null}
           {canEdit ? (
           <Menu
             trigger={
-              <Button variant="secondary" size="icon" aria-label="Más acciones de la actividad" className="h-11 w-11">
+              <Button variant="secondary" size="icon" aria-label="Más acciones de la actividad" className="h-10 w-10 max-sm:h-11 max-sm:w-11" data-tour="mas-acciones">
                 <MoreHorizontal className="size-5" />
               </Button>
             }
@@ -283,28 +290,42 @@ function ActivityTabs({
   const openAlerts = useActivityAlerts(activity.id, liveOpened || alertsOpened, () => goTab("alertas")) ?? activity.openAlerts;
   return (
     <Tabs
+      variant="steps"
+      label="Pasos de la actividad"
       value={current}
       onValueChange={(v) => goTab(v as Tab)}
       items={[
         {
           value: "configuracion",
-          label: "Configuración",
+          step: 1,
+          label: TAB_LABELS.configuracion,
+          hint: "Consigna, tutor y material",
+          tour: "paso-preparar",
           badge: dirty ? <span className="size-2 rounded-full bg-amber" aria-label="(con cambios sin guardar)" /> : undefined,
           content: config,
         },
-        { value: "compartir", label: "Compartir", content: share },
+        { value: "compartir", step: 2, label: TAB_LABELS.compartir, hint: "Enlace y código QR", tour: "paso-compartir", content: share },
         {
           value: "en-vivo",
-          label: "En vivo",
-          badge:
-            activity.participants > 0 ? (
-              <span className="rounded-full bg-sunken px-2 py-0.5 text-xs font-semibold text-text-2 tabular">{activity.participants}</span>
-            ) : undefined,
+          step: 3,
+          label: TAB_LABELS["en-vivo"],
+          hint: activity.participants > 0 ? plural(activity.participants, "alumno", "alumnos") : "Quién avanza y quién se traba",
+          tour: "paso-en-vivo",
           content: liveOpened ? <LivePanel activityId={activity.id} /> : null,
         },
         {
+          value: "fortalezas",
+          step: 4,
+          label: TAB_LABELS.fortalezas,
+          hint: "Lo que logró el grupo",
+          tour: "paso-revisar",
+          content: aspectsOpened ? <SkillsPanel activityId={activity.id} /> : null,
+        },
+        {
           value: "alertas",
-          label: "Alertas",
+          label: TAB_LABELS.alertas,
+          hint: openAlerts > 0 ? "Para mirar ahora" : "Lo que te avisa el tutor",
+          tour: "paso-avisos",
           badge:
             openAlerts > 0 ? (
               <span className="rounded-full bg-rose-soft px-2 py-0.5 text-xs font-semibold text-rose tabular">
@@ -314,7 +335,6 @@ function ActivityTabs({
             ) : undefined,
           content: alertsOpened ? <AlertsPanel activityId={activity.id} /> : null,
         },
-        { value: "fortalezas", label: "Fortalezas", content: aspectsOpened ? <SkillsPanel activityId={activity.id} /> : null },
       ]}
     />
   );

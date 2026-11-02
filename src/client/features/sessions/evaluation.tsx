@@ -208,13 +208,13 @@ function RubricCard({ detail, incoming }: { detail: SessionDetail; incoming: { l
                     onClick={() => setLevels((x) => ({ ...x, [c.id]: li }))}
                     className={cn(
                       "inline-flex min-h-10 items-center gap-1.5 rounded-full border px-3.5 text-sm font-semibold transition-colors",
-                      chosen === li ? "border-ink bg-ink text-white" : "border-line-strong bg-surface text-text hover:border-ink/40",
+                      chosen === li ? "border-primary bg-primary text-on-primary" : "border-line-strong bg-surface text-text hover:border-ink/40",
                       readOnly && "cursor-default",
                     )}
                   >
                     {l.label}
                     {s?.levelIndex === li ? (
-                      <Sparkles className={cn("size-3.5", chosen === li ? "text-white" : "text-lilac-ink")} aria-label="(sugerido por la IA)" />
+                      <Sparkles className={cn("size-3.5", chosen === li ? "text-on-primary" : "text-lilac-ink")} aria-label="(sugerido por la IA)" />
                     ) : null}
                   </button>
                 ))}

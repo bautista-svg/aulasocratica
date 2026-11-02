@@ -262,7 +262,7 @@ function NeedsAccount({
             onClick={() => setMode(value)}
             className={cn(
               "min-h-11 rounded-sm px-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lilac-ink",
-              mode === value ? "bg-ink text-white" : "text-text-2 hover:text-ink",
+              mode === value ? "bg-primary text-on-primary" : "text-text-2 hover:text-ink",
             )}
           >
             {label}

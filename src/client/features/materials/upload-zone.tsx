@@ -214,7 +214,7 @@ export function UploadZone({
                 aria-valuenow={Math.round(it.progress * 100)}
                 className="mt-2 h-1.5 overflow-hidden rounded-full bg-sunken"
               >
-                <div className="h-full rounded-full bg-ink transition-[width] duration-200" style={{ width: `${Math.round(it.progress * 100)}%` }} />
+                <div className="h-full rounded-full bg-primary transition-[width] duration-200" style={{ width: `${Math.round(it.progress * 100)}%` }} />
               </div>
             ) : null}
           </li>

@@ -10,7 +10,8 @@ export async function resetDb() {
   await db.execute(sql`
     truncate table teachers, teacher_sessions, classrooms, students, tutors, activities, activity_files,
       materials, learning_sessions, student_tokens, messages, pedagogical_events, rubric_assessments,
-      thinking_analyses, session_summaries, classroom_alerts, student_alerts, reports, audit_logs, ai_usage
+      thinking_analyses, session_summaries, classroom_alerts, student_alerts, reports, audit_logs, ai_usage,
+      app_settings
     restart identity cascade`);
 }
 

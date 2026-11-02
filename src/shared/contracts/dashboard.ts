@@ -37,6 +37,12 @@ export interface DashboardOnboarding {
   done: boolean;
 }
 
+export type DashboardActivity = ActivitySummary & { classroomName: string };
+
+export interface DashboardActivitiesResponse {
+  activities: DashboardActivity[];
+}
+
 export interface DashboardResponse {
   workspace: { displayName: string; hasAccount: boolean };
   counts: { classrooms: number; activities: number; published: number; students: number; openAlerts: number };

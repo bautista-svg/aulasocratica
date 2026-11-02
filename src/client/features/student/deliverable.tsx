@@ -233,7 +233,7 @@ export function DeliverableField({
         <div className="space-y-1.5" role="status">
           <p className="text-sm font-semibold text-text">{t.deliv.uploading(Math.round(progress * 100))}</p>
           <div className="h-2 overflow-hidden rounded-full bg-sunken" aria-hidden="true">
-            <div className="h-full rounded-full bg-ink transition-[width]" style={{ width: `${Math.max(4, Math.round(progress * 100))}%` }} />
+            <div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${Math.max(4, Math.round(progress * 100))}%` }} />
           </div>
         </div>
       ) : null}

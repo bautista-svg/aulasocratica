@@ -45,6 +45,7 @@ export type AiPurpose =
   | "deliverable_analysis"
   | "aspect_analysis"
   | "change_request"
+  | "app_help"
   | "reflection_questions"
   | "session_summary"
   | "thinking_xray"

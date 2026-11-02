@@ -29,7 +29,7 @@ export function UnsavedGuard({
   return (
     <RA.Root open={open} onOpenChange={(o) => !o && blocker.status === "blocked" && blocker.reset()}>
       <RA.Portal>
-        <RA.Overlay className="fixed inset-0 z-50 bg-ink/35 backdrop-blur-[2px]" />
+        <RA.Overlay className="fixed inset-0 z-50 bg-scrim backdrop-blur-[2px]" />
         <RA.Content className="fixed inset-x-0 bottom-0 z-50 flex max-h-[92dvh] w-full flex-col rounded-t-xl bg-surface shadow-pop outline-none sm:inset-auto sm:top-1/2 sm:left-1/2 sm:w-[min(460px,calc(100vw-32px))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl">
           <div className="px-5 pt-5 pb-2">
             <RA.Title className="font-display text-xl font-semibold text-ink">Tenés cambios sin guardar</RA.Title>

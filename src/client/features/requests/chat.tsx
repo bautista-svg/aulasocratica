@@ -124,7 +124,7 @@ export function Conversation({
           }
           return (
             <li key={i} className="flex flex-col items-end gap-1 animate-rise">
-              <div className="max-w-[85%] space-y-2 rounded-[18px] rounded-br-md bg-ink px-4 py-3 text-white shadow-1">
+              <div className="max-w-[85%] space-y-2 rounded-[18px] rounded-br-md bg-primary px-4 py-3 text-on-primary shadow-1">
                 <p className="sr-only">Vos:</p>
                 <Shots images={shots} onDark />
                 {m.text ? (
@@ -270,7 +270,7 @@ export function Composer({
                 onClick={() =>
                   setFiles((cur) => cur.filter((x) => x.url !== f.url))
                 }
-                className="absolute -top-2 -right-2 inline-flex size-7 items-center justify-center rounded-full bg-ink text-white shadow-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lilac-ink"
+                className="absolute -top-2 -right-2 inline-flex size-7 items-center justify-center rounded-full bg-primary text-on-primary shadow-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lilac-ink"
                 aria-label={`Quitar captura ${i + 1}`}
               >
                 <X className="size-3.5" />

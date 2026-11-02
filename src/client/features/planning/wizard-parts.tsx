@@ -13,7 +13,7 @@ export function Chip({ on, onToggle, children, disabled }: { on: boolean; onTogg
       onClick={onToggle}
       className={cn(
         "inline-flex min-h-11 items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50",
-        on ? "border-ink bg-ink text-white" : "border-line-strong bg-surface text-text-2 hover:border-ink/40 hover:text-ink",
+        on ? "border-primary bg-primary text-on-primary" : "border-line-strong bg-surface text-text-2 hover:border-ink/40 hover:text-ink",
       )}
     >
       {on ? <Check className="size-4" aria-hidden="true" /> : null}
@@ -58,7 +58,7 @@ export function Stepper({ step, maxStep, onGo }: { step: number; maxStep: number
                   !current && reachable && "hover:opacity-80",
                 )}
               >
-                <span className={cn("h-1.5 w-full rounded-full transition-colors", current ? "bg-ink" : done ? "bg-lilac" : "bg-line")} aria-hidden="true" />
+                <span className={cn("h-1.5 w-full rounded-full transition-colors", current ? "bg-primary" : done ? "bg-lilac" : "bg-line")} aria-hidden="true" />
                 <span
                   className={cn(
                     "hidden truncate text-[13px] font-semibold sm:block",

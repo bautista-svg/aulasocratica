@@ -12,6 +12,7 @@ beforeEach(async () => {
   aiMock.reset();
   resetRateLimits();
   (await import("@server/ai/client")).resetAiSpendCache();
+  (await import("@server/services/appearance")).resetAppearanceCache();
   const { resetDb } = await import("./helpers");
   await resetDb();
 });

@@ -18,7 +18,7 @@ const SCALE = [
   "bg-lilac/30 text-ink",
   "bg-lilac/50 text-ink",
   "bg-lilac/80 text-ink",
-  "bg-lilac-ink text-white",
+  "bg-lilac-ink text-surface",
 ];
 
 function Legend({ note }: { note: string }) {

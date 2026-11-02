@@ -30,7 +30,7 @@ function ClassroomsPage() {
         title="Aulas"
         description="Cada aula agrupa las actividades y los alumnos de un curso."
         actions={
-          <Button icon={<Plus className="size-4" />} onClick={() => setCreating(true)}>
+          <Button icon={<Plus className="size-4" />} onClick={() => setCreating(true)} data-tour="nueva-aula">
             Nueva aula
           </Button>
         }
@@ -50,7 +50,7 @@ function ClassroomsPage() {
             activeOptions={{ exact: true }}
             className={cn(
               "inline-flex min-h-11 items-center rounded-sm px-4 text-sm font-semibold transition-colors",
-              archived === t.value ? "bg-ink text-white" : "text-text-2 hover:text-ink",
+              archived === t.value ? "bg-primary text-on-primary" : "text-text-2 hover:text-ink",
             )}
           >
             {t.label}
@@ -79,7 +79,7 @@ function ClassroomsPage() {
           />
         )
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-tour="lista-aulas">
           {q.data.map((c) => (
             <li key={c.id}>
               <Link

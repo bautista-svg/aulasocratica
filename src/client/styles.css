@@ -2,108 +2,168 @@
 
 /*
  * Aula Socrática — design tokens.
- * Ink navy (the logo bubble) and lilac (its question mark) on cool paper; leaf green
- * only for "logrado". Fraunces is reserved for headings and for the tutor's questions,
- * which hang a lilac "?" in the margin — the product's signature.
+ * Calm and precise (Inter, small radii, 1 px lines), with the brand's color kept alive: ink navy
+ * for the primary action, lilac as the single accent (focus, current item, the tutor's "?"), leaf
+ * green for "en vivo" and "logrado". Light is the default; dark redefines the same tokens under
+ * :root[data-theme="dark"] (set by lib/theme.ts), so every screen gets both for free.
+ * `ink` is the color of headings; `primary` is the color of the main button. They are the same
+ * family in light mode and split in dark (light headings, lilac button).
  */
 
 @font-face {
-  font-family: "Figtree";
-  font-style: normal;
-  font-display: swap;
-  font-weight: 300 900;
-  src: url("../../node_modules/@fontsource-variable/figtree/files/figtree-latin-wght-normal.woff2") format("woff2-variations");
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: "Fraunces";
+  font-family: "Inter";
   font-style: normal;
   font-display: swap;
   font-weight: 100 900;
-  src: url("../../node_modules/@fontsource-variable/fraunces/files/fraunces-latin-wght-normal.woff2") format("woff2-variations");
+  src: url("../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2") format("woff2-variations");
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 @font-face {
-  font-family: "Fraunces";
-  font-style: italic;
+  font-family: "JetBrains Mono";
+  font-style: normal;
   font-display: swap;
-  font-weight: 100 900;
-  src: url("../../node_modules/@fontsource-variable/fraunces/files/fraunces-latin-wght-italic.woff2") format("woff2-variations");
+  font-weight: 100 800;
+  src: url("../../node_modules/@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2") format("woff2-variations");
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
-/* Metric-matched fallbacks so the swap to web fonts does not shift the layout. */
+/* Metric-matched fallback so the swap to the web font does not shift the layout. */
 @font-face {
-  font-family: "Figtree Fallback";
+  font-family: "Inter Fallback";
   src: local("Arial"), local("Helvetica Neue"), local("Roboto");
-  size-adjust: 102%;
-  ascent-override: 93%;
-  descent-override: 24%;
-}
-@font-face {
-  font-family: "Fraunces Fallback";
-  src: local("Georgia"), local("Times New Roman");
-  size-adjust: 104%;
-  ascent-override: 95%;
-  descent-override: 25%;
+  size-adjust: 107%;
+  ascent-override: 90%;
+  descent-override: 22%;
 }
 
 /* The on-screen keyboard is up on a touch device (student screens, see useStudentViewport):
    in the chat composer, or in any other field. */
 @custom-variant typing (:root[data-typing] &);
 @custom-variant typing-other (:root[data-typing="other"] &);
+@custom-variant dark (:root[data-theme="dark"] &);
 
 @theme {
-  --font-sans: "Figtree", "Figtree Fallback", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Fraunces", "Fraunces Fallback", Georgia, serif;
-  --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, monospace;
+  --font-sans: "Inter", "Inter Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Inter", "Inter Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, monospace;
 
-  --color-paper: #f6f7fb;
+  --color-paper: #f6f6f9;
   --color-surface: #ffffff;
-  --color-sunken: #eef0f7;
-  --color-line: #dde1ec;
-  --color-line-strong: #c5cbdb;
+  --color-sunken: #f0f1f6;
+  --color-line: #e4e5ee;
+  --color-line-strong: #cfd1de;
 
-  --color-ink: #14295c;
-  --color-ink-hover: #1d3a7e;
-  --color-ink-soft: #e6ebf6;
+  --color-ink: #182349;
+  --color-ink-hover: #22306a;
+  --color-ink-soft: #eceffa;
 
-  --color-text: #172036;
-  --color-text-2: #4b5470;
-  --color-text-3: #646c88;
+  --color-primary: #1f3b82;
+  --color-primary-hover: #284a9c;
+  --color-on-primary: #ffffff;
+  --color-scrim: rgb(16 18 40 / 0.45);
 
-  --color-lilac: #9b87e8;
-  --color-lilac-ink: #5b45b8;
-  --color-lilac-soft: #efebfc;
+  --color-text: #15182b;
+  --color-text-2: #50546e;
+  --color-text-3: #646884;
 
-  --color-leaf: #3f6b22;
-  --color-leaf-bright: #7db04a;
-  --color-leaf-soft: #e7f1df;
+  --color-lilac: #5b8def;
+  --color-lilac-ink: #2456c9;
+  --color-lilac-soft: #e8effd;
 
-  --color-amber: #85570a;
-  --color-amber-soft: #fcf1d9;
+  --color-leaf: #2c7a41;
+  --color-leaf-bright: #3fae5f;
+  --color-leaf-soft: #e3f4e8;
 
-  --color-rose: #b4232f;
-  --color-rose-hover: #9a1c27;
-  --color-rose-soft: #fbe7e8;
+  --color-amber: #8f5a00;
+  --color-amber-soft: #fdf1dc;
 
-  --color-heat-0: #f1f3f8;
+  --color-rose: #c2364a;
+  --color-rose-hover: #a92b3e;
+  --color-rose-soft: #fde8eb;
+
+  --color-heat-0: #f1f2f8;
   --color-heat-1: #dcebd0;
   --color-heat-2: #b9d99c;
   --color-heat-3: #f1d78a;
   --color-heat-4: #eca866;
   --color-heat-5: #d9534f;
 
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 22px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
 
-  --shadow-1: 0 1px 2px rgb(20 41 92 / 0.06);
-  --shadow-2: 0 1px 2px rgb(20 41 92 / 0.05), 0 10px 28px -14px rgb(20 41 92 / 0.22);
-  --shadow-pop: 0 2px 6px rgb(20 41 92 / 0.08), 0 24px 48px -16px rgb(20 41 92 / 0.32);
+  --shadow-1: 0 1px 2px rgb(20 24 60 / 0.05);
+  --shadow-2: 0 1px 2px rgb(20 24 60 / 0.05), 0 10px 28px -16px rgb(20 24 60 / 0.25);
+  --shadow-pop: 0 2px 6px rgb(20 24 60 / 0.06), 0 22px 48px -18px rgb(20 24 60 / 0.35);
 
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
 }
+
+/* Dark: the same names, new values. Text colors stay ≥ 4.5:1 on paper and surface. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-paper: #0d0e14;
+  --color-surface: #14151e;
+  --color-sunken: #1b1d29;
+  --color-line: #262938;
+  --color-line-strong: #383c52;
+
+  --color-ink: #eceaf8;
+  --color-ink-hover: #ffffff;
+  --color-ink-soft: #232640;
+
+  --color-primary: #8fb0fb;
+  --color-primary-hover: #a8c2fc;
+  --color-on-primary: #0d1630;
+  --color-scrim: rgb(0 0 0 / 0.6);
+
+  --color-text: #e8e8f0;
+  --color-text-2: #a7aac0;
+  --color-text-3: #8f92a8;
+
+  --color-lilac: #7fa6f5;
+  --color-lilac-ink: #9dbcff;
+  --color-lilac-soft: #1c2747;
+
+  --color-leaf: #8fd8a2;
+  --color-leaf-bright: #6fcf8a;
+  --color-leaf-soft: #17301f;
+
+  --color-amber: #f0c46a;
+  --color-amber-soft: #33280f;
+
+  --color-rose: #ff8fa0;
+  --color-rose-hover: #ffa7b4;
+  --color-rose-soft: #3a1b22;
+
+  --color-heat-0: #1d2030;
+  --color-heat-1: #1f3b2a;
+  --color-heat-2: #2f5a36;
+  --color-heat-3: #6b5a24;
+  --color-heat-4: #8a5428;
+  --color-heat-5: #a8403e;
+
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-2: 0 1px 2px rgb(0 0 0 / 0.3), 0 12px 30px -16px rgb(0 0 0 / 0.7);
+  --shadow-pop: 0 2px 6px rgb(0 0 0 / 0.35), 0 24px 52px -18px rgb(0 0 0 / 0.8);
+}
+
+/* Accent colors (shared/domain/accents.ts). The token keeps the name "lilac" (the first accent);
+   `lilac` is decorative, `lilac-ink` is for text and lines (≥ 4.5:1 on surface), `lilac-soft` a tint. */
+:root[data-accent="azul"] { --color-lilac: #5b8def; --color-lilac-ink: #2456c9; --color-lilac-soft: #e8effd; }
+:root[data-accent="cielo"] { --color-lilac: #38a3d8; --color-lilac-ink: #0b6c9e; --color-lilac-soft: #e3f3fb; }
+:root[data-accent="turquesa"] { --color-lilac: #2bb3a8; --color-lilac-ink: #0f7d75; --color-lilac-soft: #e0f4f2; }
+:root[data-accent="coral"] { --color-lilac: #ef7d5a; --color-lilac-ink: #c2410c; --color-lilac-soft: #fdece5; }
+:root[data-accent="frambuesa"] { --color-lilac: #e0679a; --color-lilac-ink: #be185d; --color-lilac-soft: #fce8f1; }
+:root[data-accent="lila"] { --color-lilac: #8b75e8; --color-lilac-ink: #5a3fcf; --color-lilac-soft: #f0ecfd; }
+:root[data-theme="dark"][data-accent="lila"] { --color-lilac: #a996f5; --color-lilac-ink: #bcaefa; --color-lilac-soft: #262240; --color-primary: #a996f5; --color-primary-hover: #baaaf8; --color-on-primary: #14102c; }
+:root[data-accent="grafito"] { --color-lilac: #7b8698; --color-lilac-ink: #3f4a5c; --color-lilac-soft: #eef0f4; }
+:root[data-theme="dark"][data-accent="azul"] { --color-lilac: #7fa6f5; --color-lilac-ink: #9dbcff; --color-lilac-soft: #1c2747; --color-primary: #8fb0fb; --color-primary-hover: #a8c2fc; --color-on-primary: #0d1630; }
+:root[data-theme="dark"][data-accent="cielo"] { --color-lilac: #5fc0f0; --color-lilac-ink: #8fd3f5; --color-lilac-soft: #102c3a; --color-primary: #7ccbf2; --color-primary-hover: #9ad7f5; --color-on-primary: #08212d; }
+:root[data-theme="dark"][data-accent="turquesa"] { --color-lilac: #4fd1c5; --color-lilac-ink: #7fe0d6; --color-lilac-soft: #13302e; --color-primary: #6cd8cd; --color-primary-hover: #8ce2d9; --color-on-primary: #082522; }
+:root[data-theme="dark"][data-accent="coral"] { --color-lilac: #ff9a7a; --color-lilac-ink: #ffb39b; --color-lilac-soft: #3a2018; --color-primary: #ffa587; --color-primary-hover: #ffbba3; --color-on-primary: #2e130a; }
+:root[data-theme="dark"][data-accent="frambuesa"] { --color-lilac: #f28bb7; --color-lilac-ink: #f9a8cc; --color-lilac-soft: #3a1a2a; --color-primary: #f497bf; --color-primary-hover: #f8b2d0; --color-on-primary: #2d0b1a; }
+:root[data-theme="dark"][data-accent="grafito"] { --color-lilac: #94a3b8; --color-lilac-ink: #cbd5e1; --color-lilac-soft: #222837; --color-primary: #cbd5e1; --color-primary-hover: #e2e8f0; --color-on-primary: #111827; }
 
 @layer base {
   :root {
@@ -117,7 +177,8 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    font-feature-settings: "ss01" on;
+    font-feature-settings: "cv11" on, "ss01" on;
+    letter-spacing: -0.006em;
   }
   body {
     min-height: 100dvh;
@@ -155,32 +216,28 @@
 }
 
 @layer components {
+  /* Titles: Inter, tight. (Kept as a class so headings stay easy to find.) */
   .font-display {
-    font-optical-sizing: auto;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.03em;
   }
 
   /* Signature: a tutor question with a lilac question mark hanging in the margin. */
   .q-hang {
     position: relative;
-    padding-left: 1.6em;
-    font-family: var(--font-display);
-    font-style: italic;
-    font-weight: 420;
+    padding-left: 1.5em;
+    font-weight: 500;
     color: var(--color-ink);
   }
   .q-hang::before {
     content: "?";
     content: "?" / "";
     position: absolute;
-    left: 0.1em;
-    top: -0.08em;
-    font-family: var(--font-display);
-    font-style: italic;
+    left: 0.15em;
+    top: -0.05em;
     font-weight: 700;
-    font-size: 1.35em;
-    line-height: 1;
-    color: var(--color-lilac);
+    font-size: 1.2em;
+    line-height: 1.2;
+    color: var(--color-lilac-ink);
   }
 
   /* The thread that connects steps of a student's thinking path. */
@@ -205,12 +262,43 @@
   .safe-bottom {
     padding-bottom: max(env(safe-area-inset-bottom), 0px);
   }
+
+  /* A colored initial on a tinted square (classrooms, students). Set --c to the base color. */
+  .initial {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    font-weight: 600;
+    background: color-mix(in srgb, var(--c) 16%, transparent);
+    border: 1px solid color-mix(in srgb, var(--c) 32%, transparent);
+    color: color-mix(in srgb, var(--c) 78%, var(--color-text));
+  }
+
+  /* "En vivo": a green dot with a soft pulse. */
+  .live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: var(--color-leaf-bright);
+    animation: pulse-ring 2s ease-out infinite;
+  }
 }
 
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
   }
   to {
     opacity: 1;
@@ -230,6 +318,14 @@
     opacity: 1;
   }
 }
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-leaf-bright) 45%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
 @keyframes shimmer {
   from {
     background-position: -200% 0;
@@ -241,6 +337,9 @@
 @utility animate-rise {
   animation: rise 220ms var(--ease-out-soft) both;
 }
+@utility animate-pop {
+  animation: pop 180ms var(--ease-out-soft) both;
+}
 @utility animate-caret {
   animation: caret 1s steps(1) infinite;
 }
@@ -248,7 +347,7 @@
   animation: pulse-dot 1.2s ease-in-out infinite;
 }
 @utility skeleton {
-  background: linear-gradient(90deg, var(--color-sunken) 25%, #f7f8fc 37%, var(--color-sunken) 63%);
+  background: linear-gradient(90deg, var(--color-sunken) 25%, var(--color-paper) 37%, var(--color-sunken) 63%);
   background-size: 400% 100%;
   animation: shimmer 1.4s ease infinite;
   border-radius: var(--radius-sm);

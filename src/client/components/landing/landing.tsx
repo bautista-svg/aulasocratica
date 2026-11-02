@@ -134,7 +134,7 @@ export function Landing({ hasWorkspace, hasAccount, starting, startError, onStar
                           ? "absolute top-1.5 left-[5px] size-3.5 rounded-full border-2 border-lilac bg-surface"
                           : m.label === "Respuesta final"
                             ? "absolute top-1.5 left-[5px] size-3.5 rounded-full bg-leaf-bright"
-                            : "absolute top-1.5 left-[5px] size-3.5 rounded-full bg-ink"
+                            : "absolute top-1.5 left-[5px] size-3.5 rounded-full bg-primary"
                       }
                     />
                     {m.who === "tutor" ? (

@@ -6,7 +6,10 @@ import { queryClient } from "./lib/query";
 import { routeTree } from "./routeTree.gen";
 import { PageSpinner } from "./components/ui/spinner";
 import { RouteError, NotFound } from "./components/app/route-states";
+import { initTheme } from "./lib/theme";
 import "./styles.css";
+
+initTheme();
 
 const router = createRouter({
   routeTree,

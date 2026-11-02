@@ -43,7 +43,7 @@ function useImmediateAlertToasts(snap: LiveSnapshot | undefined, onOpen: () => v
       if (!seen.current.has(a.id)) {
         toast.error(`Atención inmediata: ${a.studentName} · ${a.name}`, {
           duration: 15_000,
-          action: { label: "Ver alertas", onClick: () => open.current() },
+          action: { label: "Ver avisos", onClick: () => open.current() },
         });
       }
     }

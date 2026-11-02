@@ -32,7 +32,7 @@ function Person({ person, owner, children }: { person: SharingPerson; owner?: bo
           aria-hidden="true"
           className={cn(
             "flex size-10 shrink-0 items-center justify-center rounded-full font-display text-[15px] font-semibold",
-            owner ? "bg-ink text-white" : "bg-lilac-soft text-lilac-ink",
+            owner ? "bg-primary text-on-primary" : "bg-lilac-soft text-lilac-ink",
           )}
         >
           {initials(person.name)}

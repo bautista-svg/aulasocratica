@@ -217,7 +217,7 @@ function Header({ token, workspace, onLeft }: { token: string; workspace: Studen
   }
 
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur-sm max-lg:typing:static">
+    <header data-student-header className="sticky top-0 z-30 border-b border-line bg-surface/95 backdrop-blur-sm max-lg:typing:static">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4">
         <LogoMark className="size-8 shrink-0 max-[359px]:hidden" />
         <div className="min-w-0 flex-1 leading-tight">
@@ -296,7 +296,7 @@ function Progress({ workspace, view }: { workspace: StudentWorkspace; view: View
           return (
             <li key={s} className="min-w-0 flex-1" aria-current={current ? "step" : undefined}>
               <span
-                className={cn("block h-1.5 rounded-full", done ? "bg-leaf-bright" : current ? "bg-ink" : "bg-sunken")}
+                className={cn("block h-1.5 rounded-full", done ? "bg-leaf-bright" : current ? "bg-primary" : "bg-sunken")}
                 aria-hidden="true"
               />
               <span

@@ -45,7 +45,7 @@ function useActivitiesOf(classroomId: string | undefined) {
 function AlertsPage() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  usePageTitle("Alertas");
+  usePageTitle("Para revisar");
   const estado: Estado = search.estado ?? "abiertas";
   const filters: AlertFilters = {
     status: STATUS[estado],
@@ -72,8 +72,9 @@ function AlertsPage() {
   return (
     <>
       <PageHeader
-        title="Alertas"
-        description="Las alertas de todos tus alumnos, de todas tus aulas y actividades. Las detectadas por IA son interpretaciones de lo que escribieron: mirá la conversación antes de actuar."
+        eyebrow="Revisar"
+        title="Para revisar"
+        description="Los avisos del tutor sobre tus alumnos, de todas tus aulas y actividades. Los que detecta la IA son interpretaciones de lo que escribieron: mirá la conversación antes de actuar."
       />
 
       <StatusFilter value={estado} counts={counts} onChange={(v) => setSearch({ estado: v === "abiertas" ? undefined : v })} />
@@ -264,11 +265,11 @@ function StatusFilter({ value, counts, onChange }: { value: Estado; counts: Aler
             onClick={() => onChange(o.v)}
             className={cn(
               "inline-flex h-11 items-center gap-2 rounded-full border px-4 text-[15px] font-semibold transition-colors",
-              on ? "border-ink bg-ink text-white" : "border-line-strong bg-surface text-text-2 hover:border-ink/40 hover:text-ink",
+              on ? "border-primary bg-primary text-on-primary" : "border-line-strong bg-surface text-text-2 hover:border-ink/40 hover:text-ink",
             )}
           >
             {o.label}
-            {o.n !== undefined ? <span className={cn("tabular text-sm", on ? "text-white/85" : "text-text-3")}>{o.n}</span> : null}
+            {o.n !== undefined ? <span className={cn("tabular text-sm", on ? "text-on-primary/80" : "text-text-3")}>{o.n}</span> : null}
           </button>
         );
       })}

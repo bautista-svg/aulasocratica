@@ -77,7 +77,7 @@ function Node({
   compact?: boolean;
   children: ReactNode;
 }) {
-  const dot = { neutral: "bg-line-strong", lilac: "bg-lilac", ink: "bg-ink", leaf: "bg-leaf-bright", amber: "bg-amber" }[tone];
+  const dot = { neutral: "bg-line-strong", lilac: "bg-lilac", ink: "bg-primary", leaf: "bg-leaf-bright", amber: "bg-amber" }[tone];
   return (
     <li className={cn("relative pl-10 last:pb-0", compact ? "pb-4" : "pb-6")}>
       <span className={cn("absolute top-1 left-[5px] size-3.5 rounded-full border-2 border-surface ring-1 ring-line", dot)} aria-hidden="true" />

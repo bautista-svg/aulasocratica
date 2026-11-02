@@ -36,7 +36,7 @@ export function Switch({
         onCheckedChange={onCheckedChange}
         disabled={disabled}
         // 48 × 28 visible; the invisible ::before makes the touch target 48 × 44.
-        className="relative mt-0.5 inline-flex h-7 w-12 shrink-0 items-center rounded-full bg-line-strong transition-colors before:absolute before:inset-x-0 before:-inset-y-2 before:content-[''] disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-ink"
+        className="relative mt-0.5 inline-flex h-7 w-12 shrink-0 items-center rounded-full bg-line-strong transition-colors before:absolute before:inset-x-0 before:-inset-y-2 before:content-[''] disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary"
       >
         <RS.Thumb className="block size-5.5 translate-x-[3px] rounded-full bg-white shadow-1 transition-transform data-[state=checked]:translate-x-[23px]" />
       </RS.Root>
@@ -52,10 +52,10 @@ export function Checkbox({ checked, onCheckedChange, label, description, disable
         onCheckedChange={(v) => onCheckedChange(v === true)}
         disabled={disabled}
         // 20 px box with a 44 px invisible touch target around it.
-        className="relative mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-[6px] border border-line-strong bg-surface before:absolute before:-inset-3 before:content-[''] disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:border-ink data-[state=checked]:bg-ink"
+        className="relative mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-[6px] border border-line-strong bg-surface before:absolute before:-inset-3 before:content-[''] disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:border-ink data-[state=checked]:bg-primary"
       >
         <RC.Indicator>
-          <Check className="size-3.5 text-white" strokeWidth={3} />
+          <Check className="size-3.5 text-on-primary" strokeWidth={3} />
         </RC.Indicator>
       </RC.Root>
       <span className="min-w-0">
@@ -77,12 +77,18 @@ export function Tabs({
   items,
   className,
   listClassName,
+  variant = "line",
+  label,
 }: {
   value: string;
   onValueChange: (v: string) => void;
-  items: { value: string; label: ReactNode; content: ReactNode; badge?: ReactNode }[];
+  /** `step` numbers the item in the "steps" variant; `hint` is its one-line description; `tour` marks it for guides. */
+  items: { value: string; label: ReactNode; content: ReactNode; badge?: ReactNode; step?: number; hint?: ReactNode; tour?: string }[];
   className?: string;
   listClassName?: string;
+  /** "steps": numbered cells in a row (an activity's Preparar → Compartir → En vivo → Revisar). */
+  variant?: "line" | "steps";
+  label?: string;
 }) {
   const [mountAll, setMountAll] = useState(false);
   useEffect(() => startTransition(() => setMountAll(true)), []);
@@ -98,24 +104,67 @@ export function Tabs({
   }, [value]);
   return (
     <RT.Root value={value} onValueChange={onValueChange} className={className}>
-      <RT.List
-        ref={list}
-        className={cn(
-          "-mx-4 mb-5 flex gap-1 overflow-x-auto border-b border-line px-4 [scrollbar-width:none] sm:mx-0 sm:px-0",
-          listClassName,
-        )}
-      >
-        {items.map((it) => (
-          <RT.Trigger
-            key={it.value}
-            value={it.value}
-            className="relative -mb-px inline-flex h-11 shrink-0 items-center gap-2 border-b-2 border-transparent px-3 text-[15px] font-semibold text-text-2 transition-colors hover:text-ink data-[state=active]:border-ink data-[state=active]:text-ink"
-          >
-            {it.label}
-            {it.badge}
-          </RT.Trigger>
-        ))}
-      </RT.List>
+      {variant === "steps" ? (
+        <RT.List
+          ref={list}
+          aria-label={label}
+          data-tour="pasos"
+          className={cn(
+            "-mx-4 mb-5 flex overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0",
+            listClassName,
+          )}
+        >
+          <div className="flex min-w-full overflow-hidden rounded-lg border border-line bg-surface shadow-1">
+            {items.map((it, i) => (
+              <RT.Trigger
+                key={it.value}
+                value={it.value}
+                data-tour={it.tour}
+                className={cn(
+                  "group relative flex min-h-14 shrink-0 items-center gap-3 px-3.5 py-2 text-left transition-colors hover:bg-sunken data-[state=active]:bg-sunken",
+                  "before:absolute before:inset-x-0 before:top-0 before:h-0.5 before:bg-transparent data-[state=active]:before:bg-lilac-ink",
+                  it.step ? "flex-1 basis-40" : "basis-auto",
+                  i > 0 && "border-l border-line",
+                )}
+              >
+                {it.step ? (
+                  <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-line-strong font-mono text-[12px] font-medium text-text-3 group-data-[state=active]:border-lilac-ink group-data-[state=active]:text-lilac-ink">
+                    {it.step}
+                  </span>
+                ) : null}
+                <span className="min-w-0">
+                  <span className="flex items-center gap-2 text-[14px] font-medium text-text-2 group-data-[state=active]:text-ink">
+                    {it.label}
+                    {it.badge}
+                  </span>
+                  {it.hint ? <span className="block truncate text-[12.5px] text-text-3">{it.hint}</span> : null}
+                </span>
+              </RT.Trigger>
+            ))}
+          </div>
+        </RT.List>
+      ) : (
+        <RT.List
+          ref={list}
+          aria-label={label}
+          className={cn(
+            "-mx-4 mb-5 flex gap-1 overflow-x-auto border-b border-line px-4 [scrollbar-width:none] sm:mx-0 sm:px-0",
+            listClassName,
+          )}
+        >
+          {items.map((it) => (
+            <RT.Trigger
+              key={it.value}
+              value={it.value}
+              data-tour={it.tour}
+              className="relative -mb-px inline-flex h-11 shrink-0 items-center gap-2 border-b-2 border-transparent px-3 text-[14px] font-medium text-text-2 transition-colors hover:text-ink data-[state=active]:border-lilac-ink data-[state=active]:text-ink"
+            >
+              {it.label}
+              {it.badge}
+            </RT.Trigger>
+          ))}
+        </RT.List>
+      )}
       {items.map((it) => (
         <RT.Content key={it.value} value={it.value} forceMount className="outline-none data-[state=inactive]:hidden">
           {mountAll || it.value === value ? it.content : null}

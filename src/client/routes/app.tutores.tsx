@@ -103,7 +103,7 @@ function TutorsPage() {
             onClick={() => void navigate({ search: f.value === "todos" ? {} : { filtro: f.value }, replace: true })}
             className={cn(
               "inline-flex h-11 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition-colors",
-              filtro === f.value ? "border-ink bg-ink text-white" : "border-line-strong bg-surface text-text-2 hover:border-ink/40 hover:text-ink",
+              filtro === f.value ? "border-primary bg-primary text-on-primary" : "border-line-strong bg-surface text-text-2 hover:border-ink/40 hover:text-ink",
             )}
           >
             {f.label}

@@ -21,6 +21,7 @@ const PURPOSE_LABELS: Record<string, string> = {
   deliverable_analysis: "Análisis de entregas",
   aspect_analysis: "Habilidades",
   change_request: "Pedidos de cambios",
+  app_help: "Ayuda «¿Dónde está…?»",
   reflection_questions: "Preguntas de reflexión",
   session_summary: "Resumen de un trabajo",
   thinking_xray: "Radiografía",
@@ -81,7 +82,7 @@ function UsageChart({ ai }: { ai: AdminOverview["ai"] }) {
       <div className="px-5 pt-4 pb-5">
         <div className="mb-3 flex flex-wrap gap-4 text-xs text-text-2" aria-hidden="true">
           <span className="inline-flex items-center gap-1.5">
-            <span className="size-3 rounded-[3px] bg-ink" /> Entrada
+            <span className="size-3 rounded-[3px] bg-primary" /> Entrada
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="size-3 rounded-[3px] bg-lilac" /> Salida
@@ -101,7 +102,7 @@ function UsageChart({ ai }: { ai: AdminOverview["ai"] }) {
                     style={{ height: `${h}%`, minHeight: total ? 2 : 0 }}
                   >
                     <div className="bg-lilac" style={{ flexGrow: d.outputTokens }} />
-                    <div className="bg-ink" style={{ flexGrow: d.inputTokens }} />
+                    <div className="bg-primary" style={{ flexGrow: d.inputTokens }} />
                   </div>
                 </div>
               );

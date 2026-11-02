@@ -42,7 +42,7 @@ export function StepFocus({ state: s, update }: { state: WizardState; update: (p
               key={k}
               className={cn(
                 "flex min-h-11 cursor-pointer items-center justify-center rounded-sm px-4 text-sm font-semibold transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-lilac-ink",
-                s.difficulty === k ? "bg-ink text-white" : "text-text-2 hover:text-ink",
+                s.difficulty === k ? "bg-primary text-on-primary" : "text-text-2 hover:text-ink",
               )}
             >
               <input type="radio" name={diffName} value={k} checked={s.difficulty === k} onChange={() => update({ difficulty: k })} className="sr-only" />

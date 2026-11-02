@@ -10,7 +10,7 @@ import { activitySummaries } from "./classrooms";
 import { visibleClassroomIds } from "../services/access";
 import { activityState } from "@shared/domain/activity-state";
 import { classroomLabel } from "@shared/contracts/classrooms";
-import type { DashboardResponse } from "@shared/contracts/dashboard";
+import type { DashboardActivitiesResponse, DashboardResponse } from "@shared/contracts/dashboard";
 import type { AlertSeverity } from "@shared/domain/alerts";
 
 const RECENT = 6;
@@ -159,6 +159,32 @@ export const dashboardRoutes = new Hono<AppEnv>()
       recent: visible.slice(0, RECENT).map((a) => ({ ...a, classroomName: nameOf(a.classroomId) })),
       alerts: alerts.map((a) => ({ ...a, severity: a.severity as AlertSeverity, createdAt: a.createdAt.toISOString() })),
       onboarding,
+    };
+    return c.json(body);
+  })
+
+  // "Actividades": every activity of the classrooms the teacher sees (archived classrooms out),
+  // most recently edited first, with its classroom's name. Also feeds the search (Ctrl K).
+  .get("/activities", async (c) => {
+    const t = teacherOf(c);
+    const [activities, rooms] = await Promise.all([
+      activitySummaries(t.id, null),
+      db
+        .select({
+          id: schema.classrooms.id,
+          name: schema.classrooms.name,
+          grade: schema.classrooms.grade,
+          division: schema.classrooms.division,
+          isArchived: schema.classrooms.isArchived,
+        })
+        .from(schema.classrooms)
+        .where(sql`classrooms.id in ${visibleClassroomIds(t.id)}`),
+    ]);
+    const roomById = new Map(rooms.map((r) => [r.id, r]));
+    const body: DashboardActivitiesResponse = {
+      activities: activities
+        .filter((a) => roomById.get(a.classroomId)?.isArchived === false)
+        .map((a) => ({ ...a, classroomName: classroomLabel(roomById.get(a.classroomId)!) })),
     };
     return c.json(body);
   });

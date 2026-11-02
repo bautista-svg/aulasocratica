@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import { Bell, ChevronRight, LayoutList, Plus, Radio, Sparkles, X } from "lucide-react";
-import { Badge, Card, EmptyState, ErrorState, Notice, PageHeader, Skeleton, Stat } from "@client/components/ui/misc";
+import { Badge, Card, EmptyState, ErrorState, Notice, PageHeader, Skeleton } from "@client/components/ui/misc";
 import { Button, ButtonLink, buttonClass } from "@client/components/ui/button";
 import { fmtRelative, plural } from "@client/lib/format";
 import { cn } from "@client/lib/cn";
@@ -14,6 +14,8 @@ import { ClassroomFormDialog } from "@client/features/classrooms/classroom-form"
 import { activityState } from "@shared/domain/activity-state";
 import { ALERT_SEVERITY_LABELS } from "@shared/domain/alerts";
 import type { DashboardResponse } from "@shared/contracts/dashboard";
+import { useAutoTour } from "@client/components/app/tour";
+import { HOME_TOUR } from "@client/features/help/tours";
 
 export const Route = createFileRoute("/app/")({
   component: HomePage,
@@ -38,6 +40,7 @@ function HomePage() {
   const navigate = useNavigate();
   const teacher = me.data?.teacher;
   const name = teacher?.displayName?.trim() ?? "";
+  useAutoTour("inicio", HOME_TOUR, q.isSuccess);
 
   const prompts = (
     <>
@@ -158,14 +161,9 @@ function DashboardBody({ d, prompts, onNewRoom }: { d: DashboardResponse; prompt
       {!d.onboarding.done ? <OnboardingChecklist o={d.onboarding} /> : null}
       {prompts ? <div className="-mb-5 empty:hidden">{prompts}</div> : null}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Aulas" value={d.counts.classrooms} />
-        <Stat label="Actividades" value={d.counts.activities} hint={`${d.counts.published} publicadas`} />
-        <Stat label="Alumnos" value={d.counts.students} hint="En tus aulas activas" />
-        <Stat label="Alertas por revisar" value={d.counts.openAlerts} />
-      </div>
+      <Moments d={d} />
 
-      {d.counts.published > 0 || d.live.length > 0 ? <LiveNow d={d} /> : null}
+      {d.live.length > 0 ? <LiveNow d={d} /> : null}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <AlertsToReview d={d} />
@@ -177,10 +175,78 @@ function DashboardBody({ d, prompts, onNewRoom }: { d: DashboardResponse; prompt
 
 function SectionTitle({ children, extra }: { children: ReactNode; extra?: ReactNode }) {
   return (
-    <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-      <h2 className="font-display text-xl font-semibold text-ink">{children}</h2>
+    <div className="mb-2.5 flex flex-wrap items-baseline justify-between gap-2">
+      <h2 className="text-[15px] font-semibold tracking-[-0.015em] text-ink">{children}</h2>
       {extra}
     </div>
+  );
+}
+
+/** The three moments of a class, the way the whole app is organized. */
+function Moments({ d }: { d: DashboardResponse }) {
+  const working = d.live.reduce((n, a) => n + a.activeNow, 0);
+  const items = [
+    {
+      n: "01",
+      kicker: "Preparar",
+      title: "Armar una clase",
+      body: "Subí un PDF o una foto y la IA te propone una actividad. Vos la corregís.",
+      to: "/app/actividades" as const,
+      tone: "text-lilac-ink",
+      line: "before:bg-lilac-ink",
+      live: false,
+    },
+    {
+      n: "02",
+      kicker: "En clase",
+      title: "Ver la clase en vivo",
+      body:
+        working > 0
+          ? `${plural(working, "alumno trabajando", "alumnos trabajando")} en ${plural(d.live.length, "actividad", "actividades")}.`
+          : "Nadie está trabajando ahora. Cuando entren, los ves acá.",
+      to: "/app/en-vivo" as const,
+      tone: "text-leaf",
+      line: "before:bg-leaf-bright",
+      live: working > 0,
+    },
+    {
+      n: "03",
+      kicker: "Revisar",
+      title: "Revisar el trabajo",
+      body: d.counts.openAlerts > 0 ? `${plural(d.counts.openAlerts, "aviso del tutor", "avisos del tutor")} para mirar.` : "No hay avisos abiertos. Mirá cómo pensó cada alumno.",
+      to: "/app/alertas" as const,
+      tone: "text-amber",
+      line: "before:bg-amber",
+      live: false,
+    },
+  ];
+  return (
+    <section aria-labelledby="que-hacer">
+      <SectionTitle>
+        <span id="que-hacer">¿Qué querés hacer?</span>
+      </SectionTitle>
+      <div data-tour="momentos" className="grid grid-cols-1 overflow-hidden rounded-lg border border-line bg-surface shadow-1 sm:grid-cols-3">
+        {items.map((m, i) => (
+          <Link
+            key={m.n}
+            to={m.to}
+            className={cn(
+              "relative flex flex-col gap-1 px-5 pt-5 pb-4 transition-colors hover:bg-sunken",
+              "before:absolute before:inset-x-0 before:top-0 before:h-0.5",
+              m.line,
+              i > 0 && "border-t border-line sm:border-t-0 sm:border-l",
+            )}
+          >
+            <span className={cn("flex items-center gap-2 font-mono text-[11.5px] font-medium tracking-wide uppercase", m.tone)}>
+              {m.live ? <span className="live-dot" aria-hidden="true" /> : null}
+              {m.n} · {m.kicker}
+            </span>
+            <span className="mt-1 text-[16px] font-semibold tracking-[-0.02em] text-ink">{m.title}</span>
+            <span className="text-[13.5px] leading-5 text-text-2">{m.body}</span>
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -227,7 +293,7 @@ function LiveNow({ d }: { d: DashboardResponse }) {
                     aria-label={`${plural(a.openAlerts, "alerta abierta", "alertas abiertas")} en ${a.title}`}
                     className="relative z-10 -my-2.5 inline-flex min-h-11 items-center rounded-full"
                   >
-                    <Badge tone="rose" className="transition-colors hover:bg-rose hover:text-white">
+                    <Badge tone="rose" className="transition-colors hover:bg-rose hover:text-surface">
                       <Bell className="size-3" aria-hidden="true" />
                       {plural(a.openAlerts, "alerta", "alertas")}
                     </Badge>

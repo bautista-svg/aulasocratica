@@ -8,6 +8,7 @@ import { usePageTitle } from "@client/lib/page-title";
 import { WorkspaceNameForm } from "@client/features/account/workspace-name-form";
 import { AccountSection } from "@client/features/account/account-section";
 import { DeleteWorkspace } from "@client/features/account/delete-workspace";
+import { AccentSettings } from "@client/features/appearance/accent";
 
 export const Route = createFileRoute("/app/cuenta")({
   component: AccountPage,
@@ -42,6 +43,8 @@ function AccountPage() {
             <AccountSection me={t} />
           </div>
         </Card>
+
+        <AccentSettings />
 
         <Card>
           <CardHeader title="Tus datos" />

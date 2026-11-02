@@ -197,7 +197,7 @@ export function ConsignaPanel({
                   <span
                     className={cn(
                       "block h-1.5 rounded-full transition-colors",
-                      i === index ? "bg-ink" : done || i < index ? "bg-leaf-bright" : "bg-sunken group-hover:bg-line-strong",
+                      i === index ? "bg-primary" : done || i < index ? "bg-leaf-bright" : "bg-sunken group-hover:bg-line-strong",
                     )}
                   />
                 </button>

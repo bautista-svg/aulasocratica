@@ -105,7 +105,7 @@ function AlertsLink({ snap, activityId }: { snap: LiveSnapshot; activityId: stri
       </span>
       <span className="min-w-0 flex-1 leading-5">
         <span className="font-semibold text-ink">{plural(open, "alerta abierta", "alertas abiertas")}</span>
-        <span className="text-text-2"> · revisalas en la pestaña Alertas</span>
+        <span className="text-text-2"> · revisalas en «Avisos»</span>
       </span>
       <ChevronRight className="size-5 shrink-0 text-text-3 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
     </Link>
@@ -346,7 +346,7 @@ function ParticipantsSection({ snap, activityId }: { snap: LiveSnapshot; activit
               onClick={() => setFilter(f.value)}
               className={cn(
                 "inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-sm font-semibold transition-colors",
-                filter === f.value ? "border-ink bg-ink text-white" : "border-line-strong bg-surface text-text-2 hover:border-ink/40",
+                filter === f.value ? "border-primary bg-primary text-on-primary" : "border-line-strong bg-surface text-text-2 hover:border-ink/40",
               )}
             >
               {f.label}

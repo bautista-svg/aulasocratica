@@ -1,7 +1,7 @@
 // Build-time resource hints.
-// 1. preloadFonts: <link rel="preload" as="font"> for the two faces almost every first screen uses
-//    (Fraunces for headings — the LCP element of most pages — and Figtree for body text). Without it
-//    the browser only discovers them after downloading and parsing the CSS.
+// 1. preloadFonts: <link rel="preload" as="font"> for the face every first screen uses (Inter, for
+//    headings and body text). Without it the browser only discovers it after downloading and
+//    parsing the CSS.
 // 2. routePreloads: dist/route-preloads.json maps each route file (TanStack Router code-split
 //    component) to the JS files it needs beyond the entry chunk. The server adds them as
 //    <link rel="modulepreload"> to the HTML of matching URLs, so they download in parallel with the
@@ -10,7 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Plugin, Rollup } from "vite";
 
-const PRELOAD_FONTS = [/^assets\/fraunces-latin-wght-normal-.*\.woff2$/, /^assets\/figtree-latin-wght-normal-.*\.woff2$/];
+const PRELOAD_FONTS = [/^assets\/inter-latin-wght-normal-.*\.woff2$/];
 
 export function preloadFonts(): Plugin {
   return {

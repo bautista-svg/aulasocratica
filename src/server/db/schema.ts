@@ -698,3 +698,17 @@ export const skillRuns = pgTable(
     check("skill_runs_status", sql`${t.status} in ('running','done','failed')`),
   ],
 );
+
+
+// ───────────────────────── App settings ─────────────────────────
+
+/**
+ * Settings of the whole app, one row per key. Today: "accent", the accent color every screen uses
+ * (shared/domain/accents.ts), chosen by a teacher with the permission (see services/appearance.ts).
+ */
+export const appSettings = pgTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedBy: uuid("updated_by").references(() => teachers.id, { onDelete: "set null" }),
+  updatedAt: updatedAt(),
+});

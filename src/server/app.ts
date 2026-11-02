@@ -27,6 +27,8 @@ import { materialRoutes } from "./routes/materials";
 import { planningRoutes } from "./routes/planning";
 import { reportRoutes } from "./routes/reports";
 import { dashboardRoutes } from "./routes/dashboard";
+import { helpRoutes } from "./routes/help";
+import { settingsRoutes } from "./routes/settings";
 import { publicStudentRoutes } from "./routes/public-student";
 import { adminRoutes } from "./routes/admin";
 import { requestRoutes } from "./routes/requests";
@@ -95,6 +97,8 @@ export function createApp(opts: { staticDir?: string | null } = {}) {
   api.route("/reports", reportRoutes);
   api.route("/s", publicStudentRoutes);
   api.route("/requests", requestRoutes);
+  api.route("/help", helpRoutes);
+  api.route("/settings", settingsRoutes);
   api.route("/skills", skillRoutes);
   api.route("/admin", adminRoutes);
   api.all("*", (c) => c.json({ error: { code: "not_found", message: "Ruta inexistente." } }, 404));

@@ -91,7 +91,7 @@ export function OnboardingChecklist({ o }: { o: DashboardOnboarding }) {
             <span
               className={cn(
                 "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold",
-                s.done ? "bg-leaf text-white" : i === current ? "bg-ink text-white" : "border border-line-strong text-text-3",
+                s.done ? "bg-leaf text-surface" : i === current ? "bg-primary text-on-primary" : "border border-line-strong text-text-3",
               )}
             >
               {s.done ? <Check className="size-4" strokeWidth={3} aria-hidden="true" /> : i + 1}

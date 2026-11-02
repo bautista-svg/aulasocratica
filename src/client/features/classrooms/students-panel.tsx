@@ -335,7 +335,7 @@ function RenameDialog({
                     key={d || "none"}
                     className={cn(
                       "inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center gap-1.5 rounded-full border px-4 text-sm font-semibold transition-colors has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-lilac/35",
-                      on ? "border-ink bg-ink text-white" : "border-line-strong bg-surface text-text-2 hover:border-ink/40 hover:text-ink",
+                      on ? "border-primary bg-primary text-on-primary" : "border-line-strong bg-surface text-text-2 hover:border-ink/40 hover:text-ink",
                       !d && !on && "font-medium",
                     )}
                   >

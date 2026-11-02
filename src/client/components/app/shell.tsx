@@ -1,17 +1,23 @@
-import { Link, useLinkProps, useRouterState } from "@tanstack/react-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { Link, useLinkProps, useNavigate, useRouterState } from "@tanstack/react-router";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { InShell } from "./shell-context";
 import {
-  Bell,
-  Home,
-  School,
-  Sparkles,
+  CircleHelp,
+  FileText,
   FolderOpen,
   Bot,
-  ScanSearch,
-  FileText,
+  Home,
+  Inbox,
+  LayoutGrid,
   Menu as MenuIcon,
   MessageSquarePlus,
+  Moon,
+  Plus,
+  ScanSearch,
+  Search,
+  Sparkles,
+  Sun,
+  SquareStack,
   UserRound,
   X,
 } from "lucide-react";
@@ -21,37 +27,47 @@ import { Logo } from "../brand/logo";
 import type { Me } from "@shared/contracts/auth";
 import { AiStatusBanner } from "./ai-status";
 import { useAlertCount } from "@client/features/alerts/api";
+import { useDashboard } from "@client/features/dashboard/api";
+import { useTheme } from "@client/lib/theme";
+import { ClassroomFormDialog } from "@client/features/classrooms/classroom-form";
+import { restartTour, TourLayer } from "./tour";
+import { SHELL_TOUR } from "@client/features/help/tours";
+import { openHelp } from "@client/features/help/store";
+import { openPalette } from "./command-palette-store";
+import { AccentChooser } from "@client/features/appearance/accent";
 
-type NavItem = { to: string; label: string; icon: typeof Home; exact?: boolean };
+const CommandPalette = lazy(() => import("./command-palette"));
+const HelpAssistant = lazy(() => import("@client/features/help/assistant"));
+
+type NavItem = { to: string; label: string; icon: typeof Home; exact?: boolean; tour: string };
 
 /** True inside the panel: its <main>, logo and navigation are already on screen. */
 export { useInAppShell } from "./shell-context";
 
-const NAV: NavItem[] = [
-  { to: "/app", label: "Inicio", icon: Home, exact: true },
-  { to: "/app/aulas", label: "Aulas", icon: School },
-  { to: "/app/alertas", label: "Alertas", icon: Bell },
-  { to: "/app/crear", label: "Crear con IA", icon: Sparkles },
-  { to: "/app/tutores", label: "Mis tutores", icon: Bot },
-  { to: "/app/materiales", label: "Mis materiales", icon: FolderOpen },
-  { to: "/app/radiografia", label: "Radiografía", icon: ScanSearch },
-  { to: "/app/informes", label: "Informes", icon: FileText },
+const INICIO: NavItem = { to: "/app", label: "Inicio", icon: Home, exact: true, tour: "nav-inicio" };
+const AULAS: NavItem = { to: "/app/aulas", label: "Aulas", icon: LayoutGrid, tour: "nav-aulas" };
+const PREPARAR: NavItem[] = [
+  { to: "/app/actividades", label: "Actividades", icon: SquareStack, tour: "nav-actividades" },
+  { to: "/app/tutores", label: "Mis tutores", icon: Bot, tour: "nav-tutores" },
+  { to: "/app/materiales", label: "Mis materiales", icon: FolderOpen, tour: "nav-materiales" },
 ];
-
+const EN_VIVO: NavItem = { to: "/app/en-vivo", label: "En vivo", icon: Sparkles, tour: "nav-en-vivo" };
+const REVISAR: NavItem[] = [
+  { to: "/app/alertas", label: "Para revisar", icon: Inbox, tour: "nav-revisar" },
+  { to: "/app/radiografia", label: "Radiografía", icon: ScanSearch, tour: "nav-radiografia" },
+  { to: "/app/informes", label: "Informes", icon: FileText, tour: "nav-informes" },
+];
 /** Only for workspaces the admin enabled (teachers.can_request_changes). */
-const REQUESTS_ITEM: NavItem = { to: "/app/pedidos", label: "Pedidos de cambios", icon: MessageSquarePlus };
+const PEDIDOS: NavItem = { to: "/app/pedidos", label: "Pedidos de cambios", icon: MessageSquarePlus, tour: "nav-pedidos" };
 
-// Alerts are time-sensitive, so they get a tab of their own on phones; the rest go under "Más".
-const MOBILE_TABS = ["/app", "/app/aulas", "/app/alertas", "/app/crear"];
-
-/** Open alerts on the "Alertas" item: red when one needs immediate attention. */
-function AlertBadge({ open, immediate, className }: { open: number; immediate: number; className?: string }) {
+/** Open alerts: red when one needs immediate attention. */
+function Count({ open, immediate, className }: { open: number; immediate: number; className?: string }) {
   if (open <= 0) return null;
   return (
     <span
       className={cn(
-        "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] leading-none font-bold tabular",
-        immediate > 0 ? "bg-rose text-white" : "bg-lilac-soft text-lilac-ink",
+        "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] leading-none font-semibold tabular",
+        immediate > 0 ? "bg-rose text-surface" : "bg-lilac-soft text-lilac-ink",
         className,
       )}
     >
@@ -66,7 +82,8 @@ function AlertBadge({ open, immediate, className }: { open: number; immediate: n
 
 function useIsActive() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  return (item: NavItem) => (item.exact ? pathname === item.to || pathname === `${item.to}/` : pathname.startsWith(item.to));
+  return (item: { to: string; exact?: boolean }) =>
+    item.exact ? pathname === item.to || pathname === `${item.to}/` : pathname === item.to || pathname.startsWith(`${item.to}/`);
 }
 
 /**
@@ -76,82 +93,175 @@ function useIsActive() {
 function HomeLogoLink({ className }: { className?: string }) {
   const { "aria-current": _current, className: _routerClass, ...props } = useLinkProps({ to: "/app" });
   return (
-    <a {...props} aria-label="Aula Socrática, inicio" className={cn("inline-flex min-h-11 items-center", className)}>
+    <a {...props} aria-label="Aula Socrática, inicio" className={cn("inline-flex min-h-10 items-center", className)}>
       <Logo />
     </a>
   );
 }
 
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? "A") + (parts[1]?.[0] ?? "")).toUpperCase();
+}
+
+const navItem =
+  "relative flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-[14px] font-medium transition-colors max-lg:h-11";
+
+function SideLink({ item, active, extra }: { item: NavItem; active: boolean; extra?: ReactNode }) {
+  return (
+    <Link
+      to={item.to}
+      data-tour={item.tour}
+      activeOptions={{ exact: item.exact ?? false }}
+      className={cn(navItem, active ? "bg-lilac-soft text-lilac-ink" : "text-text-2 hover:bg-sunken hover:text-ink")}
+    >
+      <item.icon className="size-[17px] shrink-0" aria-hidden="true" />
+      {item.label}
+      {extra}
+    </Link>
+  );
+}
+
 export function AppShell({ me, children }: { me: Me; children: ReactNode }) {
   const isActive = useIsActive();
+  const navigate = useNavigate();
   const [moreOpen, setMoreOpen] = useState(false);
+  const [newRoom, setNewRoom] = useState(false);
   const keyboardOpen = useVirtualKeyboardOpen();
+  const [theme, setTheme] = useTheme();
   const workspaceLabel = me.displayName || "Mi espacio";
   const alerts = useAlertCount();
   const openAlerts = alerts.data?.open ?? 0;
   const immediateAlerts = alerts.data?.immediate ?? 0;
-  const nav = me.canRequestChanges ? [...NAV, REQUESTS_ITEM] : NAV;
+  const dash = useDashboard();
+  const liveNow = (dash.data?.live ?? []).reduce((n, a) => n + a.activeNow, 0);
+  const pedidos = me.canRequestChanges;
+
+  // Ctrl K / ⌘K opens the search from any screen.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        openPalette();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
+  const liveExtra =
+    liveNow > 0 ? (
+      <span className="ml-auto flex items-center gap-1.5 text-[12px] font-semibold text-leaf tabular">
+        <span className="live-dot" aria-hidden="true" />
+        {liveNow}
+        <span className="sr-only">{liveNow === 1 ? " alumno trabajando" : " alumnos trabajando"}</span>
+      </span>
+    ) : null;
+  const alertExtra = <Count open={openAlerts} immediate={immediateAlerts} className="ml-auto" />;
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[256px_1fr]">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[240px_1fr]">
       {/* Desktop sidebar */}
-      <aside className="sticky top-0 hidden h-dvh flex-col border-r border-line bg-surface/70 px-4 py-5 lg:flex">
-        <HomeLogoLink className="mb-6 self-start px-2" />
+      <aside className="sticky top-0 hidden h-dvh flex-col overflow-y-auto border-r border-line bg-surface px-3 py-4 lg:flex">
+        <HomeLogoLink className="mb-4 self-start px-1.5" />
+        <button
+          type="button"
+          data-tour="buscar"
+          onClick={openPalette}
+          className="mb-3 flex h-9 w-full items-center gap-2.5 rounded-md border border-line bg-paper px-2.5 text-[14px] text-text-3 transition-colors hover:border-line-strong hover:text-text-2"
+        >
+          <Search className="size-4" aria-hidden="true" />
+          Buscar
+          <kbd className="ml-auto rounded border border-line px-1.5 font-mono text-[11px] text-text-3">Ctrl K</kbd>
+        </button>
         <nav aria-label="Principal" className="flex flex-col gap-0.5">
-          {nav.map((item) => (
+          <SideLink item={INICIO} active={isActive(INICIO)} />
+          <div className="flex items-center gap-0.5">
+            <SideLink item={AULAS} active={isActive(AULAS)} />
+            <button
+              type="button"
+              data-tour="nueva-aula"
+              onClick={() => setNewRoom(true)}
+              aria-label="Nueva aula"
+              className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-text-3 transition-colors hover:bg-sunken hover:text-ink"
+            >
+              <Plus className="size-4" aria-hidden="true" />
+            </button>
+          </div>
+          <NavGroup label="Preparar" tour="grupo-preparar">
+            {PREPARAR.map((item) => (
+              <SideLink key={item.to} item={item} active={isActive(item)} />
+            ))}
+          </NavGroup>
+          <NavGroup label="En clase" tour="grupo-en-clase">
+            <SideLink item={EN_VIVO} active={isActive(EN_VIVO)} extra={liveExtra} />
+          </NavGroup>
+          <NavGroup label="Revisar" tour="grupo-revisar">
+            {REVISAR.map((item) => (
+              <SideLink key={item.to} item={item} active={isActive(item)} extra={item.to === "/app/alertas" ? alertExtra : undefined} />
+            ))}
+          </NavGroup>
+          {pedidos ? (
+            <div className="mt-3 border-t border-line pt-3">
+              <SideLink item={PEDIDOS} active={isActive(PEDIDOS)} />
+            </div>
+          ) : null}
+        </nav>
+        <div className="mt-auto flex flex-col gap-0.5 pt-4">
+          <button type="button" data-tour="ayuda" onClick={openHelp} className={cn(navItem, "text-text-2 hover:bg-sunken hover:text-ink")}>
+            <Sparkles className="size-[17px] text-lilac-ink" aria-hidden="true" />
+            ¿Dónde está…?
+          </button>
+          <button type="button" data-tour="recorrido" onClick={() => restartTour(SHELL_TOUR)} className={cn(navItem, "text-text-2 hover:bg-sunken hover:text-ink")}>
+            <CircleHelp className="size-[17px]" aria-hidden="true" />
+            Recorrido guiado
+          </button>
+          <div className="mt-2 flex items-center gap-1 border-t border-line pt-2">
             <Link
-              key={item.to}
-              to={item.to}
-              // "Inicio" (/app) is current only on /app itself, not on every screen below it.
-              activeOptions={{ exact: item.exact ?? false }}
+              to="/app/cuenta"
+              data-tour="nav-cuenta"
               className={cn(
-                "flex h-10 items-center gap-3 rounded-md px-3 text-[15px] font-semibold transition-colors",
-                isActive(item) ? "bg-ink-soft text-ink" : "text-text-2 hover:bg-sunken hover:text-ink",
-                // Set apart from the teaching sections: it is about the app itself.
-                item === REQUESTS_ITEM && "mt-4 before:absolute before:inset-x-3 before:-top-2.5 before:h-px before:bg-line relative",
+                "flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-1.5 py-1.5 transition-colors hover:bg-sunken",
+                isActive({ to: "/app/cuenta" }) && "bg-sunken",
               )}
             >
-              <item.icon className="size-[18px] shrink-0" aria-hidden="true" />
-              {item.label}
-              {item.to === "/app/alertas" ? <AlertBadge open={openAlerts} immediate={immediateAlerts} className="ml-auto" /> : null}
+              <span className="initial size-8 rounded-full text-[12px]" style={{ ["--c" as string]: "var(--color-lilac-ink)" }} aria-hidden="true">
+                {initials(workspaceLabel)}
+              </span>
+              <span className="min-w-0 flex-1 leading-tight">
+                <span className="block truncate text-[13.5px] font-medium text-text">{workspaceLabel}</span>
+                <span className="block truncate text-[12px] text-text-3">{me.hasAccount ? "Mi cuenta" : "Sin cuenta · este dispositivo"}</span>
+              </span>
             </Link>
-          ))}
-        </nav>
-        <div className="mt-auto">
-          <Link
-            to="/app/cuenta"
-            className={cn(
-              "flex items-center gap-3 rounded-md border border-line bg-surface px-3 py-2.5 transition-colors hover:border-line-strong",
-              isActive({ to: "/app/cuenta", label: "", icon: Home }) && "border-ink/30",
-            )}
-          >
-            <span className="flex size-9 items-center justify-center rounded-full bg-lilac-soft text-lilac-ink">
-              <UserRound className="size-[18px]" aria-hidden="true" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold text-text">{workspaceLabel}</span>
-              <span className="block truncate text-xs text-text-3">{me.hasAccount ? me.email : "Sin cuenta · este dispositivo"}</span>
-            </span>
-          </Link>
+            <button
+              type="button"
+              data-tour="tema"
+              onClick={toggleTheme}
+              aria-label={theme === "dark" ? "Pasar a modo claro" : "Pasar a modo oscuro"}
+              className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-text-3 transition-colors hover:bg-sunken hover:text-ink"
+            >
+              {theme === "dark" ? <Sun className="size-4" aria-hidden="true" /> : <Moon className="size-4" aria-hidden="true" />}
+            </button>
+          </div>
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-col">
         {/* Mobile top bar */}
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-line bg-paper/90 px-4 backdrop-blur lg:hidden">
-          <HomeLogoLink />
-          <Link
-            to="/app/cuenta"
-            className="flex size-11 items-center justify-center rounded-full bg-lilac-soft text-lilac-ink"
-            aria-label={`Mi espacio: ${workspaceLabel}`}
-          >
-            <UserRound className="size-5" aria-hidden="true" />
-          </Link>
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-1 border-b border-line bg-paper/90 px-3 backdrop-blur lg:hidden">
+          <HomeLogoLink className="mr-auto px-1" />
+          <button type="button" onClick={openPalette} aria-label="Buscar" className="inline-flex size-11 items-center justify-center rounded-md text-text-2 hover:bg-sunken">
+            <Search className="size-5" aria-hidden="true" />
+          </button>
+          <button type="button" data-tour="ayuda" onClick={openHelp} aria-label="¿Dónde está…? Preguntale a la ayuda" className="inline-flex size-11 items-center justify-center rounded-md text-lilac-ink hover:bg-sunken">
+            <Sparkles className="size-5" aria-hidden="true" />
+          </button>
         </header>
 
         <AiStatusBanner />
 
-        <main id="contenido" className="mx-auto w-full max-w-[1120px] flex-1 px-4 pt-6 pb-28 sm:px-6 lg:px-10 lg:pt-10 lg:pb-16">
+        <main id="contenido" className="mx-auto w-full max-w-[1120px] flex-1 px-4 pt-6 pb-28 sm:px-6 lg:px-10 lg:pt-9 lg:pb-16">
           <InShell.Provider value={true}>{children}</InShell.Provider>
         </main>
 
@@ -165,60 +275,125 @@ export function AppShell({ me, children }: { me: Me; children: ReactNode }) {
           )}
         >
           <div className="mx-auto grid h-16 max-w-lg grid-cols-5">
-            {nav.filter((n) => MOBILE_TABS.includes(n.to)).map((item) => (
+            {[
+              { ...INICIO, short: "Inicio" },
+              { ...AULAS, short: "Aulas" },
+              { ...EN_VIVO, short: "En vivo" },
+              { ...REVISAR[0]!, short: "Revisar" },
+            ].map((item) => (
               <Link
                 key={item.to}
                 to={item.to}
+                data-tour={item.tour}
                 activeOptions={{ exact: item.exact ?? false }}
-                className={cn(
-                  "flex flex-col items-center justify-center gap-1 text-[11px] font-semibold",
-                  isActive(item) ? "text-ink" : "text-text-3",
-                )}
+                className={cn("flex flex-col items-center justify-center gap-1 text-[11px] font-medium", isActive(item) ? "text-lilac-ink" : "text-text-3")}
               >
-                <span className={cn("relative flex h-7 w-12 items-center justify-center rounded-full transition-colors", isActive(item) && "bg-ink-soft")}>
+                <span className={cn("relative flex h-7 w-12 items-center justify-center rounded-full transition-colors", isActive(item) && "bg-lilac-soft")}>
                   <item.icon className="size-5" aria-hidden="true" />
-                  {item.to === "/app/alertas" ? <AlertBadge open={openAlerts} immediate={immediateAlerts} className="absolute -top-1.5 right-0" /> : null}
+                  {item.to === "/app/alertas" ? <Count open={openAlerts} immediate={immediateAlerts} className="absolute -top-1.5 right-0" /> : null}
+                  {item.to === "/app/en-vivo" && liveNow > 0 ? <span className="live-dot absolute top-0 right-2" aria-hidden="true" /> : null}
                 </span>
-                {item.label === "Crear con IA" ? "Crear" : item.label}
+                {item.short}
               </Link>
             ))}
             <RD.Root open={moreOpen} onOpenChange={setMoreOpen}>
-              <RD.Trigger className="flex flex-col items-center justify-center gap-1 text-[11px] font-semibold text-text-3">
+              <RD.Trigger className="flex flex-col items-center justify-center gap-1 text-[11px] font-medium text-text-3">
                 <span className="flex h-7 w-12 items-center justify-center rounded-full">
                   <MenuIcon className="size-5" aria-hidden="true" />
                 </span>
                 Más
               </RD.Trigger>
               <RD.Portal>
-                <RD.Overlay className="fixed inset-0 z-40 bg-ink/30" />
-                <RD.Content className="safe-bottom fixed inset-x-0 bottom-0 z-50 rounded-t-xl bg-surface p-4 shadow-pop data-[state=open]:animate-rise">
+                <RD.Overlay className="fixed inset-0 z-40 bg-scrim" />
+                <RD.Content className="safe-bottom fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] overflow-y-auto rounded-t-xl bg-surface p-4 shadow-pop data-[state=open]:animate-rise">
                   <div className="mb-2 flex items-center justify-between">
-                    <RD.Title className="font-display text-lg font-semibold text-ink">Más secciones</RD.Title>
+                    <RD.Title className="text-[17px] font-semibold tracking-[-0.02em] text-ink">Más secciones</RD.Title>
                     <RD.Close className="flex size-11 items-center justify-center rounded-md text-text-2 hover:bg-sunken" aria-label="Cerrar">
                       <X className="size-5" />
                     </RD.Close>
                   </div>
                   <RD.Description className="sr-only">Otras secciones de Aula Socrática</RD.Description>
-                  <div className="grid gap-1">
-                    {[...nav.filter((n) => !MOBILE_TABS.includes(n.to)), { to: "/app/cuenta", label: "Mi espacio", icon: UserRound }].map((item) => (
-                      <Link
-                        key={item.to}
-                        to={item.to}
-                        onClick={() => setMoreOpen(false)}
-                        className="flex h-12 items-center gap-3 rounded-md px-3 text-base font-semibold text-text hover:bg-sunken"
-                      >
-                        <item.icon className="size-5 text-lilac-ink" aria-hidden="true" />
-                        {item.label}
-                      </Link>
+                  <MoreGroup label="Preparar">
+                    {PREPARAR.map((item) => (
+                      <MoreLink key={item.to} item={item} onPick={() => setMoreOpen(false)} />
                     ))}
-                  </div>
+                  </MoreGroup>
+                  <MoreGroup label="Revisar">
+                    {REVISAR.slice(1).map((item) => (
+                      <MoreLink key={item.to} item={item} onPick={() => setMoreOpen(false)} />
+                    ))}
+                  </MoreGroup>
+                  <MoreGroup label="Vos">
+                    <MoreLink item={{ to: "/app/cuenta", label: "Mi cuenta", icon: UserRound, tour: "nav-cuenta" }} onPick={() => setMoreOpen(false)} />
+                    {pedidos ? <MoreLink item={PEDIDOS} onPick={() => setMoreOpen(false)} /> : null}
+                    <button
+                      type="button"
+                      data-tour="tema"
+                      onClick={toggleTheme}
+                      className="flex h-12 w-full items-center gap-3 rounded-md px-3 text-[15px] font-medium text-text hover:bg-sunken"
+                    >
+                      {theme === "dark" ? <Sun className="size-5 text-lilac-ink" aria-hidden="true" /> : <Moon className="size-5 text-lilac-ink" aria-hidden="true" />}
+                      {theme === "dark" ? "Pasar a modo claro" : "Pasar a modo oscuro"}
+                    </button>
+                    <button
+                      type="button"
+                      data-tour="recorrido"
+                      onClick={() => {
+                        setMoreOpen(false);
+                        restartTour(SHELL_TOUR);
+                      }}
+                      className="flex h-12 w-full items-center gap-3 rounded-md px-3 text-[15px] font-medium text-text hover:bg-sunken"
+                    >
+                      <CircleHelp className="size-5 text-lilac-ink" aria-hidden="true" />
+                      Recorrido guiado
+                    </button>
+                  </MoreGroup>
                 </RD.Content>
               </RD.Portal>
             </RD.Root>
           </div>
         </nav>
       </div>
+
+      <ClassroomFormDialog
+        open={newRoom}
+        onOpenChange={setNewRoom}
+        onSaved={(c) => void navigate({ to: "/app/aulas/$classroomId", params: { classroomId: c.id } })}
+      />
+      <Suspense fallback={null}>
+        <CommandPalette onNewRoom={() => setNewRoom(true)} />
+        <HelpAssistant />
+      </Suspense>
+      <AccentChooser />
+      <TourLayer />
     </div>
+  );
+}
+
+function NavGroup({ label, tour, children }: { label: string; tour: string; children: ReactNode }) {
+  return (
+    <div data-tour={tour} className="flex flex-col gap-0.5 rounded-md">
+      <div className="px-2.5 pt-4 pb-1 text-[11.5px] font-medium text-text-3">{label}</div>
+      {children}
+    </div>
+  );
+}
+
+function MoreGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="mt-3">
+      <div className="px-3 pb-1 text-[12px] font-medium text-text-3">{label}</div>
+      <div className="grid gap-0.5">{children}</div>
+    </div>
+  );
+}
+
+function MoreLink({ item, onPick }: { item: NavItem; onPick: () => void }) {
+  return (
+    <Link to={item.to} data-tour={item.tour} onClick={onPick} className="flex h-12 items-center gap-3 rounded-md px-3 text-[15px] font-medium text-text hover:bg-sunken">
+      <item.icon className="size-5 text-lilac-ink" aria-hidden="true" />
+      {item.label}
+    </Link>
   );
 }
 

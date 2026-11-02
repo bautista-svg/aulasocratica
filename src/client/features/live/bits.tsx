@@ -15,7 +15,7 @@ const DOT: Record<LiveStatus, string> = {
   active: "bg-leaf-bright",
   idle: "bg-amber",
   abandoned: "bg-text-3",
-  completed: "bg-ink",
+  completed: "bg-primary",
 };
 
 /** Activo / Sin actividad / Abandonada / Terminó — the same words on every screen (D19). */

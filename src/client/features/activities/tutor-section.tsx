@@ -338,7 +338,7 @@ function TutorTypeDialog({
                 {selected ? (
                   <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-ink">
                     {picked.length > 1 && order === 0 ? <span className="text-text-2">Principal</span> : null}
-                    <span className="inline-flex size-6 items-center justify-center rounded-full bg-ink text-white tabular" aria-label={`elegido en el lugar ${order + 1}`}>
+                    <span className="inline-flex size-6 items-center justify-center rounded-full bg-primary text-on-primary tabular" aria-label={`elegido en el lugar ${order + 1}`}>
                       {picked.length > 1 ? order + 1 : <Check className="size-3.5" aria-hidden="true" />}
                     </span>
                   </span>
