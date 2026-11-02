@@ -9,7 +9,8 @@ import { clientIp } from "../lib/request";
 import { createTeacherSession, clearTeacherCookie, requireTeacher, teacherOf } from "../auth/teacher";
 import { toMe, getTeacher, workspaceHasContent, mergeWorkspaces, deleteWorkspace } from "../services/workspace";
 import { audit } from "../services/audit";
-import { GoogleError, googleEnabled, profileFromCode, startFlow, takeFlow } from "../auth/google";
+import { GoogleError, googleEnabled, profileFromCode, startFlow, takeFlow, tokensFromCode } from "../auth/google";
+import { saveConnection } from "../services/classroom";
 import { signInWithGoogle } from "../services/google-sign-in";
 import { log, errorFields } from "../lib/logger";
 import {
@@ -54,8 +55,22 @@ export const authRoutes = new Hono<AppEnv>()
     // Started from an invitation: back to it (with why), so the teacher does not lose the link.
     const failed = (reason: string) => (flow?.next.startsWith("/invitacion/") ? `${flow.next}?google=${reason}` : googleFailure(reason));
     const denied = c.req.query("error");
-    if (denied) return c.redirect(failed(denied === "access_denied" ? "cancelado" : "error"), 302);
     const code = c.req.query("code");
+    // Connecting Google Classroom (not signing in): only for the workspace that started it.
+    if (flow?.purpose === "classroom") {
+      const back = (result: string) => `${flow.next}${flow.next.includes("?") ? "&" : "?"}classroom=${result}`;
+      if (denied) return c.redirect(back(denied === "access_denied" ? "cancelado" : "error"), 302);
+      if (!code || !flow.teacherId || c.get("teacher")?.id !== flow.teacherId) return c.redirect(back("vencido"), 302);
+      try {
+        await saveConnection(flow.teacherId, await tokensFromCode(code, flow));
+      } catch (err) {
+        log.warn("classroom_connect_failed", errorFields(err));
+        return c.redirect(back("error"), 302);
+      }
+      await audit(c, flow.teacherId, "classroom_connected", "teacher", flow.teacherId);
+      return c.redirect(back("conectado"), 302);
+    }
+    if (denied) return c.redirect(failed(denied === "access_denied" ? "cancelado" : "error"), 302);
     if (!flow || !code) return c.redirect(failed("vencido"), 302);
     let profile;
     try {

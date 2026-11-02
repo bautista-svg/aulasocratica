@@ -33,6 +33,11 @@ const schema = z.object({
   /** "Continuar con Google" (OAuth web client). Both empty = the button is not shown. */
   GOOGLE_CLIENT_ID: z.string().default(""),
   GOOGLE_CLIENT_SECRET: z.string().default(""),
+  /**
+   * Key for secrets kept in the database (the Google Classroom refresh tokens). Empty = derived
+   * from GOOGLE_CLIENT_SECRET; set it to keep the tokens readable if that secret ever changes.
+   */
+  TOKEN_ENCRYPTION_KEY: z.string().default(""),
   /** Shared password for the read-only /admin overview. Empty = /admin disabled. */
   ADMIN_PASSWORD: z.string().default(""),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),

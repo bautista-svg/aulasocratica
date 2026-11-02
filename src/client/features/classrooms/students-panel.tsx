@@ -1,3 +1,4 @@
+import { ImportFromClassroom } from "@client/features/classroom/classroom";
 import { memo, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -95,9 +96,12 @@ export const StudentsPanel = memo(function StudentsPanel({
           ) : null}
         </div>
         {canManage ? (
-          <Button variant="secondary" icon={<UserPlus className="size-4" />} onClick={() => setAdding(true)}>
-            Agregar alumnos
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <ImportFromClassroom classroomId={classroomId} />
+            <Button variant="secondary" icon={<UserPlus className="size-4" />} onClick={() => setAdding(true)}>
+              Agregar alumnos
+            </Button>
+          </div>
         ) : null}
       </div>
 
@@ -109,9 +113,12 @@ export const StudentsPanel = memo(function StudentsPanel({
           description="Los alumnos aparecen solos cuando entran a una actividad con su nombre. También podés cargar la lista antes."
           action={
             canManage ? (
-              <Button variant="secondary" icon={<UserPlus className="size-4" />} onClick={() => setAdding(true)}>
-                Cargar lista de alumnos
-              </Button>
+              <div className="flex flex-wrap justify-center gap-2">
+                <ImportFromClassroom classroomId={classroomId} />
+                <Button variant="secondary" icon={<UserPlus className="size-4" />} onClick={() => setAdding(true)}>
+                  Cargar lista de alumnos
+                </Button>
+              </div>
             ) : undefined
           }
         />

@@ -8,6 +8,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  real,
   text,
   timestamp,
   uniqueIndex,
@@ -713,4 +714,58 @@ export const appSettings = pgTable("app_settings", {
   value: text("value").notNull(),
   updatedBy: uuid("updated_by").references(() => teachers.id, { onDelete: "set null" }),
   updatedAt: updatedAt(),
+});
+
+// ───────────────────────── Google Classroom ─────────────────────────
+
+/** A teacher's Google account connected to Classroom (the refresh token, encrypted). */
+export const classroomConnections = pgTable("classroom_connections", {
+  teacherId: uuid("teacher_id")
+    .primaryKey()
+    .references(() => teachers.id, { onDelete: "cascade" }),
+  googleSub: text("google_sub").notNull(),
+  googleEmail: text("google_email").notNull(),
+  refreshToken: text("refresh_token").notNull(),
+  scopes: text("scopes").notNull().default(""),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+/** An activity published as an assignment in a Classroom course. */
+export const classroomCourseworks = pgTable("classroom_courseworks", {
+  activityId: uuid("activity_id")
+    .primaryKey()
+    .references(() => activities.id, { onDelete: "cascade" }),
+  courseId: text("course_id").notNull(),
+  courseName: text("course_name").notNull().default(""),
+  courseworkId: text("coursework_id").notNull(),
+  url: text("url").notNull().default(""),
+  maxPoints: integer("max_points").notNull(),
+  createdBy: uuid("created_by").references(() => teachers.id, { onDelete: "set null" }),
+  createdAt: createdAt(),
+});
+
+/** Which Classroom student a student of the app is, per course (matched by name or picked by the teacher). */
+export const classroomStudentLinks = pgTable(
+  "classroom_student_links",
+  {
+    studentId: uuid("student_id")
+      .notNull()
+      .references(() => students.id, { onDelete: "cascade" }),
+    courseId: text("course_id").notNull(),
+    googleUserId: text("google_user_id").notNull(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex("classroom_student_links_unique").on(t.studentId, t.courseId)],
+);
+
+/** The last grade sent to Classroom for a work. */
+export const classroomGrades = pgTable("classroom_grades", {
+  sessionId: uuid("session_id")
+    .primaryKey()
+    .references(() => learningSessions.id, { onDelete: "cascade" }),
+  googleUserId: text("google_user_id").notNull(),
+  grade: real("grade").notNull(),
+  returned: boolean("returned").notNull().default(false),
+  syncedAt: timestamp("synced_at", { withTimezone: true }).notNull().defaultNow(),
 });

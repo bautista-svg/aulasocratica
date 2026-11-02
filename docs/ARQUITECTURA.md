@@ -123,6 +123,15 @@ docs/                Arquitectura, auditoría, informes
   también alumnos y la página pública; `lib/theme.ts` lo pone en `<html data-accent>`) y solo lo cambia un docente con
   `teachers.can_request_changes` (`PUT`, «Elegí el color» al entrar mientras no hay uno elegido, y en Mi espacio). Los
   tokens siguen llamándose `lilac*`: son «el acento», sea cual sea el color.
+- Google Classroom (`services/classroom.ts`, `routes/classroom.ts`, `features/classroom/`): el docente conecta su
+  cuenta con el mismo flujo de «Continuar con Google» (`startFlow(c, next, { teacherId })`, misma URL de vuelta ya
+  registrada) pidiendo `classroom.courses.readonly`, `classroom.rosters.readonly` y `classroom.coursework.students`
+  sin conexión; el refresh token se guarda cifrado (AES-256-GCM, clave `TOKEN_ENCRYPTION_KEY` o derivada de
+  `GOOGLE_CLIENT_SECRET`) en `classroom_connections`. Desde una actividad publicada se crea la tarea
+  (`classroom_courseworks`) y se pasan las notas: salen de la rúbrica (`shared/domain/classroom.ts`, editables), cada
+  alumno se empareja por nombre o a mano (`classroom_student_links`, se recuerda) y lo enviado queda en
+  `classroom_grades`. Google solo deja calificar tareas creadas por la misma app. En el proyecto de Google Cloud
+  tiene que estar habilitada la API de Classroom y los tres permisos en la pantalla de consentimiento.
 - Navegación (`components/app/shell.tsx`): Inicio · Aulas · Preparar (Actividades, Tutores, Materiales) · En clase
   (En vivo) · Revisar (Para revisar, Radiografía, Informes). Buscar con Ctrl K (`command-palette.tsx`). Una actividad
   se trabaja en 4 pasos (`Tabs variant="steps"`: Preparar, Compartir, En vivo, Revisar) más «Avisos».

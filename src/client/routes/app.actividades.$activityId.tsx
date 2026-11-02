@@ -16,6 +16,7 @@ import { useActivity, useActivityAction, useSaveActivity } from "@client/feature
 import { useActivityForm } from "@client/features/activities/use-activity-form";
 import { ConfigPanel, scrollToSection, useSaveDraft } from "@client/features/activities/config-panel";
 import { SharePanel } from "@client/features/activities/share-panel";
+import { ClassroomShareCard } from "@client/features/classroom/classroom";
 import { InlineTitle } from "@client/features/activities/parts";
 import { LifecycleDialogs, type LifecycleDialog } from "@client/features/activities/lifecycle-dialogs";
 import { TrashActivityDialog } from "@client/features/activities/row-actions";
@@ -240,7 +241,12 @@ function ActivityEditor({ activity }: { activity: ActivityEditorData }) {
         goTab={goTab}
         dirty={form.dirty}
         config={<ConfigPanel activity={activity} form={form} saving={draftSave.pending} onSave={() => void draftSave.run()} />}
-        share={<SharePanel activity={activity} onPublish={() => void publish()} publishing={publishing} />}
+        share={
+          <div className="grid gap-5">
+            <SharePanel activity={activity} onPublish={() => void publish()} publishing={publishing} />
+            <ClassroomShareCard activity={activity} canEdit={canEdit} />
+          </div>
+        }
       />
 
       <LifecycleDialogs activity={activity} open={dialog} onClose={() => setDialog(null)} onLeave={() => (bypass.current = true)} />

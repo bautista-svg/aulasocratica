@@ -153,6 +153,24 @@ export function AppShell({ me, children }: { me: Me; children: ReactNode }) {
   const liveNow = (dash.data?.live ?? []).reduce((n, a) => n + a.activeNow, 0);
   const pedidos = me.canRequestChanges;
 
+  // Back from Google's consent screen (?classroom=…): say how it went, then clean the address.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const result = url.searchParams.get("classroom");
+    if (!result) return;
+    const messages: Record<string, [ok: boolean, text: string]> = {
+      conectado: [true, "Google Classroom conectado"],
+      error: [false, "No se pudo conectar Google Classroom. Probá de nuevo."],
+      vencido: [false, "Pasó mucho tiempo en la pantalla de Google. Probá conectar de nuevo."],
+      cancelado: [false, "Cancelaste la conexión con Google Classroom."],
+      "no-disponible": [false, "La conexión con Google no está configurada en este servidor."],
+    };
+    const [ok, text] = messages[result] ?? messages.error!;
+    void import("sonner").then(({ toast }) => (ok ? toast.success(text) : toast.error(text)));
+    url.searchParams.delete("classroom");
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+  }, []);
+
   // Ctrl K / ⌘K opens the search from any screen.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

@@ -9,6 +9,7 @@ import { WorkspaceNameForm } from "@client/features/account/workspace-name-form"
 import { AccountSection } from "@client/features/account/account-section";
 import { DeleteWorkspace } from "@client/features/account/delete-workspace";
 import { AccentSettings } from "@client/features/appearance/accent";
+import { ClassroomAccount } from "@client/features/classroom/classroom";
 
 export const Route = createFileRoute("/app/cuenta")({
   component: AccountPage,
@@ -43,6 +44,8 @@ function AccountPage() {
             <AccountSection me={t} />
           </div>
         </Card>
+
+        <ClassroomAccount />
 
         <AccentSettings />
 

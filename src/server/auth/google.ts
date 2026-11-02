@@ -24,17 +24,38 @@ export function safeNext(next: string | undefined): string {
   return next && /^\/(app|ingresar|invitacion)(\/|$|\?)/.test(next) && !next.startsWith("//") ? next : "/app";
 }
 
-interface Flow {
+export interface Flow {
   state: string;
   verifier: string;
   nonce: string;
   next: string;
   exp: number;
+  /** "classroom": connecting Google Classroom for this workspace (not signing in). */
+  purpose?: "classroom";
+  teacherId?: string;
 }
 
-/** Starts the flow: remembers it in the cookie and returns Google's consent URL. */
-export function startFlow(c: Context, next: string): string {
-  const flow: Flow = { state: randomToken(24), verifier: randomToken(48), nonce: randomToken(24), next: safeNext(next), exp: Date.now() + FLOW_MINUTES * 60_000 };
+/** What Classroom needs: see the teacher's courses and students, post assignments and grade them. */
+export const CLASSROOM_SCOPES = [
+  "https://www.googleapis.com/auth/classroom.courses.readonly",
+  "https://www.googleapis.com/auth/classroom.rosters.readonly",
+  "https://www.googleapis.com/auth/classroom.coursework.students",
+];
+
+/**
+ * Starts the flow: remembers it in the cookie and returns Google's consent URL. With `classroom`,
+ * it asks for Classroom access too, offline (a refresh token), for the workspace that started it.
+ * Both flows come back to the same callback, already registered with Google.
+ */
+export function startFlow(c: Context, next: string, classroom?: { teacherId: string }): string {
+  const flow: Flow = {
+    state: randomToken(24),
+    verifier: randomToken(48),
+    nonce: randomToken(24),
+    next: safeNext(next),
+    exp: Date.now() + FLOW_MINUTES * 60_000,
+    ...(classroom ? { purpose: "classroom" as const, teacherId: classroom.teacherId } : {}),
+  };
   setCookie(c, FLOW_COOKIE, Buffer.from(JSON.stringify(flow)).toString("base64url"), {
     httpOnly: true,
     secure: secureCookies,
@@ -48,12 +69,14 @@ export function startFlow(c: Context, next: string): string {
     client_id: env.GOOGLE_CLIENT_ID,
     redirect_uri: redirectUri(),
     response_type: "code",
-    scope: "openid email profile",
+    scope: classroom ? ["openid", "email", "profile", ...CLASSROOM_SCOPES].join(" ") : "openid email profile",
     state: flow.state,
     nonce: flow.nonce,
     code_challenge: challenge,
     code_challenge_method: "S256",
-    prompt: "select_account",
+    // Classroom: "consent" so Google always returns a refresh token.
+    prompt: classroom ? "consent select_account" : "select_account",
+    ...(classroom ? { access_type: "offline", include_granted_scopes: "true" } : {}),
   });
   return `${AUTH_URL}?${q.toString()}`;
 }
@@ -99,6 +122,19 @@ function claims(idToken: string): Record<string, unknown> {
 
 /** Exchanges the code for the ID token and checks it was issued for us, now, for this flow. */
 export async function profileFromCode(code: string, flow: Flow): Promise<GoogleProfile> {
+  return (await tokensFromCode(code, flow)).profile;
+}
+
+export interface GoogleTokens {
+  profile: GoogleProfile;
+  accessToken: string;
+  expiresIn: number;
+  refreshToken: string | null;
+  scope: string;
+}
+
+/** The code exchange, with the access and refresh tokens (Classroom needs them). */
+export async function tokensFromCode(code: string, flow: Flow): Promise<GoogleTokens> {
   const res = await tokenFetch(TOKEN_URL, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -113,7 +149,7 @@ export async function profileFromCode(code: string, flow: Flow): Promise<GoogleP
     signal: AbortSignal.timeout(10_000),
   });
   if (!res.ok) throw new GoogleError("error");
-  const body = (await res.json()) as { id_token?: unknown };
+  const body = (await res.json()) as { id_token?: unknown; access_token?: unknown; expires_in?: unknown; refresh_token?: unknown; scope?: unknown };
   if (typeof body.id_token !== "string") throw new GoogleError("error");
   const c = claims(body.id_token);
   const aud = Array.isArray(c.aud) ? c.aud : [c.aud];
@@ -129,8 +165,18 @@ export async function profileFromCode(code: string, flow: Flow): Promise<GoogleP
   if (!valid) throw new GoogleError("error");
   if (c.email_verified !== true && c.email_verified !== "true") throw new GoogleError("unverified");
   return {
-    sub: c.sub as string,
-    email: (c.email as string).trim().toLowerCase(),
-    name: typeof c.name === "string" ? c.name.trim().slice(0, 80) : "",
+    profile: {
+      sub: c.sub as string,
+      email: (c.email as string).trim().toLowerCase(),
+      name: typeof c.name === "string" ? c.name.trim().slice(0, 80) : "",
+    },
+    accessToken: typeof body.access_token === "string" ? body.access_token : "",
+    expiresIn: typeof body.expires_in === "number" ? body.expires_in : 3600,
+    refreshToken: typeof body.refresh_token === "string" ? body.refresh_token : null,
+    scope: typeof body.scope === "string" ? body.scope : "",
   };
 }
+
+/** Google's endpoints for the Classroom service (token refresh and revocation share the test hook). */
+export const googleFetch = (url: string, init: RequestInit) => tokenFetch(url, init);
+export { TOKEN_URL };
