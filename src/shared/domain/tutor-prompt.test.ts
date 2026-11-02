@@ -288,3 +288,20 @@ describe("when to stop asking", () => {
     expect(buildTutorPrompt({ ...base, language: "en", closing: { maxQuestions: null, stopWhenAchieved: true, asked: 1 } }).stable).toContain("«Finish»");
   });
 });
+
+describe("material the student does not have open", () => {
+  it("tells the tutor to quote the passage instead of asking the student to look it up", () => {
+    const off = buildTutorPrompt(base);
+    expect(off.stable).not.toContain("CÓMO USAR EL MATERIAL");
+    const on = buildTutorPrompt({ ...base, quotesMaterial: true });
+    expect(on.stable).toContain("el estudiante NO tiene el material abierto");
+    expect(on.stable).toMatch(/No le pidas que lo busque/);
+  });
+
+  it("says nothing when there is no material, and long material stops asking the student to quote it", () => {
+    expect(buildTutorPrompt({ ...base, material: "", files: [], quotesMaterial: true }).stable).not.toContain("CÓMO USAR EL MATERIAL");
+    const long = { ...base, material: "Las fracciones. ".repeat(400), materialLimits: { fullLimit: 100, budget: 300 } };
+    expect(buildTutorPrompt(long).volatile).toContain("pedile que te cite la parte del material");
+    expect(buildTutorPrompt({ ...long, quotesMaterial: true }).volatile).not.toContain("pedile que te cite");
+  });
+});

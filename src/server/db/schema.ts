@@ -227,6 +227,8 @@ export const activities = pgTable(
     tutorMaxQuestions: integer("tutor_max_questions"),
     /** The tutor stops as soon as the student shows what the objectives ask. */
     tutorStopWhenAchieved: boolean("tutor_stop_when_achieved").notNull().default(false),
+    /** The student does not have the material open: the tutor quotes the passage it asks about. */
+    tutorQuotesMaterial: boolean("tutor_quotes_material").notNull().default(false),
     tutorId: uuid("tutor_id").references(() => tutors.id, { onDelete: "set null" }),
     requireInitialAnswer: boolean("require_initial_answer").notNull().default(true),
     /** Whether the closing step asks for a final answer, and with which question ("" = the default one). */

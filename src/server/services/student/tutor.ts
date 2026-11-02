@@ -184,6 +184,7 @@ export async function tutorChat(c: Context, ctx: StudentCtx, body: ChatBody): Pr
       language: languageOf(activity.language),
       material: activity.material,
       files,
+      quotesMaterial: activity.tutorQuotesMaterial,
       tutorType: activity.tutorType,
       extraTutorTypes: sanitizeExtraTutorTypes(activity.extraTutorTypes, activity.tutorType),
       helpLevel: activity.helpLevel,

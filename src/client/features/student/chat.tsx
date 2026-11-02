@@ -117,6 +117,12 @@ export function ChatStep({
     anchorPending.current = false;
     sc.scrollTop += el.getBoundingClientRect().top - top - 16;
   }, [overlay, reserve]);
+  // The reserved space is only for the reply on its way: once it is saved the page is as long as the
+  // conversation again (an empty stretch below it read as the chat having scrolled away).
+  useLayoutEffect(() => {
+    // `anchored` stays on: following the bottom now would hide the start of a long reply again.
+    if (!overlay && reserve) setReserve(0);
+  }, [overlay, reserve]);
 
   // Follow the conversation while the student is at the bottom, outside an anchored turn: when a
   // message arrives and when the visible area changes size (the keyboard opens or closes, the
@@ -292,7 +298,9 @@ export function ChatStep({
   const nothingYet = serverMessages.length === 0 && !overlay;
 
   return (
-    <section aria-labelledby="chat-title" className="flex min-h-full flex-col">
+    // No min-height here: the consigna sits above this section in the same column, and a full-height
+    // chat left an empty stretch the size of the consigna below the last message.
+    <section aria-labelledby="chat-title" className="flex flex-col">
       <header className="mb-5">
         <h2 id="chat-title" ref={headingRef} tabIndex={-1} className="font-display text-xl font-semibold text-ink outline-none">
           {t.chat.title}
@@ -312,8 +320,7 @@ export function ChatStep({
           </li>
         ) : null}
         {serverMessages.map((m) => (
-          // The anchored turn keeps its reserved height once the reply is saved, so nothing jumps.
-          <li key={m.id} style={anchored.current && !overlay && m.id === lastAssistantId && reserve ? { minHeight: reserve } : undefined}>
+          <li key={m.id}>
             {m.role === "assistant" ? (
               <TutorMessage
                 text={m.content}
@@ -352,17 +359,6 @@ export function ChatStep({
           </li>
         ) : null}
       </ol>
-
-      {done ? null : (
-        <div className="mt-8 flex flex-col items-start gap-2 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-text-2">
-            {!workspace.activity.askFinalAnswer ? t.chat.finishHintNoAnswer : nothingYet ? t.chat.finishHintEmpty : t.chat.finishHint}
-          </p>
-          <Button variant="secondary" className="h-11 shrink-0" icon={<Flag className="size-4" />} disabled={busy} onClick={onFinish}>
-            {t.chat.finish}
-          </Button>
-        </div>
-      )}
 
       <p className="sr-only" aria-live="polite" aria-atomic="true">
         {announce}
@@ -417,12 +413,13 @@ export function ChatStep({
             ))}
           </div>
 
+          <div className="flex items-stretch gap-2">
           <form
             onSubmit={(e) => {
               e.preventDefault();
               submitComposer();
             }}
-            className="flex items-end gap-1.5 rounded-xl border border-line-strong bg-surface p-1.5 shadow-2 transition-[border-color,box-shadow] focus-within:border-lilac-ink focus-within:ring-4 focus-within:ring-lilac/20"
+            className="flex min-w-0 flex-1 items-end gap-1.5 rounded-xl border border-line-strong bg-surface p-1.5 shadow-2 transition-[border-color,box-shadow] focus-within:border-lilac-ink focus-within:ring-4 focus-within:ring-lilac/20"
           >
             <label htmlFor="composer" className="sr-only">
               {t.chat.composerLabel}
@@ -478,6 +475,21 @@ export function ChatStep({
               {busy ? <Spinner className="size-4" /> : <ArrowUp className="size-5" aria-hidden="true" />}
             </button>
           </form>
+          {/* «Terminar» lives next to «Enviar»: always in reach, never scrolled away with the conversation. */}
+          <Button
+            variant="secondary"
+            className="h-auto min-h-11 shrink-0 self-stretch rounded-xl px-3.5 sm:px-4"
+            icon={<Flag className="size-4" />}
+            disabled={busy}
+            onClick={onFinish}
+            aria-describedby="finish-hint"
+          >
+            {t.chat.finish}
+          </Button>
+          <span id="finish-hint" className="sr-only">
+            {!workspace.activity.askFinalAnswer ? t.chat.finishHintNoAnswer : nothingYet ? t.chat.finishHintEmpty : t.chat.finishHint}
+          </span>
+          </div>
 
           <div id="composer-help" className="mt-1.5 min-h-5 px-1 text-[13px] leading-5 max-sm:min-h-0" aria-live="polite">
             {sendError ? (

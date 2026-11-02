@@ -1,0 +1,1 @@
+ALTER TABLE "activities" ADD COLUMN "tutor_quotes_material" boolean DEFAULT false NOT NULL;

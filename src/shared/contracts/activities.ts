@@ -109,6 +109,8 @@ export interface ActivityDetail {
   tutorMaxQuestions: number | null;
   /** The tutor stops as soon as the student shows what the objectives ask. */
   tutorStopWhenAchieved: boolean;
+  /** The student does not have the material open: the tutor quotes the passage it asks about. */
+  tutorQuotesMaterial: boolean;
   tutorId: string | null;
   tutorName: string | null;
   requireInitialAnswer: boolean;
@@ -263,6 +265,7 @@ export const activityPatch = z
       .max(MAX_QUESTIONS_RANGE.max, `Poné hasta ${MAX_QUESTIONS_RANGE.max} preguntas.`)
       .nullable(),
     tutorStopWhenAchieved: z.boolean(),
+    tutorQuotesMaterial: z.boolean(),
     /** Only `null` is accepted here (unlink the saved tutor); to apply one use POST /:id/tutor. */
     tutorId: z.null(),
     requireInitialAnswer: z.boolean(),

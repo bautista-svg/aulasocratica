@@ -65,9 +65,10 @@
   --color-text-2: #50546e;
   --color-text-3: #646884;
 
-  --color-lilac: #5b8def;
-  --color-lilac-ink: #2456c9;
-  --color-lilac-soft: #e8effd;
+  /* Base = the accent chosen in the app (Frambuesa), so the first paint already has it. */
+  --color-lilac: #e0679a;
+  --color-lilac-ink: #be185d;
+  --color-lilac-soft: #fce8f1;
 
   --color-leaf: #2c7a41;
   --color-leaf-bright: #3fae5f;
@@ -112,18 +113,18 @@
   --color-ink-hover: #ffffff;
   --color-ink-soft: #232640;
 
-  --color-primary: #8fb0fb;
-  --color-primary-hover: #a8c2fc;
-  --color-on-primary: #0d1630;
+  --color-primary: #f497bf;
+  --color-primary-hover: #f8b2d0;
+  --color-on-primary: #2d0b1a;
   --color-scrim: rgb(0 0 0 / 0.6);
 
   --color-text: #e8e8f0;
   --color-text-2: #a7aac0;
   --color-text-3: #8f92a8;
 
-  --color-lilac: #7fa6f5;
-  --color-lilac-ink: #9dbcff;
-  --color-lilac-soft: #1c2747;
+  --color-lilac: #f28bb7;
+  --color-lilac-ink: #f9a8cc;
+  --color-lilac-soft: #3a1a2a;
 
   --color-leaf: #8fd8a2;
   --color-leaf-bright: #6fcf8a;
@@ -151,6 +152,7 @@
 /* Accent colors (shared/domain/accents.ts). The token keeps the name "lilac" (the first accent);
    `lilac` is decorative, `lilac-ink` is for text and lines (≥ 4.5:1 on surface), `lilac-soft` a tint. */
 :root[data-accent="azul"] { --color-lilac: #5b8def; --color-lilac-ink: #2456c9; --color-lilac-soft: #e8effd; }
+:root[data-accent="frambuesa"] { --color-lilac: #e0679a; --color-lilac-ink: #be185d; --color-lilac-soft: #fce8f1; }
 :root[data-accent="cielo"] { --color-lilac: #38a3d8; --color-lilac-ink: #0b6c9e; --color-lilac-soft: #e3f3fb; }
 :root[data-accent="turquesa"] { --color-lilac: #2bb3a8; --color-lilac-ink: #0f7d75; --color-lilac-soft: #e0f4f2; }
 :root[data-accent="coral"] { --color-lilac: #ef7d5a; --color-lilac-ink: #c2410c; --color-lilac-soft: #fdece5; }

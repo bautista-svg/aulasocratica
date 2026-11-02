@@ -105,7 +105,23 @@ function initials(name: string) {
 }
 
 const navItem =
-  "relative flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-[14px] font-medium transition-colors max-lg:h-11";
+  "group relative flex h-8 w-full items-center gap-2.5 rounded-full px-1.5 pr-3 text-[14px] font-medium transition-colors max-lg:h-11";
+
+/** Each section's icon sits in a soft round badge; the current one fills with the accent. */
+function NavIcon({ icon: Icon, active, className }: { icon: typeof Home; active?: boolean; className?: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex size-[26px] shrink-0 items-center justify-center rounded-full transition-colors",
+        active ? "bg-lilac-ink text-surface" : "bg-sunken text-text-2 group-hover:bg-lilac-soft group-hover:text-lilac-ink",
+        className,
+      )}
+      aria-hidden="true"
+    >
+      <Icon className="size-[14px]" strokeWidth={2.1} />
+    </span>
+  );
+}
 
 function SideLink({ item, active, extra }: { item: NavItem; active: boolean; extra?: ReactNode }) {
   return (
@@ -115,7 +131,7 @@ function SideLink({ item, active, extra }: { item: NavItem; active: boolean; ext
       activeOptions={{ exact: item.exact ?? false }}
       className={cn(navItem, active ? "bg-lilac-soft text-lilac-ink" : "text-text-2 hover:bg-sunken hover:text-ink")}
     >
-      <item.icon className="size-[17px] shrink-0" aria-hidden="true" />
+      <NavIcon icon={item.icon} active={active} />
       {item.label}
       {extra}
     </Link>
@@ -163,19 +179,21 @@ export function AppShell({ me, children }: { me: Me; children: ReactNode }) {
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[240px_1fr]">
       {/* Desktop sidebar */}
-      <aside className="sticky top-0 hidden h-dvh flex-col overflow-y-auto border-r border-line bg-surface px-3 py-4 lg:flex">
-        <HomeLogoLink className="mb-4 self-start px-1.5" />
+      {/* Logo, search and the account stay put; only the list in between scrolls, and only when it does
+          not fit and the pointer is on it (overscroll-contain: the page's scroll never moves it). */}
+      <aside className="sticky top-0 hidden h-dvh flex-col overflow-hidden border-r border-line bg-surface px-3 py-4 lg:flex">
+        <HomeLogoLink className="mb-3 self-start px-1.5" />
         <button
           type="button"
           data-tour="buscar"
           onClick={openPalette}
-          className="mb-3 flex h-9 w-full items-center gap-2.5 rounded-md border border-line bg-paper px-2.5 text-[14px] text-text-3 transition-colors hover:border-line-strong hover:text-text-2"
+          className="mb-2 flex h-9 w-full shrink-0 items-center gap-2.5 rounded-full border border-line bg-paper px-3 text-[14px] text-text-3 transition-colors hover:border-line-strong hover:text-text-2"
         >
           <Search className="size-4" aria-hidden="true" />
           Buscar
-          <kbd className="ml-auto rounded border border-line px-1.5 font-mono text-[11px] text-text-3">Ctrl K</kbd>
+          <kbd className="ml-auto rounded-full border border-line px-2 font-mono text-[11px] text-text-3">Ctrl K</kbd>
         </button>
-        <nav aria-label="Principal" className="flex flex-col gap-0.5">
+        <nav aria-label="Principal" className="-mx-1 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain px-1 pb-2 [scrollbar-width:thin]">
           <SideLink item={INICIO} active={isActive(INICIO)} />
           <div className="flex items-center gap-0.5">
             <SideLink item={AULAS} active={isActive(AULAS)} />
@@ -184,7 +202,7 @@ export function AppShell({ me, children }: { me: Me; children: ReactNode }) {
               data-tour="nueva-aula"
               onClick={() => setNewRoom(true)}
               aria-label="Nueva aula"
-              className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-text-3 transition-colors hover:bg-sunken hover:text-ink"
+              className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-text-3 transition-colors hover:bg-lilac-soft hover:text-lilac-ink"
             >
               <Plus className="size-4" aria-hidden="true" />
             </button>
@@ -203,18 +221,18 @@ export function AppShell({ me, children }: { me: Me; children: ReactNode }) {
             ))}
           </NavGroup>
           {pedidos ? (
-            <div className="mt-3 border-t border-line pt-3">
+            <div className="mt-2 border-t border-line pt-2">
               <SideLink item={PEDIDOS} active={isActive(PEDIDOS)} />
             </div>
           ) : null}
         </nav>
-        <div className="mt-auto flex flex-col gap-0.5 pt-4">
+        <div className="flex shrink-0 flex-col gap-0.5 border-t border-line pt-2">
           <button type="button" data-tour="ayuda" onClick={openHelp} className={cn(navItem, "text-text-2 hover:bg-sunken hover:text-ink")}>
-            <Sparkles className="size-[17px] text-lilac-ink" aria-hidden="true" />
+            <NavIcon icon={Sparkles} className="bg-lilac-soft text-lilac-ink" />
             ¿Dónde está…?
           </button>
           <button type="button" data-tour="recorrido" onClick={() => restartTour(SHELL_TOUR)} className={cn(navItem, "text-text-2 hover:bg-sunken hover:text-ink")}>
-            <CircleHelp className="size-[17px]" aria-hidden="true" />
+            <NavIcon icon={CircleHelp} />
             Recorrido guiado
           </button>
           <div className="mt-2 flex items-center gap-1 border-t border-line pt-2">
@@ -222,7 +240,7 @@ export function AppShell({ me, children }: { me: Me; children: ReactNode }) {
               to="/app/cuenta"
               data-tour="nav-cuenta"
               className={cn(
-                "flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-1.5 py-1.5 transition-colors hover:bg-sunken",
+                "flex min-w-0 flex-1 items-center gap-2.5 rounded-full py-1 pr-2 pl-1 transition-colors hover:bg-sunken",
                 isActive({ to: "/app/cuenta" }) && "bg-sunken",
               )}
             >
@@ -239,7 +257,7 @@ export function AppShell({ me, children }: { me: Me; children: ReactNode }) {
               data-tour="tema"
               onClick={toggleTheme}
               aria-label={theme === "dark" ? "Pasar a modo claro" : "Pasar a modo oscuro"}
-              className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-text-3 transition-colors hover:bg-sunken hover:text-ink"
+              className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-text-3 transition-colors hover:bg-sunken hover:text-ink"
             >
               {theme === "dark" ? <Sun className="size-4" aria-hidden="true" /> : <Moon className="size-4" aria-hidden="true" />}
             </button>
@@ -373,7 +391,7 @@ export function AppShell({ me, children }: { me: Me; children: ReactNode }) {
 function NavGroup({ label, tour, children }: { label: string; tour: string; children: ReactNode }) {
   return (
     <div data-tour={tour} className="flex flex-col gap-0.5 rounded-md">
-      <div className="px-2.5 pt-4 pb-1 text-[11.5px] font-medium text-text-3">{label}</div>
+      <div className="px-3 pt-2.5 pb-0.5 text-[11.5px] font-medium text-text-3">{label}</div>
       {children}
     </div>
   );
@@ -391,7 +409,7 @@ function MoreGroup({ label, children }: { label: string; children: ReactNode }) 
 function MoreLink({ item, onPick }: { item: NavItem; onPick: () => void }) {
   return (
     <Link to={item.to} data-tour={item.tour} onClick={onPick} className="flex h-12 items-center gap-3 rounded-md px-3 text-[15px] font-medium text-text hover:bg-sunken">
-      <item.icon className="size-5 text-lilac-ink" aria-hidden="true" />
+      <NavIcon icon={item.icon} className="size-8" />
       {item.label}
     </Link>
   );

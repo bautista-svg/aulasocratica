@@ -34,7 +34,7 @@ export const SECTIONS: { id: string; title: string; keys: DraftKey[] }[] = [
   { id: "presentacion", title: "Presentación", keys: ["presentationOn", "presentation"] },
   { id: "objetivos", title: "Objetivos", keys: ["objectives", "subject", "objectivesVisible"] },
   { id: "consigna", title: "Consignas", keys: ["consignas"] },
-  { id: "material", title: "Material", keys: ["material"] },
+  { id: "material", title: "Material", keys: ["material", "tutorQuotesMaterial"] },
   { id: "tutor", title: "Tutor", keys: ["tutorType", "extraTutorTypes", "helpLevel", "tutorRules", "tutorMaxQuestions", "tutorStopWhenAchieved"] },
   { id: "respuesta-inicial", title: "Respuesta inicial", keys: ["requireInitialAnswer"] },
   { id: "respuesta-final", title: "Respuesta final", keys: ["askFinalAnswer", "finalQuestion"] },
@@ -243,6 +243,14 @@ export function ConfigPanel({ activity, form, saving, onSave }: { activity: Acti
               <h3 className="text-sm font-semibold text-text">Archivos</h3>
               <p className="mt-0.5 mb-3 text-[13px] leading-5 text-text-3">Se guardan apenas terminan de subir; después se leen solos y ves el estado de cada uno.</p>
               <MaterialFiles activityId={activity.id} writtenChars={draft.material.length} />
+            </div>
+            <div className="border-t border-line pt-4">
+              <Switch
+                checked={draft.tutorQuotesMaterial}
+                onCheckedChange={(v) => set("tutorQuotesMaterial", v)}
+                label="El tutor les cita el material"
+                description="Para cuando tus alumnos no tienen el material abierto: el tutor les copia el fragmento justo antes de preguntar, en vez de pedirles que lo busquen."
+              />
             </div>
           </div>
         </EditorSection>
