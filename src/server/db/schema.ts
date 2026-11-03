@@ -731,19 +731,30 @@ export const classroomConnections = pgTable("classroom_connections", {
   updatedAt: updatedAt(),
 });
 
-/** An activity published as an assignment in a Classroom course. */
-export const classroomCourseworks = pgTable("classroom_courseworks", {
-  activityId: uuid("activity_id")
-    .primaryKey()
-    .references(() => activities.id, { onDelete: "cascade" }),
-  courseId: text("course_id").notNull(),
-  courseName: text("course_name").notNull().default(""),
-  courseworkId: text("coursework_id").notNull(),
-  url: text("url").notNull().default(""),
-  maxPoints: integer("max_points").notNull(),
-  createdBy: uuid("created_by").references(() => teachers.id, { onDelete: "set null" }),
-  createdAt: createdAt(),
-});
+/**
+ * An activity published in a Classroom course: as an assignment («Tarea», graded) or as a material
+ * («Consigna», no grade). `courseworkId` is the id of either.
+ */
+export const classroomCourseworks = pgTable(
+  "classroom_courseworks",
+  {
+    activityId: uuid("activity_id")
+      .primaryKey()
+      .references(() => activities.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<"assignment" | "material">().notNull().default("assignment"),
+    courseId: text("course_id").notNull(),
+    courseName: text("course_name").notNull().default(""),
+    courseworkId: text("coursework_id").notNull(),
+    url: text("url").notNull().default(""),
+    maxPoints: integer("max_points"),
+    createdBy: uuid("created_by").references(() => teachers.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    check("classroom_courseworks_kind", sql`${t.kind} in ('assignment', 'material')`),
+    check("classroom_courseworks_points", sql`${t.kind} = 'material' or ${t.maxPoints} is not null`),
+  ],
+);
 
 /** Which Classroom student a student of the app is, per course (matched by name or picked by the teacher). */
 export const classroomStudentLinks = pgTable(

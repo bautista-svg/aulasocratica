@@ -1,6 +1,6 @@
 // Google Classroom for a workspace: the connection (refresh token, encrypted), and the calls the app
-// makes on the teacher's behalf: list courses and students, post an activity as an assignment and
-// grade its submissions. Google only lets an app grade assignments that app created, so grades go
+// makes on the teacher's behalf: list courses and students, post an activity as an assignment (or as
+// a material, «Consigna», with no grade) and grade its submissions. Google only lets an app grade assignments that app created, so grades go
 // to activities published from here.
 import { and, eq, inArray } from "drizzle-orm";
 import { db, schema } from "../db/client";
@@ -9,7 +9,7 @@ import { decryptSecret, encryptSecret } from "../lib/crypto";
 import { HttpError, notFound } from "../lib/errors";
 import { log } from "../lib/logger";
 import { CLASSROOM_SCOPES, TOKEN_URL, googleFetch, type GoogleTokens } from "../auth/google";
-import type { ClassroomCourse, ClassroomLink, ClassroomRosterStudent, ClassroomStatus } from "@shared/contracts/classroom";
+import type { ClassroomCourse, ClassroomKind, ClassroomLink, ClassroomRosterStudent, ClassroomStatus } from "@shared/contracts/classroom";
 
 const API = "https://classroom.googleapis.com/v1";
 const keyMaterial = () => env.TOKEN_ENCRYPTION_KEY || env.GOOGLE_CLIENT_SECRET;
@@ -148,22 +148,29 @@ export async function roster(teacherId: string, courseId: string): Promise<Class
 
 export async function publishCoursework(
   teacherId: string,
-  input: { courseId: string; title: string; description: string; url: string; maxPoints: number; dueDate: string | null },
+  input: { kind: ClassroomKind; courseId: string; title: string; description: string; url: string; maxPoints: number | null; dueDate: string | null },
 ): Promise<{ courseworkId: string; url: string; courseName: string }> {
   const courses = await listCourses(teacherId);
   const course = courses.find((c) => c.id === input.courseId);
   if (!course) throw new HttpError(404, "No encontramos ese curso entre tus cursos activos de Classroom.", "classroom_not_found");
-  const due = input.dueDate ? input.dueDate.split("-").map(Number) : null;
-  const created = await call<{ id: string; alternateLink?: string }>(teacherId, "POST", `/courses/${encodeURIComponent(input.courseId)}/courseWork`, {
+  const common = {
     title: input.title.slice(0, 3000),
     description: input.description.slice(0, 30_000),
     materials: [{ link: { url: input.url, title: input.title.slice(0, 200) } }],
-    workType: "ASSIGNMENT",
     state: "PUBLISHED",
-    maxPoints: input.maxPoints,
-    // Classroom takes the due time in UTC: 23:59 in Argentina is 02:59 of the next day.
-    ...(due ? { dueDate: nextDay(due), dueTime: { hours: 2, minutes: 59 } } : {}),
-  });
+  };
+  const base = `/courses/${encodeURIComponent(input.courseId)}`;
+  const due = input.dueDate ? input.dueDate.split("-").map(Number) : null;
+  const created =
+    input.kind === "material"
+      ? await call<{ id: string; alternateLink?: string }>(teacherId, "POST", `${base}/courseWorkMaterials`, common)
+      : await call<{ id: string; alternateLink?: string }>(teacherId, "POST", `${base}/courseWork`, {
+          ...common,
+          workType: "ASSIGNMENT",
+          maxPoints: input.maxPoints,
+          // Classroom takes the due time in UTC: 23:59 in Argentina is 02:59 of the next day.
+          ...(due ? { dueDate: nextDay(due), dueTime: { hours: 2, minutes: 59 } } : {}),
+        });
   return { courseworkId: created.id, url: created.alternateLink ?? course.url, courseName: course.section ? `${course.name} · ${course.section}` : course.name };
 }
 
@@ -198,7 +205,15 @@ export async function gradeSubmission(teacherId: string, link: { courseId: strin
 export async function courseworkOf(activityId: string): Promise<ClassroomLink | null> {
   const [row] = await db.select().from(schema.classroomCourseworks).where(eq(schema.classroomCourseworks.activityId, activityId));
   return row
-    ? { courseId: row.courseId, courseName: row.courseName, courseworkId: row.courseworkId, url: row.url, maxPoints: row.maxPoints, createdAt: row.createdAt.toISOString() }
+    ? {
+        kind: row.kind,
+        courseId: row.courseId,
+        courseName: row.courseName,
+        courseworkId: row.courseworkId,
+        url: row.url,
+        maxPoints: row.maxPoints,
+        createdAt: row.createdAt.toISOString(),
+      }
     : null;
 }
 

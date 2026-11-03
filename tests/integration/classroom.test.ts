@@ -11,6 +11,7 @@ const SCOPES = [
   "https://www.googleapis.com/auth/classroom.courses.readonly",
   "https://www.googleapis.com/auth/classroom.rosters.readonly",
   "https://www.googleapis.com/auth/classroom.coursework.students",
+  "https://www.googleapis.com/auth/classroom.courseworkmaterials",
 ].join(" ");
 const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString("base64url");
 
@@ -42,6 +43,7 @@ function fakeGoogle(opts: { scope?: string; refreshFails?: boolean } = {}) {
       return json({ students: [{ userId: "u1", profile: { name: { fullName: "Martina López" } } }, { userId: "u2", profile: { name: { fullName: "Tomás Ruiz" } } }] });
     }
     if (path === "/courses/c1/courseWork" && method === "POST") return json({ id: "cw1", alternateLink: "https://classroom.google.com/c/c1/a/cw1" });
+    if (path === "/courses/c1/courseWorkMaterials" && method === "POST") return json({ id: "m1", alternateLink: "https://classroom.google.com/c/c1/m/m1" });
     if (path.startsWith("/courses/c1/courseWork/cw1/studentSubmissions?")) return json({ studentSubmissions: [{ id: "s1", userId: "u1" }, { id: "s2", userId: "u2" }] });
     if (path.startsWith("/courses/c1/courseWork/cw1/studentSubmissions/s1")) return json({});
     return json({ error: { message: "not found" } }, 404);
@@ -109,7 +111,7 @@ describe("Google Classroom", () => {
     ]);
     const pub = await call("POST", `/api/classroom/activities/${activity.id}/publish`, { cookie: t.cookie, body: { courseId: "c1", maxPoints: 10, dueDate: "2026-11-20" } });
     expect(pub.status).toBe(201);
-    expect(pub.body.link).toMatchObject({ courseId: "c1", courseworkId: "cw1", courseName: "2.º A · Historia", maxPoints: 10 });
+    expect(pub.body.link).toMatchObject({ kind: "assignment", courseId: "c1", courseworkId: "cw1", courseName: "2.º A · Historia", maxPoints: 10 });
     const created = google.seen.find((s) => s.method === "POST" && s.url.endsWith("/courses/c1/courseWork"))!.body as Record<string, any>;
     expect(created).toMatchObject({ title: "La fotosíntesis", workType: "ASSIGNMENT", state: "PUBLISHED", maxPoints: 10, dueDate: { year: 2026, month: 11, day: 21 } });
     expect(created.materials[0].link.url).toBe(`http://localhost:5173/clase/${activity.linkToken}`);
@@ -132,6 +134,34 @@ describe("Google Classroom", () => {
     expect(google.seen.some((s) => s.method === "POST" && s.url.endsWith("/studentSubmissions/s1:return"))).toBe(true);
     const again = await call("GET", `/api/classroom/activities/${activity.id}/grades`, { cookie: t.cookie });
     expect(again.body.rows[0].sent).toMatchObject({ grade: 9.5, returned: true });
+  });
+
+  it("la sube como consigna (material, sin nota) y no deja pasar notas", async () => {
+    const t = await newTeacher();
+    const google = fakeGoogle();
+    await connect(t.cookie, google);
+    const roomId = await newClassroom(t.cookie);
+    const activity = await insertActivity(t.id, roomId);
+    const pub = await call("POST", `/api/classroom/activities/${activity.id}/publish`, { cookie: t.cookie, body: { kind: "material", courseId: "c1" } });
+    expect(pub.status).toBe(201);
+    expect(pub.body.link).toMatchObject({ kind: "material", courseworkId: "m1", maxPoints: null, url: "https://classroom.google.com/c/c1/m/m1" });
+    const created = google.seen.find((s) => s.method === "POST" && s.url.endsWith("/courses/c1/courseWorkMaterials"))!.body as Record<string, any>;
+    expect(created).toMatchObject({ title: "La fotosíntesis", state: "PUBLISHED" });
+    expect(created).not.toHaveProperty("workType");
+    expect(created).not.toHaveProperty("maxPoints");
+    expect(google.seen.some((s) => s.url.endsWith("/courseWork"))).toBe(false);
+    const grades = await call("GET", `/api/classroom/activities/${activity.id}/grades`, { cookie: t.cookie });
+    expect(grades.status).toBe(409);
+    expect(grades.body.error.message).toMatch(/consigna/);
+  });
+
+  it("una tarea necesita puntos", async () => {
+    const t = await newTeacher();
+    await connect(t.cookie, fakeGoogle());
+    const roomId = await newClassroom(t.cookie);
+    const activity = await insertActivity(t.id, roomId);
+    const r = await call("POST", `/api/classroom/activities/${activity.id}/publish`, { cookie: t.cookie, body: { kind: "assignment", courseId: "c1" } });
+    expect(r.status).toBe(400);
   });
 
   it("trae los alumnos de un curso al aula sin repetir", async () => {

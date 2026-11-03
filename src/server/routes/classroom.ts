@@ -39,6 +39,16 @@ import {
 const byTeacher = (c: Parameters<typeof teacherOf>[0]) => c.get("teacher")?.id ?? "anon";
 const unavailable = () => new HttpError(503, "La conexión con Google no está configurada en este servidor.", "classroom_unavailable");
 
+/** The assignment to grade: a «Consigna» (material) has no grades in Classroom. */
+async function gradedLink(activityId: string) {
+  const link = await courseworkOf(activityId);
+  if (!link) throw notFound("La tarea de Classroom");
+  if (link.kind !== "assignment" || link.maxPoints === null) {
+    throw new HttpError(409, "Está en Classroom como consigna, sin nota. Para pasar notas, subila como tarea.", "classroom_not_graded");
+  }
+  return { ...link, maxPoints: link.maxPoints };
+}
+
 export const googleClassroomRoutes = new Hono<AppEnv>()
   .use("*", requireTeacher)
 
@@ -104,7 +114,7 @@ export const googleClassroomRoutes = new Hono<AppEnv>()
     return c.json({ link: await courseworkOf(activity.id) });
   })
 
-  // Publishes the activity as an assignment: its title, its consigna and the students' link.
+  // Publishes the activity as an assignment or a material: its title, its consigna and the students' link.
   .post("/activities/:activityId/publish", rateLimit("classroom-write", 60, 15 * 60_000, byTeacher), async (c) => {
     const t = teacherOf(c);
     const activity = await ownedActivity(t.id, c.req.param("activityId"));
@@ -115,17 +125,27 @@ export const googleClassroomRoutes = new Hono<AppEnv>()
     const body = await readJson(c, classroomPublishBody);
     const url = `${new URL(env.PUBLIC_URL).origin}/clase/${activity.linkToken}`;
     const description = [activity.instructions.trim(), `Entrá con este enlace y escribí tu nombre: ${url}`].filter(Boolean).join("\n\n");
-    const created = await publishCoursework(t.id, { courseId: body.courseId, title: activity.title, description, url, maxPoints: body.maxPoints, dueDate: body.dueDate });
+    const graded = body.kind === "assignment";
+    const created = await publishCoursework(t.id, {
+      kind: body.kind,
+      courseId: body.courseId,
+      title: activity.title,
+      description,
+      url,
+      maxPoints: graded ? body.maxPoints : null,
+      dueDate: graded ? body.dueDate : null,
+    });
     await db.insert(schema.classroomCourseworks).values({
       activityId: activity.id,
+      kind: body.kind,
       courseId: body.courseId,
       courseName: created.courseName,
       courseworkId: created.courseworkId,
       url: created.url,
-      maxPoints: body.maxPoints,
+      maxPoints: graded ? body.maxPoints : null,
       createdBy: t.id,
     });
-    await audit(c, t.id, "classroom_published", "activity", activity.id, { courseId: body.courseId });
+    await audit(c, t.id, "classroom_published", "activity", activity.id, { courseId: body.courseId, kind: body.kind });
     return c.json({ link: await courseworkOf(activity.id) }, 201);
   })
 
@@ -142,8 +162,7 @@ export const googleClassroomRoutes = new Hono<AppEnv>()
   .get("/activities/:activityId/grades", rateLimit("classroom-read", 120, 15 * 60_000, byTeacher), async (c) => {
     const t = teacherOf(c);
     const activity = await ownedActivity(t.id, c.req.param("activityId"));
-    const link = await courseworkOf(activity.id);
-    if (!link) throw notFound("La tarea de Classroom");
+    const link = await gradedLink(activity.id);
     const [rows, list] = await Promise.all([
       db
         .select({
@@ -197,8 +216,7 @@ export const googleClassroomRoutes = new Hono<AppEnv>()
     const t = teacherOf(c);
     const activity = await ownedActivity(t.id, c.req.param("activityId"));
     requireRole(activity, "edit");
-    const link = await courseworkOf(activity.id);
-    if (!link) throw notFound("La tarea de Classroom");
+    const link = await gradedLink(activity.id);
     const body = await readJson(c, classroomGradesBody);
     const own = await db
       .select({ id: schema.learningSessions.id, studentId: schema.learningSessions.studentId })

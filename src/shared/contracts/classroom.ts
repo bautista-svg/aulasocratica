@@ -24,29 +24,44 @@ export interface ClassroomRosterStudent {
   name: string;
 }
 
+/**
+ * How the activity shows up in the course: a «Tarea» (students hand it in and get a grade) or a
+ * «Consigna» (a Classroom material: the instructions and the link, nothing to hand in, no grade).
+ */
+export const CLASSROOM_KINDS = ["assignment", "material"] as const;
+export type ClassroomKind = (typeof CLASSROOM_KINDS)[number];
+
 export interface ClassroomLink {
+  kind: ClassroomKind;
   courseId: string;
   courseName: string;
   courseworkId: string;
   url: string;
-  maxPoints: number;
+  /** Only a «Tarea» has points. */
+  maxPoints: number | null;
   createdAt: string;
 }
 
-export const classroomPublishBody = z.object({
-  courseId: z.string().trim().min(1, "Elegí un curso de Classroom.").max(80),
-  maxPoints: z
-    .number()
-    .int("Usá un número entero.")
-    .min(MAX_POINTS_RANGE.min, `Poné al menos ${MAX_POINTS_RANGE.min} punto.`)
-    .max(MAX_POINTS_RANGE.max, `Poné hasta ${MAX_POINTS_RANGE.max} puntos.`),
-  /** "YYYY-MM-DD", or null for no due date. */
-  dueDate: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Elegí una fecha válida.")
-    .nullable()
-    .default(null),
-});
+export const classroomPublishBody = z
+  .object({
+    kind: z.enum(CLASSROOM_KINDS).default("assignment"),
+    courseId: z.string().trim().min(1, "Elegí un curso de Classroom.").max(80),
+    /** Required for a «Tarea»; a «Consigna» has none. */
+    maxPoints: z
+      .number()
+      .int("Usá un número entero.")
+      .min(MAX_POINTS_RANGE.min, `Poné al menos ${MAX_POINTS_RANGE.min} punto.`)
+      .max(MAX_POINTS_RANGE.max, `Poné hasta ${MAX_POINTS_RANGE.max} puntos.`)
+      .nullable()
+      .default(null),
+    /** "YYYY-MM-DD", or null for no due date (only a «Tarea» has one). */
+    dueDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Elegí una fecha válida.")
+      .nullable()
+      .default(null),
+  })
+  .refine((b) => b.kind !== "assignment" || b.maxPoints !== null, { message: "Poné sobre cuántos puntos es la tarea.", path: ["maxPoints"] });
 export type ClassroomPublishBody = z.input<typeof classroomPublishBody>;
 
 export interface ClassroomGradeRow {

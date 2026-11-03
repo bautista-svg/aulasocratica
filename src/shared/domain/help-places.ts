@@ -57,7 +57,7 @@ export const HELP_PLACES: HelpPlace[] = [
   { id: "aula_nueva_actividad", name: "Nueva actividad", scope: "classroom", target: "nueva-actividad", fallback: OPEN_CLASSROOM, where: "Dentro de un aula, el botón «Nueva actividad»." },
 
   { id: "classroom_conectar", name: "Google Classroom", to: "/app/cuenta", target: "classroom-cuenta", where: "Mi espacio › Google Classroom: conectar o desconectar la cuenta de Google para usar Classroom." },
-  { id: "classroom_tarea", name: "Subir a Classroom", scope: "activity", tab: "compartir", target: "classroom", fallback: OPEN_ACTIVITY, where: "Dentro de una actividad publicada, paso 2 «Compartir» › Google Classroom: subirla como tarea a un curso (con puntos y fecha de entrega) y después «Pasar notas a Classroom» con la nota que sale de la rúbrica." },
+  { id: "classroom_tarea", name: "Subir a Classroom", scope: "activity", tab: "compartir", target: "classroom", fallback: OPEN_ACTIVITY, where: "Dentro de una actividad publicada, paso 2 «Compartir» › Google Classroom: subirla a un curso como consigna (material, sin nota) o como tarea (con puntos y fecha de entrega); si es tarea, después «Pasar notas a Classroom» con la nota que sale de la rúbrica." },
   { id: "classroom_alumnos", name: "Traer de Classroom", scope: "classroom", tab: "alumnos", target: "aula-alumnos", fallback: OPEN_CLASSROOM, where: "Dentro de un aula › Alumnos › «Traer de Classroom»: suma los alumnos de un curso de Classroom." },
 
   { id: "trabajo_evaluacion", name: "Evaluación", scope: "session", tab: "evaluacion", target: "trabajo-evaluacion", fallback: { to: "/app/alertas", target: "nav-revisar" }, where: "En el trabajo de un alumno, pestaña «Evaluación»: la rúbrica sugerida por la IA, para confirmar o corregir." },

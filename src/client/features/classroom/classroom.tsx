@@ -1,7 +1,8 @@
-// Google Classroom in the app: connect the account, publish an activity as an assignment, send the
+// Google Classroom in the app: connect the account, publish an activity as a material («Consigna») or
+// an assignment («Tarea»), send the
 // grades back (from the rubric, editable) and bring a course's students into a classroom.
 import { useEffect, useMemo, useState } from "react";
-import { ExternalLink, GraduationCap, Link2Off, Send, Users } from "lucide-react";
+import { ClipboardList, ExternalLink, FileText, GraduationCap, Link2Off, Send, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button, buttonClass } from "@client/components/ui/button";
 import { Dialog } from "@client/components/ui/dialog";
@@ -13,6 +14,7 @@ import { cn } from "@client/lib/cn";
 import { fmtRelative, plural } from "@client/lib/format";
 import { DEFAULT_MAX_POINTS, MAX_POINTS_RANGE } from "@shared/domain/classroom";
 import type { ActivityEditorData } from "@shared/contracts/activities";
+import type { ClassroomKind } from "@shared/contracts/classroom";
 import {
   connectUrl,
   useClassroomCourses,
@@ -57,7 +59,7 @@ export function ClassroomShareCard({ activity, canEdit }: { activity: ActivityEd
           {!connected ? (
             <>
               <p className="mt-1 text-[14px] leading-6 text-text-2">
-                Subí esta actividad como tarea a un curso de Classroom, con el enlace para tus alumnos, y después pasá las notas sin copiarlas a mano.
+                Subí esta actividad a un curso de Classroom como consigna o como tarea, con el enlace para tus alumnos. Si es tarea, después pasás las notas sin copiarlas a mano.
               </p>
               <a href={connectUrl(here())} className={buttonClass("secondary", "md", "mt-3")}>
                 Conectar Google Classroom
@@ -68,10 +70,18 @@ export function ClassroomShareCard({ activity, canEdit }: { activity: ActivityEd
           ) : link.data?.link ? (
             <>
               <p className="mt-1 text-[14px] leading-6 text-text-2">
-                Está como tarea en <span className="font-medium text-ink">{link.data.link.courseName}</span>, sobre {link.data.link.maxPoints} puntos.
+                {link.data.link.kind === "material" ? (
+                  <>
+                    Está como consigna en <span className="font-medium text-ink">{link.data.link.courseName}</span>, sin nota.
+                  </>
+                ) : (
+                  <>
+                    Está como tarea en <span className="font-medium text-ink">{link.data.link.courseName}</span>, sobre {link.data.link.maxPoints} puntos.
+                  </>
+                )}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                {canEdit ? (
+                {canEdit && link.data.link.kind === "assignment" ? (
                   <Button icon={<Send className="size-4" />} onClick={() => setGrading(true)}>
                     Pasar notas a Classroom
                   </Button>
@@ -87,7 +97,7 @@ export function ClassroomShareCard({ activity, canEdit }: { activity: ActivityEd
                     loading={unlink.isPending}
                     onClick={() =>
                       unlink.mutate(undefined, {
-                        onSuccess: () => toast.success("Desvinculada: la tarea sigue en Classroom"),
+                        onSuccess: () => toast.success(`Desvinculada: la ${link.data?.link?.kind === "material" ? "consigna" : "tarea"} sigue en Classroom`),
                         onError: (e) => toast.error(errorMessage(e)),
                       })
                     }
@@ -121,9 +131,51 @@ export function ClassroomShareCard({ activity, canEdit }: { activity: ActivityEd
   );
 }
 
+const KIND_OPTIONS: { kind: ClassroomKind; title: string; hint: string; icon: typeof ClipboardList }[] = [
+  { kind: "material", title: "Consigna", hint: "La consigna y el enlace, sin entrega ni nota.", icon: FileText },
+  { kind: "assignment", title: "Tarea", hint: "Con puntos y entrega; después pasás las notas.", icon: ClipboardList },
+];
+
+/** «Consigna» or «Tarea»: two cards that work as one radio group. */
+function KindChoice({ value, onChange }: { value: ClassroomKind; onChange: (k: ClassroomKind) => void }) {
+  return (
+    <fieldset className="col-span-full">
+      <legend className="mb-1.5 text-[13px] font-medium text-text-2">Cómo aparece en Classroom</legend>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {KIND_OPTIONS.map((o) => {
+          const on = value === o.kind;
+          const Icon = o.icon;
+          return (
+            <label
+              key={o.kind}
+              className={cn(
+                "flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-lilac",
+                on ? "border-lilac-ink bg-lilac-soft" : "border-line bg-surface hover:border-line-strong",
+              )}
+            >
+              <input type="radio" name="classroom-kind" value={o.kind} checked={on} onChange={() => onChange(o.kind)} className="sr-only" />
+              <span
+                className={cn("inline-flex size-8 shrink-0 items-center justify-center rounded-full", on ? "bg-lilac-ink text-surface" : "bg-paper text-text-2")}
+                aria-hidden="true"
+              >
+                <Icon className="size-4" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-[14px] font-semibold text-ink">{o.title}</span>
+                <span className="block text-[12.5px] leading-5 text-text-2">{o.hint}</span>
+              </span>
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
 function PublishForm({ activityId }: { activityId: string }) {
   const courses = useClassroomCourses(true);
   const publish = usePublishToClassroom(activityId);
+  const [kind, setKind] = useState<ClassroomKind>("material");
   const [courseId, setCourseId] = useState("");
   const [points, setPoints] = useState(String(DEFAULT_MAX_POINTS));
   const [due, setDue] = useState("");
@@ -131,8 +183,9 @@ function PublishForm({ activityId }: { activityId: string }) {
   useEffect(() => {
     if (!courseId && list.length === 1) setCourseId(list[0]!.id);
   }, [list, courseId]);
+  const graded = kind === "assignment";
   const n = Number(points);
-  const pointsOk = Number.isInteger(n) && n >= MAX_POINTS_RANGE.min && n <= MAX_POINTS_RANGE.max;
+  const pointsOk = !graded || (Number.isInteger(n) && n >= MAX_POINTS_RANGE.min && n <= MAX_POINTS_RANGE.max);
 
   if (courses.isPending) return <Skeleton className="mt-3 h-11 w-full" />;
   if (courses.isError) return <p className="mt-2 text-[14px] text-rose" role="alert">{errorMessage(courses.error)}</p>;
@@ -140,17 +193,18 @@ function PublishForm({ activityId }: { activityId: string }) {
 
   return (
     <form
-      className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_110px_160px]"
+      className={cn("mt-3 grid gap-3", graded && "sm:grid-cols-[minmax(0,1fr)_110px_160px]")}
       onSubmit={(e) => {
         e.preventDefault();
         if (!courseId || !pointsOk) return;
-        publish.mutate(
-          { courseId, maxPoints: n, dueDate: due || null },
-          { onSuccess: () => toast.success("Tarea creada en Classroom"), onError: (err) => toast.error(errorMessage(err)) },
-        );
+        publish.mutate(graded ? { kind, courseId, maxPoints: n, dueDate: due || null } : { kind, courseId }, {
+          onSuccess: () => toast.success(graded ? "Tarea creada en Classroom" : "Consigna publicada en Classroom"),
+          onError: (err) => toast.error(errorMessage(err)),
+        });
       }}
     >
-      <label className="grid gap-1.5 text-[13px] font-medium text-text-2">
+      <KindChoice value={kind} onChange={setKind} />
+      <label className={cn("grid gap-1.5 text-[13px] font-medium text-text-2", !graded && "sm:max-w-md")}>
         Curso
         <Select value={courseId} onChange={(e) => setCourseId(e.target.value)} required>
           <option value="">Elegí un curso</option>
@@ -161,19 +215,27 @@ function PublishForm({ activityId }: { activityId: string }) {
           ))}
         </Select>
       </label>
-      <label className="grid gap-1.5 text-[13px] font-medium text-text-2">
-        Puntos
-        <Input type="number" inputMode="numeric" min={MAX_POINTS_RANGE.min} max={MAX_POINTS_RANGE.max} value={points} onChange={(e) => setPoints(e.target.value)} invalid={!pointsOk} />
-      </label>
-      <label className="grid gap-1.5 text-[13px] font-medium text-text-2">
-        Entrega <span className="sr-only">(opcional)</span>
-        <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
-      </label>
-      <div className="sm:col-span-3">
+      {graded ? (
+        <>
+          <label className="grid gap-1.5 text-[13px] font-medium text-text-2">
+            Puntos
+            <Input type="number" inputMode="numeric" min={MAX_POINTS_RANGE.min} max={MAX_POINTS_RANGE.max} value={points} onChange={(e) => setPoints(e.target.value)} invalid={!pointsOk} />
+          </label>
+          <label className="grid gap-1.5 text-[13px] font-medium text-text-2">
+            Entrega <span className="sr-only">(opcional)</span>
+            <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+          </label>
+        </>
+      ) : null}
+      <div className="col-span-full">
         <Button type="submit" disabled={!courseId || !pointsOk} loading={publish.isPending} icon={<GraduationCap className="size-4" />}>
           Subir a Classroom
         </Button>
-        <p className="mt-2 text-[12.5px] text-text-3">Se crea como tarea publicada, con la consigna y el enlace. La fecha de entrega es opcional.</p>
+        <p className="mt-2 text-[12.5px] text-text-3">
+          {graded
+            ? "Se crea como tarea publicada, con la consigna y el enlace. La fecha de entrega es opcional."
+            : "Aparece en Trabajo de clase como material, con la consigna y el enlace. No lleva nota."}
+        </p>
       </div>
     </form>
   );
