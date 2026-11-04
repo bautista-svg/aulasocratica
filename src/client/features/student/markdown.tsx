@@ -3,13 +3,14 @@
 // strings, so raw HTML is never interpreted; links show their text only (no navigation away
 // from the activity). Tolerant of half-written markup while a reply streams.
 import { Fragment, type ReactNode } from "react";
+import { CodeBlock } from "@client/components/ui/code-block";
 import { cn } from "@client/lib/cn";
 
 type Block =
   | { type: "p"; text: string }
   | { type: "ul"; items: string[] }
   | { type: "ol"; items: string[]; start: number }
-  | { type: "pre"; text: string };
+  | { type: "pre"; text: string; lang?: string; file?: string; start?: number };
 
 const UL = /^\s{0,3}[-*•]\s+(.*)$/;
 const OL = /^\s{0,3}(\d{1,3})[.)]\s+(.*)$/;
@@ -24,12 +25,23 @@ export function parseBlocks(src: string): Block[] {
   };
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
-    if (/^\s*```/.test(line)) {
+    const fence = /^\s*(`{3,})\s*(.*)$/.exec(line);
+    if (fence) {
       flush();
+      // Code that holds backticks comes in a longer fence: only one as long closes it.
+      const closes = new RegExp(`^\\s*\`{${fence[1]!.length},}\\s*$`);
       const body: string[] = [];
       i++;
-      while (i < lines.length && !/^\s*```/.test(lines[i]!)) body.push(lines[i++]!);
-      blocks.push({ type: "pre", text: body.join("\n") });
+      while (i < lines.length && !closes.test(lines[i]!)) body.push(lines[i++]!);
+      // "css estilos.css:12": the fragment of «Defensa de código».
+      const [lang, where] = fence[2]!.trim().split(/\s+/);
+      const place = where ? /^(.*?)(?::(\d+))?$/.exec(where) : null;
+      blocks.push({
+        type: "pre",
+        text: body.join("\n"),
+        ...(lang ? { lang } : {}),
+        ...(place ? { file: place[1]!, ...(place[2] ? { start: Number(place[2]) } : {}) } : {}),
+      });
       continue;
     }
     if (!line.trim()) {
@@ -151,6 +163,9 @@ export function Markdown({
               {items}
             </ol>
           );
+        }
+        if (b.type === "pre" && b.file) {
+          return <CodeBlock key={key} code={b.text} file={b.file} start={b.start} diff={b.lang === "diff"} className="max-w-full" />;
         }
         if (b.type === "pre") {
           return (

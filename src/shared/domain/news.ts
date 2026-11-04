@@ -32,10 +32,11 @@ export type NewsKey =
   | "tutorStop"
   | "redesign"
   | "helpAssistant"
-  | "darkMode";
+  | "darkMode"
+  | "webDesign";
 
 /** Releases in order; adding one shows its items to everyone who has not seen them. */
-export const NEWS_RELEASES = ["2026-10-22", "2026-10-22b", "2026-10-22c", "2026-10-23", "2026-10-23b", "2026-10-23c", "2026-10-23d", "2026-10-24", "2026-10-24b", "2026-10-26", "2026-10-26b", "2026-10-28", "2026-10-28b", "2026-10-28c", "2026-10-29", "2026-10-29b", "2026-10-29c", "2026-11-02"] as const;
+export const NEWS_RELEASES = ["2026-10-22", "2026-10-22b", "2026-10-22c", "2026-10-23", "2026-10-23b", "2026-10-23c", "2026-10-23d", "2026-10-24", "2026-10-24b", "2026-10-26", "2026-10-26b", "2026-10-28", "2026-10-28b", "2026-10-28c", "2026-10-29", "2026-10-29b", "2026-10-29c", "2026-11-02", "2026-11-04"] as const;
 export type NewsRelease = (typeof NEWS_RELEASES)[number];
 
 export interface NewsItem {
@@ -50,6 +51,12 @@ export interface NewsItem {
 }
 
 export const NEWS_ITEMS: NewsItem[] = [
+  {
+    key: "webDesign",
+    release: "2026-11-04",
+    title: "Diseño web: el tutor ya muestra el código",
+    text: "Con el tutor «Defensa de autoría», ya no hace falta que el alumno tenga el código a mano: el tutor le muestra un fragmento y le pregunta qué significa, qué hace y qué pasa si cambia. La actividad suma una sección donde ves qué pudo explicar cada uno.",
+  },
   {
     key: "redesign",
     release: "2026-11-02",

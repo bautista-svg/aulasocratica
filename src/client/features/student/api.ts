@@ -58,6 +58,7 @@ export const studentApi = {
   leave: (token: string) => api.post<{ ok: true }>(`${base(token)}/leave`),
   initial: (token: string, answer: string) => api.post<WorkspaceResponse>(`${base(token)}/initial`, { answer }),
   closing: (token: string) => api.post<{ ok: true }>(`${base(token)}/closing`),
+  saveCode: (token: string, files: { name: string; text: string }[]) => api.post<WorkspaceResponse>(`${base(token)}/code`, { files }),
   answer: (token: string, consignaId: string, text: string) => api.post<{ ok: true }>(`${base(token)}/answer`, { consignaId, text }),
   finish: (token: string, body: FinishInput) => api.post<WorkspaceResponse>(`${base(token)}/finish`, body as Record<string, unknown>),
   uploadDeliverable: (token: string, file: File, onProgress: (fraction: number) => void) => {

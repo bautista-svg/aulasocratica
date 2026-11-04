@@ -86,6 +86,8 @@ export function ChatStep({
   const inFlight = useRef(false);
   const busy = overlay !== null;
   const done = overlay ? null : workspace.tutorDone;
+  // «Defensa de código»: the tutor opens with a fragment of the student's code, and there are no hints.
+  const defense = workspace.codeDefense !== null;
 
   const serverMessages = overlay?.userMessageId
     ? workspace.messages.filter((m) => m.id !== overlay.userMessageId)
@@ -252,6 +254,22 @@ export function ChatStep({
     return true;
   }
 
+  function open() {
+    if (busy || inFlight.current) return;
+    inFlight.current = true;
+    setChatError(null);
+    setSendError(null);
+    setOverlay({ userText: null, userMessageId: null, inputMode: "text", intent: null, reply: "", phase: "sending" });
+    void run({ start: true }, null);
+  }
+  const opened = useRef(false);
+  useEffect(() => {
+    if (!defense || opened.current || workspace.messages.length || workspace.replyPending || workspace.tutorDone) return;
+    opened.current = true;
+    open();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defense, workspace.messages.length, workspace.replyPending, workspace.tutorDone]);
+
   function submitComposer() {
     if (busy || !draft.trim()) return;
     const prefix = pendingIntent ? intentText(pendingIntent, uiLang).message : null;
@@ -294,7 +312,7 @@ export function ChatStep({
   }
 
   const emptyText = workspace.session.initialAnswer ? t.chat.emptyWithIdea : t.chat.emptyNoIdea;
-  const subtitle = voice === "en" && dictationOk ? t.chat.subtitlePractice : dictationOk ? t.chat.subtitleDictation : t.chat.subtitle;
+  const subtitle = defense ? t.chat.subtitleDefense : voice === "en" && dictationOk ? t.chat.subtitlePractice : dictationOk ? t.chat.subtitleDictation : t.chat.subtitle;
   const nothingYet = serverMessages.length === 0 && !overlay;
 
   return (
@@ -314,7 +332,17 @@ export function ChatStep({
             <StudentMessageBubble text={workspace.session.initialAnswer} label={t.thread.firstIdea} />
           </li>
         ) : null}
-        {nothingYet ? (
+        {nothingYet && defense && (chatError || sendError) ? (
+          <li>
+            <div role="alert" className="rounded-lg border border-rose/20 bg-rose-soft/60 px-4 py-3">
+              <p className="text-[15px] leading-6 text-text">{chatError ?? sendError}</p>
+              <Button variant="secondary" size="sm" className="mt-2.5 h-11" icon={<RotateCcw className="size-4" />} onClick={open}>
+                {t.chat.retry}
+              </Button>
+            </div>
+          </li>
+        ) : null}
+        {nothingYet && !defense ? (
           <li className="rounded-lg border border-dashed border-line-strong bg-surface/70 px-5 py-5 text-[15px] leading-6 text-text-2">
             {emptyText} {t.chat.stuck}
           </li>
@@ -385,7 +413,7 @@ export function ChatStep({
                 {done === "achieved" ? <Sparkles className="size-5" /> : <MessageCircleCheck className="size-5" />}
               </span>
               <div className="min-w-0">
-                <p className="font-display text-[17px] leading-6 font-semibold text-ink">{done === "achieved" ? t.chat.doneAchieved : t.chat.doneLimit}</p>
+                <p className="font-display text-[17px] leading-6 font-semibold text-ink">{defense ? t.chat.doneDefense : done === "achieved" ? t.chat.doneAchieved : t.chat.doneLimit}</p>
                 <p className="mt-0.5 text-sm leading-5 text-text-2">{t.chat.doneNext(workspace.activity.askFinalAnswer)}</p>
               </div>
             </div>
@@ -395,6 +423,7 @@ export function ChatStep({
           </div>
         ) : (
           <>
+          {defense ? null : (
           <div
             role="group"
             aria-label={t.chat.helpLabel}
@@ -412,6 +441,7 @@ export function ChatStep({
               </button>
             ))}
           </div>
+          )}
 
           <div className="flex items-stretch gap-2">
           <form
@@ -431,7 +461,7 @@ export function ChatStep({
               minRows={1}
               maxRows={6}
               enterKeyHint="send"
-              placeholder={busy ? t.chat.placeholderBusy : t.chat.placeholder}
+              placeholder={busy ? t.chat.placeholderBusy : defense ? t.chat.placeholderDefense : t.chat.placeholder}
               aria-describedby="composer-help"
               onChange={(e) => {
                 const v = e.target.value;

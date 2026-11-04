@@ -45,6 +45,8 @@ import {
 } from "@shared/contracts/student";
 import type { FileKind } from "@shared/domain/files";
 import { isStreaming } from "./streams";
+import { defenseClosing, hasDefenseCode } from "./code";
+import { isCodeDefense } from "@shared/domain/code-defense";
 import { defaultBasis, sanitizeSummary, splitObjectives, withFullObjectives } from "@shared/domain/session-summary";
 import { consignasOf, readFinalAnswers } from "@shared/domain/consignas";
 import { DEFAULT_FINAL_QUESTION_BY_LANGUAGE, LINK_AVAILABILITY_MESSAGE_EN, languageOf, reflectionQuestionsIn } from "@shared/domain/language";
@@ -497,7 +499,7 @@ export function reflectionQuestionsOf(activity: Activity): ReflectionQuestion[] 
 export function stageOf(activity: Activity, session: Session): StudentStage {
   if (session.endedByTeacher) return "ended";
   if (session.status === "completed") return "completed";
-  if (activity.requireInitialAnswer && !session.initialAnswer) return "initial";
+  if (activity.requireInitialAnswer && !isCodeDefense(activity) && !session.initialAnswer) return "initial";
   return "tutor";
 }
 
@@ -633,7 +635,8 @@ export async function buildWorkspace(ctx: StudentCtx, opts: { files?: boolean } 
         SECTION_KEYS.map((k) => [k, sectionText(sanitizeSectionTitles(activity.sectionTitles), k, languageOf(activity.language))]),
       ) as Record<SectionKey, SectionText>,
       material: activity.material,
-      requireInitialAnswer: activity.requireInitialAnswer,
+      // The defense starts with the tutor's first fragment.
+      requireInitialAnswer: activity.requireInitialAnswer && !isCodeDefense(activity),
       askFinalAnswer: asksFinalProduction(activity),
       finalQuestion: activity.finalQuestion.trim() || DEFAULT_FINAL_QUESTION_BY_LANGUAGE[languageOf(activity.language)],
       language: languageOf(activity.language),
@@ -678,9 +681,9 @@ export async function buildWorkspace(ctx: StudentCtx, opts: { files?: boolean } 
       }),
     ),
     replyPending: isStreaming(session.id),
+    codeDefense: isCodeDefense(activity) ? { needsCode: !(await hasDefenseCode(activity, student.id)) } : null,
     tutorDone: tutorDoneReason({
-      maxQuestions: activity.tutorMaxQuestions,
-      stopWhenAchieved: activity.tutorStopWhenAchieved,
+      ...defenseClosing(activity),
       asked: messages.filter((m) => m.role === "assistant").length,
       achieved: session.tutorAchievedAt !== null,
     }),

@@ -132,6 +132,13 @@ docs/                Arquitectura, auditoría, informes
   alumno se empareja por nombre o a mano (`classroom_student_links`, se recuerda) y lo enviado queda en
   `classroom_grades`. Google solo deja calificar tareas creadas por la misma app. En el proyecto de Google Cloud
   tiene que estar habilitada la API de Classroom y los cuatro permisos en la pantalla de consentimiento.
+- Defensa de código (tutor `defensa_autoria`; `services/student/defense.ts`, `routes/code-defense.ts`, `features/code-defense/`): no
+  usa el stream del tutor. En cada turno la IA devuelve JSON con la evaluación de la última respuesta y las líneas a
+  preguntar (`file`, `fromLine`, `toLine`); el servidor las corta del código real y arma el mensaje, así el fragmento
+  siempre está y es textual, y el alumno no necesita tener el código a mano. El código sale de
+  `activity_student_code` (lo sube el alumno o la docente) o, si no hay, del material. Cada fragmento queda en
+  `code_defense_checks`. La sección de la actividad (`?tab=codigo`) lleva el nombre de la asignatura. Muestra cuánto
+  puede explicar el alumno, no quién escribió el código: los textos no afirman que usó IA.
 - Navegación (`components/app/shell.tsx`): Inicio · Aulas · Preparar (Actividades, Tutores, Materiales) · En clase
   (En vivo) · Revisar (Para revisar, Radiografía, Informes). Buscar con Ctrl K (`command-palette.tsx`). Una actividad
   se trabaja en 4 pasos (`Tabs variant="steps"`: Preparar, Compartir, En vivo, Revisar) más «Avisos».

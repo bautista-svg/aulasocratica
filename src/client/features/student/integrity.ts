@@ -44,6 +44,8 @@ export function useIntegritySignals(opts: {
     const onPaste = (e: ClipboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (!target || !(target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement || target.isContentEditable)) return;
+      // Pasting their own code to load it is what that box is for.
+      if (target.closest("[data-code-input]")) return;
       const text = e.clipboardData?.getData("text/plain") ?? "";
       const { materialText, insideTexts, token } = latest.current;
       const inside = [materialText, ...insideTexts(), ...copied.current];

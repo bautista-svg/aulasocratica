@@ -41,6 +41,7 @@ const ICONS: Record<NewsKey, { icon: LucideIcon; tile: string }> = {
   divisions: { icon: Layers, tile: "bg-leaf-soft text-leaf" },
   sharedClassrooms: { icon: UsersRound, tile: "bg-lilac-soft text-lilac-ink" },
   defense: { icon: FileSearch, tile: "bg-rose-soft text-rose" },
+  webDesign: { icon: FileSearch, tile: "bg-leaf-soft text-leaf" },
   indicatorLevels: { icon: ChartNoAxesColumnIncreasing, tile: "bg-leaf-soft text-leaf" },
   tutorStop: { icon: MessageCircleCheck, tile: "bg-lilac-soft text-lilac-ink" },
   redesign: { icon: Compass, tile: "bg-leaf-soft text-leaf" },

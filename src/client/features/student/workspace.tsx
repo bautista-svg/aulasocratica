@@ -13,6 +13,7 @@ import { studentApi, studentKey } from "./api";
 import { clearDrafts, readFlag, STUDENT_SCROLLER_ID, unsentDrafts, useStudentViewport, writeFlag } from "./hooks";
 import { useIntegritySignals } from "./integrity";
 import { ChatStep } from "./chat";
+import { CodeStep } from "./code-step";
 import { ClosingStep, DoneStep, InitialAnswerStep } from "./steps";
 import { ConsignaPanel, IntroStep, introKey, useConsignaIndex } from "./consignas";
 import { canDictate, stopSpeaking } from "./voice-support";
@@ -157,7 +158,8 @@ export function Workspace({ token, info }: { token: string; info: StudentLinkInf
               onShowIntro={w.activity.presentation ? () => setRereading(true) : undefined}
             />
           ) : null}
-          {view === "tutor" ? <ChatStep token={token} workspace={w} consigna={consigna} onFinish={() => setClosing(true)} focusHeading={transitioned} /> : null}
+          {view === "tutor" && w.codeDefense?.needsCode ? <CodeStep token={token} workspace={w} /> : null}
+          {view === "tutor" && !w.codeDefense?.needsCode ? <ChatStep token={token} workspace={w} consigna={consigna} onFinish={() => setClosing(true)} focusHeading={transitioned} /> : null}
           {view === "closing" ? (
             <ClosingStep
               token={token}

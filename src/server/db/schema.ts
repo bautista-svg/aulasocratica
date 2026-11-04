@@ -770,6 +770,57 @@ export const classroomStudentLinks = pgTable(
   (t) => [uniqueIndex("classroom_student_links_unique").on(t.studentId, t.courseId)],
 );
 
+/**
+ * «Defensa de código»: the code of one student in one activity, loaded by the student or by the
+ * teacher ([{ name, text }]). Without a row, the tutor uses the activity's material.
+ */
+export const activityStudentCode = pgTable(
+  "activity_student_code",
+  {
+    activityId: uuid("activity_id").notNull().references(() => activities.id, { onDelete: "cascade" }),
+    studentId: uuid("student_id").notNull().references(() => students.id, { onDelete: "cascade" }),
+    files: jsonb("files").notNull().default(sql`'[]'::jsonb`),
+    uploadedBy: text("uploaded_by").notNull().default("student"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("activity_student_code_unique").on(t.activityId, t.studentId),
+    check("activity_student_code_by", sql`${t.uploadedBy} in ('student', 'teacher')`),
+  ],
+);
+
+/** One fragment the tutor asked a student about, with what they answered and how it went. */
+export const codeDefenseChecks = pgTable(
+  "code_defense_checks",
+  {
+    id: id(),
+    sessionId: uuid("session_id").notNull().references(() => learningSessions.id, { onDelete: "cascade" }),
+    messageId: uuid("message_id").references(() => messages.id, { onDelete: "set null" }),
+    file: text("file").notNull(),
+    fromLine: integer("from_line").notNull(),
+    toLine: integer("to_line").notNull(),
+    /** The fragment as the student saw it. */
+    code: text("code").notNull(),
+    kind: text("kind").notNull(),
+    /** "What if": { before, after }. */
+    change: jsonb("change"),
+    question: text("question").notNull(),
+    /** How many times it was asked (the tutor may ask again once). */
+    attempts: integer("attempts").notNull().default(1),
+    answer: text("answer").notNull().default(""),
+    verdict: text("verdict"),
+    reason: text("reason").notNull().default(""),
+    quote: text("quote").notNull().default(""),
+    createdAt: createdAt(),
+    answeredAt: timestamp("answered_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("code_defense_checks_session_idx").on(t.sessionId, t.createdAt),
+    check("code_defense_checks_verdict", sql`${t.verdict} is null or ${t.verdict} in ('explained', 'partial', 'not_explained')`),
+  ],
+);
+
 /** The last grade sent to Classroom for a work. */
 export const classroomGrades = pgTable("classroom_grades", {
   sessionId: uuid("session_id")

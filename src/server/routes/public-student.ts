@@ -16,6 +16,7 @@ import {
   joinBody,
   resumeBody,
   signalBody,
+  studentCodeBody,
   type StudentLinkInfo,
   type WorkspaceResponse, consignaAnswerBody} from "@shared/contracts/student";
 import {
@@ -32,6 +33,7 @@ import {
 } from "../services/student/session";
 import { finishActivity, reportSignal, saveInitialAnswer, startClosing, saveConsignaAnswer} from "../services/student/work";
 import { tutorChat } from "../services/student/tutor";
+import { saveStudentCode } from "../services/student/defense";
 import { serveActivityFile } from "../services/student/files";
 import { removeDeliverable, saveDeliverable, saveDeliverableLink, serveStudentDeliverable } from "../services/deliverables";
 import { readFileParts } from "../services/activities/files";
@@ -91,6 +93,14 @@ export const publicStudentRoutes = new Hono<AppEnv>()
     const ctx = await loadStudentContext(c, c.req.param("token"));
     const body = await readJson(c, chatBody);
     return tutorChat(c, ctx, body);
+  })
+
+  // «Defensa de código»: the student's code, before the first question.
+  .post("/:token/code", async (c) => {
+    const ctx = await loadStudentContext(c, c.req.param("token"));
+    const body = await readJson(c, studentCodeBody);
+    await saveStudentCode(ctx, body.files);
+    return c.json({ workspace: await buildWorkspace(ctx) } satisfies WorkspaceResponse);
   })
 
   // One consigna's written answer, saved as the student types.

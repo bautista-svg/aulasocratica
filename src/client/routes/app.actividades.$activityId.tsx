@@ -12,6 +12,8 @@ import { usePageTitle } from "@client/lib/page-title";
 import { LivePanel } from "@client/features/live/live-panel";
 import { AlertsPanel, useActivityAlerts } from "@client/features/live/alerts-panel";
 import { SkillsPanel } from "@client/features/skills/group-panel";
+import { CodeDefensePanel } from "@client/features/code-defense/panel";
+import { isCodeDefense } from "@shared/domain/code-defense";
 import { useActivity, useActivityAction, useSaveActivity } from "@client/features/activities/api";
 import { useActivityForm } from "@client/features/activities/use-activity-form";
 import { ConfigPanel, scrollToSection, useSaveDraft } from "@client/features/activities/config-panel";
@@ -28,7 +30,7 @@ import { ReadOnlyNotice, RoleProvider } from "@client/features/sharing/role";
 import { useAutoTour } from "@client/components/app/tour";
 import { ACTIVITY_TOUR } from "@client/features/help/tours";
 
-const TABS = ["configuracion", "compartir", "en-vivo", "alertas", "fortalezas"] as const;
+const TABS = ["configuracion", "compartir", "en-vivo", "alertas", "fortalezas", "codigo"] as const;
 type Tab = (typeof TABS)[number];
 const TAB_LABELS: Record<Tab, string> = {
   configuracion: "Preparar",
@@ -36,7 +38,10 @@ const TAB_LABELS: Record<Tab, string> = {
   "en-vivo": "En vivo",
   alertas: "Avisos",
   fortalezas: "Revisar",
+  codigo: "Código",
 };
+/** «Defensa de código»: its section takes the subject's name when it has one («Diseño web»). */
+const codeTabLabel = (a: { subject: string }) => a.subject.trim() || TAB_LABELS.codigo;
 
 export const Route = createFileRoute("/app/actividades/$activityId")({
   validateSearch: searchParams({ tab: optionalEnum(TABS) }),
@@ -50,7 +55,7 @@ function ActivityPage() {
   // One title for the whole screen (a child effect would be overwritten by this one): "Título · En vivo · Aula Socrática".
   usePageTitle(
     q.data
-      ? [q.data.title, TAB_LABELS[tab ?? (q.data.status === "published" ? "en-vivo" : "configuracion")]]
+      ? [q.data.title, tab === "codigo" ? codeTabLabel(q.data) : TAB_LABELS[tab ?? (q.data.status === "published" ? "en-vivo" : "configuracion")]]
       : q.isError
         ? "Actividad no encontrada"
         : "Actividad",
@@ -286,6 +291,7 @@ function ActivityTabs({
   // The live views (SSE + polling) start the first time their tab is opened, then stay mounted.
   const [liveOpened, setLiveOpened] = useState(current === "en-vivo");
   const [alertsOpened, setAlertsOpened] = useState(current === "alertas");
+  const defense = isCodeDefense(activity);
   const [aspectsOpened, setAspectsOpened] = useState(current === "fortalezas");
   useEffect(() => {
     if (current === "en-vivo") setLiveOpened(true);
@@ -327,6 +333,17 @@ function ActivityTabs({
           tour: "paso-revisar",
           content: aspectsOpened ? <SkillsPanel activityId={activity.id} /> : null,
         },
+        ...(defense
+          ? [
+              {
+                value: "codigo",
+                label: codeTabLabel(activity),
+                hint: "Qué pudo explicar",
+                tour: "paso-codigo",
+                content: current === "codigo" ? <CodeDefensePanel activityId={activity.id} title={codeTabLabel(activity)} /> : null,
+              },
+            ]
+          : []),
         {
           value: "alertas",
           label: TAB_LABELS.alertas,

@@ -46,6 +46,7 @@ export type AiPurpose =
   | "aspect_analysis"
   | "change_request"
   | "app_help"
+  | "code_defense"
   | "reflection_questions"
   | "session_summary"
   | "thinking_xray"
@@ -161,7 +162,8 @@ export async function recordUsage(ctx: UsageContext, usage: Partial<Anthropic.Us
 export type UserContent = string | Anthropic.ContentBlockParam[];
 
 export interface StructuredRequest<S extends z.ZodType> extends UsageContext {
-  system: string;
+  /** Blocks when part of it is worth caching across calls. */
+  system: string | Anthropic.TextBlockParam[];
   content: UserContent;
   schema: S;
   maxTokens?: number;

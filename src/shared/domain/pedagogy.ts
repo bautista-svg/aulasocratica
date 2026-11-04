@@ -92,8 +92,8 @@ export function tutorTypesLabel(main: string, extra: readonly string[]): string 
 export const TUTOR_TYPE_INFO: Record<string, { description: string; whenToUse: string }> = {
   defensa_autoria: {
     description:
-      "Cargá el trabajo del alumno como material (por ejemplo, su HTML y CSS). El tutor busca las partes más difíciles y le pregunta qué hacen, por qué las puso y qué pasaría si las cambiara. Si no sabe, no le enseña ni le da pistas: repregunta una vez y sigue con otra parte. En el resumen del trabajo ves qué partes supo explicar y cuáles no.",
-    whenToUse: "Elegila para comprobar si un alumno entiende un trabajo que entregó, por ejemplo si lo hizo con IA. Hacé una actividad por alumno con su trabajo.",
+      "Cada alumno sube su código al entrar (o lo cargás vos). El tutor le muestra un fragmento, tal cual, y le pregunta qué significa, qué hace y qué pasaría si cambiara: el alumno no necesita tenerlo a mano. Si no sabe, no le enseña ni le da pistas: repregunta una vez y sigue con otra parte. La actividad suma una sección donde ves qué pudo explicar cada alumno, fragmento por fragmento.",
+    whenToUse: "Elegila para comprobar si tus alumnos entienden el código que entregaron, por ejemplo en Diseño web. Con una sola actividad alcanza para toda la clase.",
   },
   conversacion_guiada: {
     description:

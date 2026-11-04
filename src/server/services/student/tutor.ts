@@ -32,6 +32,9 @@ import { sanitizeMoreInstructions } from "@shared/domain/consignas";
 import { intentMessages, languageOf } from "@shared/domain/language";
 import { courseOf } from "../sessions/ai";
 import { MIN_STUDENT_TURNS_TO_CLOSE, markerFilter, stripDoneMarker, tutorDoneReason, type TutorDone } from "@shared/domain/tutor-closing";
+import { isCodeDefense } from "@shared/domain/code-defense";
+import { defenseClosing, hasDefenseCode } from "./code";
+import { streamDefense } from "./defense";
 
 export const CHAT_LIMIT = { perSession: 20, windowMs: 5 * 60_000 };
 export const HISTORY_LIMIT = 40;
@@ -73,7 +76,7 @@ export async function materialSources(activityId: string): Promise<MaterialSourc
 export async function tutorChat(c: Context, ctx: StudentCtx, body: ChatBody): Promise<Response> {
   const { activity, session } = ctx;
   if (isReadOnly(session)) throw readOnlyError(session);
-  if (activity.requireInitialAnswer && !session.initialAnswer) {
+  if (activity.requireInitialAnswer && !isCodeDefense(activity) && !session.initialAnswer) {
     throw new HttpError(409, "Primero escribí tu respuesta inicial.", "initial_required");
   }
   if (!acquireStream(session.id)) {
@@ -101,14 +104,19 @@ export async function tutorChat(c: Context, ctx: StudentCtx, body: ChatBody): Pr
     }
     anthropic(); // 503 before storing anything when the AI is not configured
     const turns = await turnCounts(session.id);
-    const closing = { maxQuestions: activity.tutorMaxQuestions, stopWhenAchieved: activity.tutorStopWhenAchieved, asked: turns.tutor };
+    const defense = isCodeDefense(activity);
+    const closing = { ...defenseClosing(activity), asked: turns.tutor };
+    if (defense && !(await hasDefenseCode(activity, ctx.student.id))) throw new HttpError(409, "Primero cargá tu código.", "code_required");
     if (tutorDoneReason({ ...closing, achieved: session.tutorAchievedAt !== null })) {
       throw new HttpError(409, "El tutor ya terminó sus preguntas. Tocá «Terminar» para cerrar la actividad.", "tutor_done");
     }
 
     let userMessageId: string | null = null;
     let userText = "";
-    if (body.retry) {
+    if (body.start) {
+      // Only the defense opens by itself, and only once.
+      if (!defense || turns.tutor + turns.student > 0) throw new HttpError(409, "La conversación ya empezó.", "already_started");
+    } else if (body.retry) {
       const [last] = await db
         .select({ role: schema.messages.role })
         .from(schema.messages)
@@ -139,6 +147,14 @@ export async function tutorChat(c: Context, ctx: StudentCtx, body: ChatBody): Pr
 
     // Interrupted replies from a crashed process never reach the model or the teacher view.
     await db.delete(schema.messages).where(and(eq(schema.messages.sessionId, session.id), eq(schema.messages.isPartial, true)));
+
+    if (defense) {
+      const detectAfter = userMessageId
+        ? { sessionId: session.id, activityId: activity.id, classroomId: activity.classroomId, teacherId: activity.teacherId, text: userText, messageId: userMessageId, source: "chat" as const }
+        : null;
+      handedOff = true;
+      return streamDefense(c, ctx, { userMessageId, detectAfter, closing });
+    }
 
     const [rows, files, fresh, course] = await Promise.all([
       db

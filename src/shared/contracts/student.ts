@@ -15,6 +15,7 @@ import type { SectionKey, SectionText } from "../domain/structure";
 import { AWAY_MIN_MS, PASTE_MIN_CHARS } from "../domain/alerts";
 import type { SummaryPoint } from "../domain/session-summary";
 import { MAX_ANSWER_CHARS, MAX_CHAT_CHARS, MAX_REFLECTION_ANSWER_CHARS, MIN_ANSWER_CHARS } from "./student-limits";
+import { CODE_LIMITS } from "../domain/code-defense";
 
 export { MAX_ANSWER_CHARS, MAX_CHAT_CHARS, MAX_REFLECTION_ANSWER_CHARS, MIN_ANSWER_CHARS, RESUME_CODE_LENGTH, RESUME_CODE_ALPHABET, normalizeResumeCode, resumeCodeProblem, studentMetaLine } from "./student-limits";
 import { normalizeResumeCode, resumeCodeProblem } from "./student-limits";
@@ -57,10 +58,12 @@ export const chatBody = z
     inputMode: z.enum(["text", "voice"]).default("text"),
     /** Ask the tutor again for the last student message (after a failed reply). */
     retry: z.boolean().default(false),
+    /** «Defensa de código»: the tutor opens the conversation with the first fragment. */
+    start: z.boolean().default(false),
     /** The consigna the student is on (index), so the tutor accompanies that one. */
     consigna: z.number().int().min(0).max(MAX_CONSIGNAS - 1).optional(),
   })
-  .refine((b) => b.retry || b.text.length > 0, { message: "Escribí un mensaje.", path: ["text"] });
+  .refine((b) => b.retry || b.start || b.text.length > 0, { message: "Escribí un mensaje.", path: ["text"] });
 export type ChatInput = z.input<typeof chatBody>;
 
 const answerText = z.string().trim().max(MAX_ANSWER_CHARS, `Tu respuesta puede tener hasta ${MAX_ANSWER_CHARS} caracteres.`);
@@ -92,6 +95,11 @@ export const finishBody = z.object({
     .default([]),
 });
 export type FinishInput = z.input<typeof finishBody>;
+
+/** «Defensa de código»: the student's code, pasted or read from their files in the browser. */
+export const studentCodeBody = z.object({
+  files: z.array(z.object({ name: z.string().max(300), text: z.string().max(CODE_LIMITS.fileChars + 1000) })).min(1).max(CODE_LIMITS.files + 20),
+});
 
 export const signalBody = z.discriminatedUnion("kind", [
   z.object({
@@ -239,6 +247,8 @@ export interface StudentWorkspace {
   tutorDone: TutorDone | null;
   /** The AI summary of their work, when the activity shares it (null: not shared, or none). */
   feedback: StudentFeedback | null;
+  /** «Defensa de código» (null in any other activity). needsCode: nobody loaded their code yet. */
+  codeDefense: { needsCode: boolean } | null;
 }
 
 /**

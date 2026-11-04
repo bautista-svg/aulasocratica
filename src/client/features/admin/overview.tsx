@@ -22,6 +22,7 @@ const PURPOSE_LABELS: Record<string, string> = {
   aspect_analysis: "Habilidades",
   change_request: "Pedidos de cambios",
   app_help: "Ayuda «¿Dónde está…?»",
+  code_defense: "Defensa de código",
   reflection_questions: "Preguntas de reflexión",
   session_summary: "Resumen de un trabajo",
   thinking_xray: "Radiografía",

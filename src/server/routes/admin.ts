@@ -25,6 +25,7 @@ import { adminOverview, adminWorkspaces } from "../services/admin/stats";
 import { adminLoginBody } from "@shared/contracts/admin";
 import { adminRequestPatch, requestAccessBody } from "@shared/contracts/requests";
 import { adminListRequests, adminRequest, adminUpdateRequest, imageOf, setRequestAccess } from "../services/requests";
+import { seedWebDesignDemo } from "../services/code-defense-demo";
 import { fileSize, fileStream } from "../lib/storage";
 import { Readable } from "node:stream";
 
@@ -101,6 +102,14 @@ export const adminRoutes = new Hono<AppEnv>()
     const row = await setRequestAccess(body.email, body.enabled);
     await audit(c, row.id, body.enabled ? "change_requests_enabled" : "change_requests_disabled", "teacher", row.id, { by: "admin" });
     return c.json({ ok: true, teacher: row });
+  })
+
+  // The worked example of «Defensa de código» (Diseño web) for one account. Running it again changes nothing.
+  .post("/demo/web-design", requireAdmin, async (c) => {
+    const { email } = await readJson(c, requestAccessBody);
+    const result = await seedWebDesignDemo(email);
+    await audit(c, null, "web_design_demo_seeded", "activity", result.activityId, { by: "admin", created: result.created });
+    return c.json(result);
   })
 
   .post("/workspaces/:id/suspend", requireAdmin, async (c) => {

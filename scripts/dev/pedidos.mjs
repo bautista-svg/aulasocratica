@@ -6,6 +6,7 @@
 //   node scripts/dev/pedidos.mjs --json               the raw JSON
 //   node scripts/dev/pedidos.mjs estado <id> <pending|in_progress|done|discarded> ["nota para la docente"]
 //   node scripts/dev/pedidos.mjs acceso <email> [on|off]
+//   node scripts/dev/pedidos.mjs demo-diseno-web <email>   the worked example of «Defensa de código» in that account
 // Env: PEDIDOS_URL (default production), AULA_SECRETS (path to the env file with ADMIN_PASSWORD).
 import fs from "node:fs";
 import path from "node:path";
@@ -105,6 +106,11 @@ try {
     if (!email) throw new Error("Uso: acceso <email> [on|off]");
     const { teacher } = await json("POST", "/api/admin/requests-access", { email, enabled: onOff !== "off" });
     console.log(`Pedidos de cambios ${teacher.enabled ? "habilitado" : "deshabilitado"} para ${teacher.email} (${teacher.name || "sin nombre"}).`);
+  } else if (cmd === "demo-diseno-web") {
+    const [email] = rest;
+    if (!email) throw new Error("Uso: demo-diseno-web <email>");
+    const r = await json("POST", "/api/admin/demo/web-design", { email });
+    console.log(`${r.created ? "Creado" : "Ya estaba"}: aula ${r.classroomId}, actividad ${r.activityId}`);
   } else {
     const status = flags.has("--all") ? "all" : "";
     const { requests } = await json("GET", `/api/admin/requests${status ? `?status=${status}` : ""}`);

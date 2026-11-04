@@ -121,9 +121,9 @@ export function Tabs({
                 value={it.value}
                 data-tour={it.tour}
                 className={cn(
-                  "group relative flex min-h-14 shrink-0 items-center gap-3 px-3.5 py-2 text-left transition-colors hover:bg-sunken data-[state=active]:bg-sunken",
+                  "group relative flex min-h-14 items-center gap-3 px-3.5 py-2 text-left transition-colors hover:bg-sunken data-[state=active]:bg-sunken",
                   "before:absolute before:inset-x-0 before:top-0 before:h-0.5 before:bg-transparent data-[state=active]:before:bg-lilac-ink",
-                  it.step ? "flex-1 basis-40" : "basis-auto",
+                  it.step ? "flex-1 basis-40 shrink-0 lg:min-w-0 lg:shrink" : "shrink-0 basis-auto",
                   i > 0 && "border-l border-line",
                 )}
               >

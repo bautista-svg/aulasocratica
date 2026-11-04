@@ -29,6 +29,7 @@ export const ACTIVITY_TOUR: TourStep[] = [
   { target: "paso-compartir", title: "2 · Compartir", body: "El enlace, el código y el QR para tus alumnos. Entran con su nombre, sin cuenta." },
   { target: "paso-en-vivo", title: "3 · En vivo", body: "Cada alumno mientras trabaja: quién avanza, quién se trabó, quién pide ayuda." },
   { target: "paso-revisar", title: "4 · Revisar", body: "Lo que logró el grupo, habilidad por habilidad, con la cita de cada alumno." },
+  { target: "paso-codigo", title: "El código de tus alumnos", body: "Con el tutor «Defensa de autoría»: qué pudo explicar cada alumno de su código, fragmento por fragmento." },
   { target: "mas-acciones", title: "Más acciones", body: "Duplicar, volver a borrador, reiniciar, archivar o eliminar la actividad." },
 ];
 
