@@ -153,7 +153,8 @@ try {
   const fragments = replies.flatMap((t) => [...t.matchAll(/```(?!diff)\S* \S+:\d+\n([\s\S]*?)\n```/g)].map((m) => m[1]));
   ok("cada pregunta trae su fragmento", fragments.length >= 5, String(fragments.length));
   ok("los fragmentos son textuales", fragments.every((f) => f.split("\n").every((l) => code.includes(l))));
-  ok("nunca le pide que abra o busque el código", !/(abr[íi]|busc[áa]|mir[áa] la l[íi]nea|l[íi]nea \d)/i.test(replies.map((t) => t.replace(/```[\s\S]*?```/g, "")).join(" ")));
+  const told = replies.map((t) => t.replace(/```[\s\S]*?```/g, "")).join(" ").match(/\b(abrí|abrilo|buscá|fijate en|mirá la línea|en la línea|línea \d)[^.?!]*/i);
+  ok("nunca le pide que abra o busque el código", !told, told?.[0] ?? "");
   ok("pregunta qué pasa si cambia algo", replies.some((t) => t.includes("```diff")));
   const trivial = /<!DOCTYPE|<html|<head|meta charset|<title>|box-sizing/i;
   ok("la primera pregunta no es sobre lo trivial del comienzo", !trivial.test(replies[0] ?? ""), (replies[0] ?? "").slice(0, 160));
